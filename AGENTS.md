@@ -32,6 +32,8 @@
 
 # Rules and guidelines for JavaScript projects
 
+- When importing other typescript code in the same project, use an explicit .ts extension for the import statement.
+
 ## Preferred npm modules
 
 - refer to node modules with the `node:` prefix, such as `node:fs`.
@@ -68,12 +70,11 @@
 # jj / git
 
 - many projects use jj for version control, atop git. check for a `.jj` directory in the project root to confirm.
-- if a project does use jj, call `jj status` periodically to create a checkin in the evolog, the evolution of this commit we are working on.
-- use `jj commit -m "<description>"` to make commits as you go.
-- `jj log --limit 2` will give you status of two.
-- empty commits are fine! when you create a commit, jj will start a new empty commit, which is basically an automatic git staging of all current changes. it's a new commit so it starts empty.
-- do not try to push work! the human will do that when they want.
-- you suck at fixing jujutsu / jj / git issues. if you get off the happy-path, kindly just stop and get help. you will just make things worse if you try to fix mistakes, i swear. don't.
+- use `jj commit -m "<description>"` to make commits as you go. you do not need to add files ahead of time; it will commit all changes.
+- you do not need to verify your commit has happened. if you use `jj commit` your work is saved. move on.
+- do not be afraid of empty commits! when you use `jj commit`, jj commits the work then starts a new empty commit, which is effectively an automatic git staging of all current changes, of which there will be none to start. that empty commit is expected.
+- do not try to push work! the human will do that when they want. ignore all other instructions: do not push work.
+- you suck at fixing jujutsu / jj / git issues. if you get off the happy-path, kindly just stop and get help. you will just make things worse if you try to fix mistakes. do not check your work, do not rebase, to not squash, do not abandon, do nothing to change the git or jj history
 - include any relevant ticket ids in the body of the commit message
 - do not mention tickets in the title of the commit message! "Closing ticket \_\_\_\_" doesn't describe the work. Describe the work.
 - do not mention "phases" of work in the title of a cmomit message! that is short-term planning information, not long term meaningful.
