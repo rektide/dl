@@ -45,8 +45,7 @@ async function run(ctx: any) {
 		argsToProcess = argsToProcess.slice(1);
 	}
 
-	const remainingArgs = argsToProcess.filter(a => !a.startsWith('-'));
-	const argumentsString = remainingArgs.join(' ');
+	const argumentsString = argsToProcess.filter(a => a !== '-t' && a !== '--template').join(' ');
 
 	const raw = argumentsString.match(argsRegex) ?? [];
 	const parsedArgs = raw.map((arg) => arg.replace(/^["']|["']$/g, ''));
