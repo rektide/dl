@@ -31,7 +31,7 @@
     "@gunshi/plugin-completion": "^0.28.0",
     "glob": "^13.0.0",
     "gray-matter": "^4.0.3",
-    "gunshi": "^0.27.5",
+    "gunshi": "^0.28.0",
     "xdg-basedir": "^5.1.0"
   },
   "devDependencies": {

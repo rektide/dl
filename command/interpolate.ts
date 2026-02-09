@@ -28,7 +28,7 @@ async function run(ctx: any) {
 		if (value > last) last = value;
 	}
 
-	const withArgs = template.replaceAll(placeholderRegex, (_, index) => {
+	const withArgs = template.replaceAll(placeholderRegex, (_: string, index: string) => {
 		const position = Number(index);
 		const argIndex = position - 1;
 		if (argIndex >= parsedArgs.length) return '';
