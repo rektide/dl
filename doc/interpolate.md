@@ -7,12 +7,17 @@ The `interpolate` command provides variable interpolation functionality compatib
 ## Usage
 
 ```bash
+# Using --template flag
 rekon interpolate -t <template> [args...]
+
+# Piping template via stdin
+echo '<template>' | rekon interpolate [args...]
+cat template.txt | rekon interpolate [args...]
 ```
 
 ## Arguments
 
-- `-t, --template <template>`: Template string with placeholders (required)
+- `-t, --template <template>`: Template string with placeholders (optional, can be piped via stdin)
 
 ## Placeholders
 
@@ -45,6 +50,28 @@ rekon interpolate -t 'All arguments: $ARGUMENTS' one two three four
 # Output: All arguments: one two three four
 ```
 
+## Piping Template via Stdin
+
+You can pipe a template to the `interpolate` command instead of using the `--template` flag:
+
+```bash
+# Simple piped template
+echo 'Hello $1, you are $2' | rekon interpolate world friend
+# Output: Hello world, you are friend
+
+# Multi-line template from file
+cat my-template.txt | rekon interpolate arg1 arg2
+
+# Using heredoc for complex templates
+rekon interpolate args << 'EOF'
+Edit file $1 with the following changes:
+- Add $2
+- Remove $3
+EOF
+```
+
+When piping, `--template` flag is ignored (if specified, stdin takes precedence).
+
 ## Quoting
 
 Use single quotes for the template string to prevent shell expansion of `$` placeholders:
@@ -65,6 +92,19 @@ Arguments are parsed using the same rules as opencode:
 - Image references like `[Image N]` are treated as single tokens
 
 ## Examples
+
+### Piping Template
+
+```bash
+# Pipe template from echo
+echo 'Hello $1, you are $2' | rekon interpolate world friend
+# Output: Hello world, you are friend
+
+# Read template from file
+echo 'Edit $1 with $2' > template.txt
+cat template.txt | rekon interpolate main.ts --force
+# Output: Edit main.ts with --force
+```
 
 ### Simple Substitution
 
