@@ -10,6 +10,9 @@ The `interpolate` command provides variable interpolation functionality compatib
 # Using --template flag
 rekon interpolate -t <template> [args...]
 
+# Using --file flag
+rekon interpolate -f <template-file> [args...]
+
 # Piping template via stdin
 echo '<template>' | rekon interpolate [args...]
 cat template.txt | rekon interpolate [args...]
@@ -17,7 +20,8 @@ cat template.txt | rekon interpolate [args...]
 
 ## Arguments
 
-- `-t, --template <template>`: Template string with placeholders (optional, can be piped via stdin)
+- `-t, --template <template>`: Template string with placeholders
+- `-f, --file <template-file>`: Read template from file
 
 ## Placeholders
 
@@ -48,6 +52,21 @@ The `$ARGUMENTS` placeholder is replaced with all arguments as a single string:
 ```bash
 rekon interpolate -t 'All arguments: $ARGUMENTS' one two three four
 # Output: All arguments: one two three four
+```
+
+## File Template
+
+You can read template from a file using the `--file` or `-f` option:
+
+```bash
+# Read template from file
+rekon interpolate -f template.txt arg1 arg2
+
+# Relative paths work
+rekon interpolate -f ./templates/deploy.sh production
+
+# Absolute paths work
+rekon interpolate -f /path/to/template.txt value
 ```
 
 ## Piping Template via Stdin
@@ -92,6 +111,20 @@ Arguments are parsed using the same rules as opencode:
 - Image references like `[Image N]` are treated as single tokens
 
 ## Examples
+
+### File Template
+
+```bash
+# Simple file template
+echo 'Hello $1, you are $2' > template.txt
+rekon interpolate -f template.txt world friend
+# Output: Hello world, you are friend
+
+# Using $ARGUMENTS with file
+echo 'Processing: $ARGUMENTS' > process.txt
+rekon interpolate -f process.txt --verbose --debug
+# Output: Processing: --verbose --debug
+```
 
 ### Piping Template
 

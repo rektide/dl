@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { define } from 'gunshi'
 import { createInterface } from 'node:readline';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 const argsRegex = /(?:\[Image\s+\d+\]|"[^"]*"|'[^']*'|[^\s"']+)/gi;
 const placeholderRegex = /\$(\d+)/g;
@@ -20,32 +22,54 @@ async function readStdin(): Promise<string> {
 	return lines.join('\n');
 }
 
+async function readFromFile(filePath: string): Promise<string> {
+	try {
+		const resolvedPath = resolve(filePath);
+		return await readFile(resolvedPath, 'utf-8');
+	} catch (error) {
+		console.error(`Error reading file: ${filePath}`);
+		if (error instanceof Error) {
+			console.error(error.message);
+		}
+		process.exit(1);
+	}
+}
+
 async function run(ctx: any) {
 	const template = ctx.values.template || ctx.values.t;
+	const file = ctx.values.file || ctx.values.f;
 
 	let templateContent = template;
 
-	if (!templateContent && !process.stdin.isTTY) {
+	if (!file && !process.stdin.isTTY) {
 		templateContent = await readStdin();
 	}
 
+	if (file && !template) {
+		templateContent = await readFromFile(file);
+	}
+
 	if (!templateContent) {
-		console.error('Error: --template/-t is required, or pipe template via stdin');
+		console.error('Error: --template/-t is required, --file/-f, or pipe template via stdin');
 		process.exit(1);
 	}
 
 	const rawArgs = process.argv.slice(2);
-	let argsToProcess = rawArgs.filter(a => a !== 'interpolate');
+	let argsToProcess = rawArgs;
 
-	const templateIndex = argsToProcess.findIndex((arg) => arg === '-t' || arg === '--template');
-
-	if (templateIndex >= 0) {
-		argsToProcess = argsToProcess.slice(templateIndex + 2);
-	} else if (template) {
-		argsToProcess = argsToProcess.slice(1);
+	if (template || file) {
+		let skipTo = 0;
+		for (let i = 0; i < argsToProcess.length; i++) {
+			if (argsToProcess[i].startsWith('-')) {
+				skipTo = i + 2;
+			} else if (skipTo > 0) {
+				break;
+			}
+		}
+		argsToProcess = argsToProcess.slice(skipTo);
 	}
 
-	const argumentsString = argsToProcess.filter(a => a !== '-t' && a !== '--template').join(' ');
+	const argumentsString = argsToProcess.join(' ');
 
 	const raw = argumentsString.match(argsRegex) ?? [];
 	const parsedArgs = raw.map((arg) => arg.replace(/^["']|["']$/g, ''));
@@ -76,7 +100,12 @@ export default define({
 		template: {
 			type: 'string',
 			short: 't',
-			description: 'Template string with $1, $2, $3 placeholders (or pipe via stdin)',
+			description: 'Template string with $1, $2, $3 placeholders',
+		},
+		file: {
+			type: 'string',
+			short: 'f',
+			description: 'Read template from file',
 		},
 	},
 	run,
