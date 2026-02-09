@@ -3,6 +3,7 @@ import { cli, define } from 'gunshi'
 import combineCommand from './command/combine.ts'
 import installCommandsCommand from './command/install-commands.ts'
 import interpolateCommand from './command/interpolate.ts'
+import completion from '@gunshi/plugin-completion'
 
 const mainCommand = define({
 	name: 'rekon',
@@ -21,5 +22,8 @@ await cli(process.argv.slice(2), mainCommand, {
 		combine: combineCommand,
 		'install-commands': installCommandsCommand,
 		interpolate: interpolateCommand
-	}
+	},
+	plugins: [
+		completion()
+	]
 })

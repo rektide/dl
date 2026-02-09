@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@gunshi/plugin-completion':
+        specifier: ^0.28.0
+        version: 0.28.0(@gunshi/plugin-i18n@0.28.0)(cac@6.7.14)
       glob:
         specifier: ^13.0.0
         version: 13.0.0
@@ -65,6 +68,21 @@ packages:
   '@babel/types@7.28.5':
     resolution: {integrity: sha512-qQ5m48eI/MFLQ5PxQj4PFaprjyCTLI37ElWMmNs0K8Lk3dVeOdNpB3ks8jc7yM5CDmVC73eMVk/trk3fgmrUpA==}
     engines: {node: '>=6.9.0'}
+
+  '@bomb.sh/tab@0.0.11':
+    resolution: {integrity: sha512-RSqyreeicYBALcMaNxIUJTBknftXsyW45VRq5gKDNwKroh0Re5SDoWwXZaphb+OTEzVdpm/BA8Uq6y0P+AtVYw==}
+    hasBin: true
+    peerDependencies:
+      cac: ^6.7.14
+      citty: ^0.1.6
+      commander: ^13.1.0
+    peerDependenciesMeta:
+      cac:
+        optional: true
+      citty:
+        optional: true
+      commander:
+        optional: true
 
   '@emnapi/core@1.8.1':
     resolution: {integrity: sha512-AvT9QFpxK0Zd8J0jopedNm+w/2fIzvtPKPjqyw9jwvBaReTTqPBk9Hixaz7KbjimP+QNz605/XnjFcDAL2pqBg==}
@@ -230,6 +248,21 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@gunshi/plugin-completion@0.28.0':
+    resolution: {integrity: sha512-TxsF1xcpe7YE2qOjBhZgesw/euvaF1JFY3uVqll1MJMYFrcX+t36cIaPKyhUck6sdl5vZORPz6lGNoQC5ay/uA==}
+    engines: {node: '>= 20'}
+    peerDependencies:
+      '@gunshi/plugin-i18n': 0.28.0
+
+  '@gunshi/plugin-i18n@0.28.0':
+    resolution: {integrity: sha512-4KUDLbSnKhedcfPHf1vaqHf0/SrmQWhpT4N2ivfZFec1qRLLHu/p798CBx4wuQgvO4xPhtwBhKgOpMwSMB6/SA==}
+    engines: {node: '>= 20'}
+    peerDependencies:
+      '@gunshi/plugin-global': 0.28.0
+    peerDependenciesMeta:
+      '@gunshi/plugin-global':
+        optional: true
 
   '@gunshi/plugin@0.28.0':
     resolution: {integrity: sha512-YE1WVjxXTcXemuXs7FqAiigy62ik2VirhGawcyDWtzBU9V+wlmwTkRGpcNhaqbTYkYqLOOzAFpbCp8Ta3/NbrQ==}
@@ -1077,6 +1110,10 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
+  '@bomb.sh/tab@0.0.11(cac@6.7.14)':
+    optionalDependencies:
+      cac: 6.7.14
+
   '@emnapi/core@1.8.1':
     dependencies:
       '@emnapi/wasi-threads': 1.1.0
@@ -1170,6 +1207,20 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.2':
     optional: true
+
+  '@gunshi/plugin-completion@0.28.0(@gunshi/plugin-i18n@0.28.0)(cac@6.7.14)':
+    dependencies:
+      '@bomb.sh/tab': 0.0.11(cac@6.7.14)
+      '@gunshi/plugin': 0.28.0
+      '@gunshi/plugin-i18n': 0.28.0
+    transitivePeerDependencies:
+      - cac
+      - citty
+      - commander
+
+  '@gunshi/plugin-i18n@0.28.0':
+    dependencies:
+      '@gunshi/plugin': 0.28.0
 
   '@gunshi/plugin@0.28.0': {}
 

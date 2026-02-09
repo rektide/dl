@@ -38,7 +38,7 @@
 
 - refer to node modules with the `node:` prefix, such as `node:fs`.
 - if there's no existing test tools, use `vitest` library for testing,
-- use `gunshi` npm package for more complex CLI, if this app has a non-trivial CLI.
+- use `gunshi` npm package for more complex CLI, if this app has a non-trivial CLI. use it's @gunshi/plugin-completion plugin for tab completion too.
 - use `oxfmt` for formatting
 - use `oxlint` for linting
 - use `tsdown` to emit typescript. when
