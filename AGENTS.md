@@ -4,7 +4,9 @@
 
 # Documentation
 
-- `standard-readme` is an excellent guideline for writing README's. use webfetch tool to get https://github.com/RichardLitt/standard-readme/blob/main/spec.md for information on what can go into a README and what structure to use.
+- please read INDEX files in documentation directories to be aware of what's included in the directory
+- `~/wiki/<repo-org>/<repo-name>` has wiki resources describing projects.
+- `~/archive/<repo-org>/<repo-name>` is the place for checkouts of projects, `~/src/<repo-name>` or `~/src/<repo-name>-<workspace-name>` for 1st party checkouts
 
 # Project Planning
 
