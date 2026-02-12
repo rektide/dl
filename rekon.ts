@@ -6,6 +6,7 @@ import installCommandsCommand from './src/command/install-commands.ts'
 import interpolateCommand from './src/command/interpolate.ts'
 import projectFilesCommand from './src/command/project-files.ts'
 import completion from '@gunshi/plugin-completion'
+import { c12 } from 'gunshi-c12'
 
 const mainCommand = define({
 	name: 'rekon',
@@ -28,6 +29,7 @@ await cli(process.argv.slice(2), mainCommand, {
 		'project-files': projectFilesCommand
 	},
 	plugins: [
-		completion()
+		completion(),
+		c12({ name: 'rekon' })
 	]
 })

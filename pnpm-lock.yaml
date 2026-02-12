@@ -20,6 +20,9 @@ importers:
       gunshi:
         specifier: ^0.28.0
         version: 0.28.0
+      gunshi-c12:
+        specifier: ^1.0.0
+        version: 1.0.0
       tinyexec:
         specifier: ^1.0.2
         version: 1.0.2
@@ -787,6 +790,9 @@ packages:
   gray-matter@4.0.3:
     resolution: {integrity: sha512-5v6yZd4JK3eMI3FqqCouswVqwugaA9r4dNZB1wwcmrD02QkV5H0y7XBQW8QwQqEaZY1pM9aqORSORhJRdNK44Q==}
     engines: {node: '>=6.0'}
+
+  gunshi-c12@1.0.0:
+    resolution: {integrity: sha512-2Qj/SHLJi6iQk5PryaOZH1G43NvtC1whzr2rIRlBnB0Muw674LzCMlcF/m45ld1cbhB5vH71mD14dBx/WGjr+Q==}
 
   gunshi@0.28.0:
     resolution: {integrity: sha512-xR/iKAT4zMeYsboTDHOVSEGS1BNyYReUE48vXdNIT6ujcZLqE+BR/p9T6n0N7ugNdfoZtHm3NTuya9jc7cdsbw==}
@@ -1603,6 +1609,10 @@ snapshots:
       kind-of: 6.0.3
       section-matter: 1.0.0
       strip-bom-string: 1.0.0
+
+  gunshi-c12@1.0.0:
+    dependencies:
+      gunshi: 0.28.0
 
   gunshi@0.28.0: {}
 

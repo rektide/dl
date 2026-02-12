@@ -4,12 +4,14 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { define, cli } from 'gunshi'
+import { c12 } from 'gunshi-c12'
 import { x } from 'tinyexec'
 
 const COMMAND_NAME = 'dl'
 
 interface ParsedArgs {
   inputs: string[]
+  consumeDexportOutput: boolean
 }
 
 interface ResolvedRepo {
@@ -26,10 +28,60 @@ export interface ParsedRepositoryInput {
   preferGitHub: boolean
 }
 
+interface DlDirectoryConfig {
+  ARCHIVE_DIR?: unknown
+  WIKI_DIR?: unknown
+}
+
+interface C12ConfigLoader {
+  loadConfig: () => Promise<{ config?: DlDirectoryConfig }>
+}
+
+interface DlCommandContext {
+  extensions?: {
+    c12?: C12ConfigLoader
+  }
+}
+
+function configuredDirectory(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+async function resolveDestinationRoots(ctx?: DlCommandContext): Promise<{ archiveRoot: string, wikiRoot: string }> {
+  const defaultArchiveRoot = join(homedir(), 'archive')
+  const defaultWikiRoot = join(homedir(), 'wiki')
+
+  const envArchiveRoot = configuredDirectory(process.env.ARCHIVE_DIR)
+  const envWikiRoot = configuredDirectory(process.env.WIKI_DIR)
+  const defaults = {
+    archiveRoot: envArchiveRoot ?? defaultArchiveRoot,
+    wikiRoot: envWikiRoot ?? defaultWikiRoot
+  }
+
+  const configLoader = ctx?.extensions?.c12
+  if (!configLoader) {
+    return defaults
+  }
+
+  const loaded = await configLoader.loadConfig()
+  const configArchiveRoot = configuredDirectory(loaded.config?.ARCHIVE_DIR)
+  const configWikiRoot = configuredDirectory(loaded.config?.WIKI_DIR)
+
+  return {
+    archiveRoot: configArchiveRoot ?? defaults.archiveRoot,
+    wikiRoot: configWikiRoot ?? defaults.wikiRoot
+  }
+}
+
 function parseArgs(argv: string[]): ParsedArgs {
   const tokens = argv[0] === COMMAND_NAME ? argv.slice(1) : argv
   const inputs = tokens.filter(token => !token.startsWith('-'))
-  return { inputs }
+  const consumeDexportOutput = tokens.includes('--consume-dexport-output') || tokens.includes('-c')
+  return { inputs, consumeDexportOutput }
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -259,41 +311,48 @@ async function cloneOrUpdate(remoteUrl: string, destination: string): Promise<vo
   await runCommand('git', ['clone', remoteUrl, destination])
 }
 
-async function run() {
+async function run(ctx?: DlCommandContext) {
   try {
-    const { inputs } = parseArgs(process.argv.slice(2))
+    const { inputs, consumeDexportOutput } = parseArgs(process.argv.slice(2))
     if (inputs.length === 0) {
       console.error('usage: rekon dl <repo-url|org/repo> [repo-url|org/repo ...]')
       process.exit(1)
     }
 
+    const { archiveRoot, wikiRoot } = await resolveDestinationRoots(ctx)
+
     let hadError = false
     for (const input of inputs) {
       try {
         const resolved = await resolveRepository(input)
-        const archiveDestination = join(homedir(), 'archive', resolved.namespacePath)
-        const wikiDestination = join(homedir(), 'wiki', resolved.namespacePath)
+        const archiveDestination = join(archiveRoot, resolved.namespacePath)
+        const wikiDestination = join(wikiRoot, resolved.namespacePath)
 
         console.log(`archive: ${archiveDestination}`)
         await cloneOrUpdate(resolved.cloneUrl, archiveDestination)
 
-        const wikiRemoteUrl = `https://${resolved.host}/${resolved.namespacePath}.wiki.git`
         console.log(`wiki: ${wikiDestination}`)
-        try {
-          await cloneOrUpdate(wikiRemoteUrl, wikiDestination)
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
-          console.warn(`wiki fetch skipped: ${message}`)
-        }
-
         if (resolved.host === 'github.com') {
           const dexportPath = join(homedir(), 'src', 'dexport', 'src', 'cli.ts')
           if (await exists(dexportPath)) {
             const deepwikiUrl = `https://deepwiki.com/${resolved.org}/${resolved.repo}`
-            runDetached(dexportPath, [deepwikiUrl], homedir())
-            console.log(`dexport: queued ${deepwikiUrl}`)
+            if (consumeDexportOutput) {
+              runDetached(dexportPath, [deepwikiUrl], homedir())
+              console.log(`dexport: queued ${deepwikiUrl}`)
+            } else {
+              console.log(`dexport: running ${deepwikiUrl}`)
+              await runCommand(dexportPath, [deepwikiUrl])
+            }
           } else {
             console.warn(`dexport skipped: not found at ${dexportPath}`)
+          }
+        } else {
+          const wikiRemoteUrl = `https://${resolved.host}/${resolved.namespacePath}.wiki.git`
+          try {
+            await cloneOrUpdate(wikiRemoteUrl, wikiDestination)
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error)
+            console.warn(`wiki fetch skipped: ${message}`)
           }
         }
       } catch (error) {
@@ -316,6 +375,14 @@ async function run() {
 export default define({
   name: COMMAND_NAME,
   description: 'Fetch repository checkout and wiki checkout',
+  args: {
+    'consume-dexport-output': {
+      type: 'boolean',
+      short: 'c',
+      default: false,
+      description: 'Run dexport detached and suppress its output'
+    }
+  },
   run
 })
 
@@ -324,6 +391,9 @@ void (async () => {
   const mainUrl = pathToFileURL(mainPath).href
   if (import.meta.url === mainUrl) {
     const module = await import('./dl.ts')
-    await cli(process.argv.slice(2), module.default, { name: COMMAND_NAME })
+    await cli(process.argv.slice(2), module.default, {
+      name: COMMAND_NAME,
+      plugins: [c12({ name: 'rekon' })]
+    })
   }
 })()
