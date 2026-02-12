@@ -13,6 +13,7 @@ interface ParsedArgs {
 
 interface ResolvedRepo {
   host: string
+  namespacePath: string
   org: string
   repo: string
   cloneUrl: string
@@ -20,9 +21,8 @@ interface ResolvedRepo {
 
 export interface ParsedRepositoryInput {
   host?: string
-  org: string
-  repo: string
-  hasExplicitCloneUrl: boolean
+  repoPathCandidates: string[]
+  preferGitHub: boolean
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
@@ -74,65 +74,173 @@ async function urlExists(url: string): Promise<boolean> {
   }
 }
 
-export function parseRepositoryInput(input: string): ParsedRepositoryInput {
-  let raw = input
-  raw = raw.replace(/^https?:\/\//, '')
-  raw = raw.replace(/^ssh:\/\//, '')
-  raw = raw.replace(/^git@/, '')
-  raw = raw.replace(':', '/')
-  raw = raw.replace(/\.git$/, '')
-  raw = raw.replace(/^\/+/, '')
-
-  let host = ''
-  let path = raw
-  const firstSegment = raw.split('/')[0] ?? ''
-  if (raw.includes('/') && (firstSegment.includes('.') || firstSegment === 'localhost')) {
-    host = firstSegment
-    path = raw.slice(firstSegment.length + 1)
+function buildRepoPathCandidates(host: string | undefined, segments: string[]): string[] {
+  const candidates: string[] = []
+  const addCandidate = (value: string) => {
+    if (!value || candidates.includes(value)) {
+      return
+    }
+    candidates.push(value)
   }
 
+  const markerIndex = segments.indexOf('-')
+  if (markerIndex >= 2) {
+    addCandidate(segments.slice(0, markerIndex).join('/'))
+  }
+
+  const isGitHubHost = host?.includes('github.com') ?? false
+  const isGitLabHost = host?.includes('gitlab') ?? false
+  const hasGitHubMarker = segments.includes('blob') || segments.includes('tree') || segments.includes('raw')
+
+  if (isGitHubHost || hasGitHubMarker) {
+    addCandidate(segments.slice(0, 2).join('/'))
+  }
+
+  if (isGitLabHost || !host) {
+    for (let length = segments.length; length >= 2; length--) {
+      addCandidate(segments.slice(0, length).join('/'))
+    }
+  }
+
+  if (!isGitHubHost && !isGitLabHost && !hasGitHubMarker) {
+    addCandidate(segments.slice(0, 2).join('/'))
+  }
+
+  return candidates
+}
+
+export function parseRepositoryInput(input: string): ParsedRepositoryInput {
+  const trimmedInput = input.trim()
+  if (!trimmedInput) {
+    throw new Error(`dl: unsupported repository input: ${input}`)
+  }
+
+  let host = ''
+  let path = ''
+
+  const sshMatch = trimmedInput.match(/^git@([^:]+):(.+)$/)
+  if (sshMatch) {
+    host = sshMatch[1]
+    path = sshMatch[2]
+  } else if (/^[a-z]+:\/\//i.test(trimmedInput)) {
+    const url = new URL(trimmedInput)
+    host = url.host
+    path = url.pathname
+  } else {
+    const withoutQuery = trimmedInput.split(/[?#]/, 1)[0] ?? ''
+    const normalized = withoutQuery.replace(/^\/+/, '')
+    const firstSegment = normalized.split('/')[0] ?? ''
+    if (normalized.includes('/') && (firstSegment.includes('.') || firstSegment === 'localhost')) {
+      host = firstSegment
+      path = normalized.slice(firstSegment.length + 1)
+    } else {
+      path = normalized
+    }
+  }
+
+  path = path.split(/[?#]/, 1)[0] ?? ''
   path = path.replace(/^\/+/, '')
+  path = path.replace(/\.git$/, '')
+
   const segments = path.split('/').filter(Boolean)
   if (segments.length < 2) {
     throw new Error(`dl: unsupported repository input: ${input}`)
   }
 
-  const org = segments[0]
-  const repo = segments[segments.length - 1]
-  const hasExplicitCloneUrl = input.startsWith('git@') || input.includes('://')
+  const hasGitHubMarker = segments.includes('blob') || segments.includes('tree') || segments.includes('raw')
+  const repoPathCandidates = buildRepoPathCandidates(host || undefined, segments)
+  if (repoPathCandidates.length === 0) {
+    throw new Error(`dl: unsupported repository input: ${input}`)
+  }
 
   return {
     host: host || undefined,
-    org,
-    repo,
-    hasExplicitCloneUrl
+    repoPathCandidates,
+    preferGitHub: hasGitHubMarker
   }
+}
+
+async function validateRepositoryPath(host: string, repoPath: string): Promise<string | null> {
+  const signal = AbortSignal.timeout(8000)
+
+  if (host.includes('github.com')) {
+    const parts = repoPath.split('/').filter(Boolean)
+    if (parts.length !== 2) {
+      return null
+    }
+
+    const base = host === 'github.com' ? 'https://api.github.com' : `https://${host}/api/v3`
+    const response = await fetch(`${base}/repos/${parts[0]}/${parts[1]}`, {
+      method: 'GET',
+      headers: {
+        'user-agent': 'rekon-dl'
+      },
+      signal
+    }).catch(() => null)
+
+    if (!response || !response.ok) {
+      return null
+    }
+    return `${parts[0]}/${parts[1]}`
+  }
+
+  if (host.includes('gitlab')) {
+    const encodedPath = encodeURIComponent(repoPath)
+    const response = await fetch(`https://${host}/api/v4/projects/${encodedPath}`, {
+      method: 'GET',
+      headers: {
+        'user-agent': 'rekon-dl'
+      },
+      signal
+    }).catch(() => null)
+
+    if (!response || !response.ok) {
+      return null
+    }
+
+    const body = await response.json() as { path_with_namespace?: string }
+    return body.path_with_namespace ?? repoPath
+  }
+
+  if (await urlExists(`https://${host}/${repoPath}`)) {
+    return repoPath
+  }
+
+  return null
 }
 
 async function resolveRepository(input: string): Promise<ResolvedRepo> {
   const parsed = parseRepositoryInput(input)
-  let host = parsed.host ?? ''
-  const { org, repo } = parsed
 
-  if (!host) {
-    for (const candidate of ['github.com', 'gitlab.com']) {
-      const probeUrl = `https://${candidate}/${org}/${repo}`
-      if (await urlExists(probeUrl)) {
-        host = candidate
-        break
+  const hostCandidates = parsed.host
+    ? [parsed.host]
+    : (parsed.preferGitHub
+      ? ['github.com', 'gitlab.com']
+      : ['gitlab.com', 'github.com'])
+
+  for (const host of hostCandidates) {
+    for (const repoPath of parsed.repoPathCandidates) {
+      const namespacePath = await validateRepositoryPath(host, repoPath)
+      if (!namespacePath) {
+        continue
+      }
+
+      const pathParts = namespacePath.split('/')
+      const org = pathParts[0]
+      const repo = pathParts[pathParts.length - 1]
+
+      return {
+        host,
+        namespacePath,
+        org,
+        repo,
+        cloneUrl: `https://${host}/${namespacePath}.git`
       }
     }
   }
 
-  if (!host) {
-    throw new Error(`dl: could not resolve host for ${org}/${repo} (tried github.com and gitlab.com)`)
-  }
-
-  const cloneUrl = parsed.hasExplicitCloneUrl
-    ? input
-    : `https://${host}/${org}/${repo}.git`
-
-  return { host, org, repo, cloneUrl }
+  const unresolvedSample = parsed.repoPathCandidates[0] ?? input
+  throw new Error(`dl: could not resolve host for ${unresolvedSample} (tried github.com and gitlab.com)`)
 }
 
 async function cloneOrUpdate(remoteUrl: string, destination: string): Promise<void> {
@@ -162,13 +270,13 @@ async function run() {
     for (const input of inputs) {
       try {
         const resolved = await resolveRepository(input)
-        const archiveDestination = join(homedir(), 'archive', resolved.org, resolved.repo)
-        const wikiDestination = join(homedir(), 'wiki', resolved.org, resolved.repo)
+        const archiveDestination = join(homedir(), 'archive', resolved.namespacePath)
+        const wikiDestination = join(homedir(), 'wiki', resolved.namespacePath)
 
         console.log(`archive: ${archiveDestination}`)
         await cloneOrUpdate(resolved.cloneUrl, archiveDestination)
 
-        const wikiRemoteUrl = `https://${resolved.host}/${resolved.org}/${resolved.repo}.wiki.git`
+        const wikiRemoteUrl = `https://${resolved.host}/${resolved.namespacePath}.wiki.git`
         console.log(`wiki: ${wikiDestination}`)
         try {
           await cloneOrUpdate(wikiRemoteUrl, wikiDestination)
