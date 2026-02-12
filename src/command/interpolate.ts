@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import { define } from 'gunshi'
+import { define, cli } from 'gunshi'
 import { createInterface } from 'node:readline';
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const argsRegex = /(?:\[Image\s+\d+\]|"[^"]*"|'[^']*'|[^\s"']+)/gi;
 const placeholderRegex = /\$(\d+)/g;
@@ -110,3 +111,12 @@ export default define({
 	},
 	run,
 });
+
+void (async () => {
+  const mainPath = await realpath(process.argv[1])
+  const mainUrl = pathToFileURL(mainPath).href
+  if (import.meta.url === mainUrl) {
+    const module = await import('./interpolate.ts')
+    await cli(process.argv.slice(2), module.default, { name: 'interpolate' })
+  }
+})()

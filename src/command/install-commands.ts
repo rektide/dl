@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { readlink, symlink, mkdir, rm, readFile } from "node:fs/promises";
+import { readlink, symlink, mkdir, rm, readFile, realpath } from "node:fs/promises";
 import { join, dirname, basename, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { define } from 'gunshi'
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { define, cli } from 'gunshi'
 import { glob } from "glob";
 import { xdgConfig } from 'xdg-basedir';
 import matter from 'gray-matter';
@@ -169,3 +169,12 @@ export default define({
   },
   run,
 });
+
+void (async () => {
+  const mainPath = await realpath(process.argv[1])
+  const mainUrl = pathToFileURL(mainPath).href
+  if (import.meta.url === mainUrl) {
+    const module = await import('./install-commands.ts')
+    await cli(process.argv.slice(2), module.default, { name: 'install-commands' })
+  }
+})()

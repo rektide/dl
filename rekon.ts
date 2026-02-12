@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { cli, define } from 'gunshi'
-import combineCommand from './command/combine.ts'
-import dlCommand from './command/dl.ts'
-import installCommandsCommand from './command/install-commands.ts'
-import interpolateCommand from './command/interpolate.ts'
-import projectFilesCommand from './command/project-files.ts'
+import combineCommand from './src/command/combine.ts'
+import dlCommand from './src/command/dl.ts'
+import installCommandsCommand from './src/command/install-commands.ts'
+import interpolateCommand from './src/command/interpolate.ts'
+import projectFilesCommand from './src/command/project-files.ts'
 import completion from '@gunshi/plugin-completion'
 
 const mainCommand = define({

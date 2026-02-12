@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import { access, mkdir } from 'node:fs/promises'
+import { access, mkdir, realpath } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { define } from 'gunshi'
+import { pathToFileURL } from 'node:url'
+import { define, cli } from 'gunshi'
 import { x } from 'tinyexec'
 
 const COMMAND_NAME = 'dl'
@@ -317,3 +318,12 @@ export default define({
   description: 'Fetch repository checkout and wiki checkout',
   run
 })
+
+void (async () => {
+  const mainPath = await realpath(process.argv[1])
+  const mainUrl = pathToFileURL(mainPath).href
+  if (import.meta.url === mainUrl) {
+    const module = await import('./dl.ts')
+    await cli(process.argv.slice(2), module.default, { name: COMMAND_NAME })
+  }
+})()

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import { access, readdir } from 'node:fs/promises'
+import { access, readdir, realpath } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, relative } from 'node:path'
-import { define } from 'gunshi'
+import { pathToFileURL } from 'node:url'
+import { define, cli } from 'gunshi'
 
 const COMMAND_NAME = 'project-files'
 const DEFAULT_MAX_DEPTH = 2
@@ -128,3 +129,12 @@ export default define({
   },
   run
 })
+
+void (async () => {
+  const mainPath = await realpath(process.argv[1])
+  const mainUrl = pathToFileURL(mainPath).href
+  if (import.meta.url === mainUrl) {
+    const module = await import('./project-files.ts')
+    await cli(process.argv.slice(2), module.default, { name: COMMAND_NAME })
+  }
+})()

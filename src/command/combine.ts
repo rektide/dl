@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, realpath } from "node:fs/promises";
 import { glob } from "glob";
 import { join, dirname, basename } from "node:path";
-import { fileURLToPath } from "node:url";
-import { define } from 'gunshi'
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { define, cli } from 'gunshi'
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -110,3 +110,12 @@ export default define({
     console.log(message);
   },
 });
+
+void (async () => {
+  const mainPath = await realpath(process.argv[1])
+  const mainUrl = pathToFileURL(mainPath).href
+  if (import.meta.url === mainUrl) {
+    const module = await import('./combine.ts')
+    await cli(process.argv.slice(2), module.default, { name: 'combine' })
+  }
+})()
