@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { define, cli } from 'gunshi'
 import { c12 } from 'gunshi-c12'
 import { x } from 'tinyexec'
+import { linkSpecificProject, resolveDestinationRoots, type LinkContext } from '../repo/link.ts'
 
 const COMMAND_NAME = 'dl'
 
@@ -28,54 +29,7 @@ export interface ParsedRepositoryInput {
   preferGitHub: boolean
 }
 
-interface DlDirectoryConfig {
-  ARCHIVE_DIR?: unknown
-  WIKI_DIR?: unknown
-}
-
-interface C12ConfigLoader {
-  loadConfig: () => Promise<{ config?: DlDirectoryConfig }>
-}
-
-interface DlCommandContext {
-  extensions?: {
-    c12?: C12ConfigLoader
-  }
-}
-
-function configuredDirectory(value: unknown): string | undefined {
-  if (typeof value !== 'string') {
-    return undefined
-  }
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : undefined
-}
-
-async function resolveDestinationRoots(ctx?: DlCommandContext): Promise<{ archiveRoot: string, wikiRoot: string }> {
-  const defaultArchiveRoot = join(homedir(), 'archive')
-  const defaultWikiRoot = join(homedir(), 'wiki')
-
-  const envArchiveRoot = configuredDirectory(process.env.ARCHIVE_DIR)
-  const envWikiRoot = configuredDirectory(process.env.WIKI_DIR)
-  const defaults = {
-    archiveRoot: envArchiveRoot ?? defaultArchiveRoot,
-    wikiRoot: envWikiRoot ?? defaultWikiRoot
-  }
-
-  const configLoader = ctx?.extensions?.c12
-  if (!configLoader) {
-    return defaults
-  }
-
-  const loaded = await configLoader.loadConfig()
-  const configArchiveRoot = configuredDirectory(loaded.config?.ARCHIVE_DIR)
-  const configWikiRoot = configuredDirectory(loaded.config?.WIKI_DIR)
-
-  return {
-    archiveRoot: configArchiveRoot ?? defaults.archiveRoot,
-    wikiRoot: configWikiRoot ?? defaults.wikiRoot
-  }
-}
+interface DlCommandContext extends LinkContext {}
 
 function parseArgs(argv: string[]): ParsedArgs {
   const tokens = argv[0] === COMMAND_NAME ? argv.slice(1) : argv
@@ -93,10 +47,11 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-async function runCommand(command: string, args: string[]): Promise<void> {
+async function runCommand(command: string, args: string[], cwd?: string): Promise<void> {
   await x(command, args, {
     throwOnError: true,
     nodeOptions: {
+      cwd,
       stdio: 'inherit'
     }
   })
@@ -183,9 +138,12 @@ export function parseRepositoryInput(input: string): ParsedRepositoryInput {
     const withoutQuery = trimmedInput.split(/[?#]/, 1)[0] ?? ''
     const normalized = withoutQuery.replace(/^\/+/, '')
     const firstSegment = normalized.split('/')[0] ?? ''
-    if (normalized.includes('/') && (firstSegment.includes('.') || firstSegment === 'localhost')) {
-      host = firstSegment
-      path = normalized.slice(firstSegment.length + 1)
+    const looksLikeHostPath = normalized.includes('/') && (firstSegment.includes('.') || firstSegment === 'localhost')
+
+    if (looksLikeHostPath) {
+      const url = new URL(`https://${trimmedInput}`)
+      host = url.host
+      path = url.pathname
     } else {
       path = normalized
     }
@@ -336,12 +294,24 @@ async function run(ctx?: DlCommandContext) {
           const dexportPath = join(homedir(), 'src', 'dexport', 'src', 'cli.ts')
           if (await exists(dexportPath)) {
             const deepwikiUrl = `https://deepwiki.com/${resolved.org}/${resolved.repo}`
-            if (consumeDexportOutput) {
-              runDetached(dexportPath, [deepwikiUrl], homedir())
-              console.log(`dexport: queued ${deepwikiUrl}`)
+            if (await exists(wikiDestination)) {
+              console.log(`dexport: skipped because ${wikiDestination} already exists`)
+            } else if (consumeDexportOutput) {
+              try {
+                runDetached(dexportPath, [deepwikiUrl], wikiRoot)
+                console.log(`dexport: queued ${deepwikiUrl}`)
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error)
+                console.warn(`dexport skipped: ${message}`)
+              }
             } else {
-              console.log(`dexport: running ${deepwikiUrl}`)
-              await runCommand(dexportPath, [deepwikiUrl])
+              try {
+                console.log(`dexport: running ${deepwikiUrl}`)
+                await runCommand(dexportPath, [deepwikiUrl], wikiRoot)
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error)
+                console.warn(`dexport skipped: ${message}`)
+              }
             }
           } else {
             console.warn(`dexport skipped: not found at ${dexportPath}`)
@@ -354,6 +324,26 @@ async function run(ctx?: DlCommandContext) {
             const message = error instanceof Error ? error.message : String(error)
             console.warn(`wiki fetch skipped: ${message}`)
           }
+        }
+
+        const linkErrors = await linkSpecificProject({
+          archiveRoot,
+          wikiRoot,
+          namespacePath: resolved.namespacePath,
+          onEvent: (event, useErrorStream = false) => {
+            if (!event.status.startsWith('error')) {
+              return
+            }
+            const line = JSON.stringify(event)
+            if (useErrorStream) {
+              console.error(line)
+              return
+            }
+            console.log(line)
+          }
+        })
+        if (linkErrors) {
+          hadError = true
         }
       } catch (error) {
         hadError = true

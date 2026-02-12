@@ -31,6 +31,7 @@
 - `criterion` for benchmarking with cargo-criterion. `criterion-perf-events` for linux performance events and `criterion-cycles-per-byte` when measuring throughput of data-oriented systems.
 - `jiff` for time (not chrono!)
 - use `clippy` for rust checking.
+- `tracing`, with good use of spans!
 
 # Rules and guidelines for JavaScript projects
 

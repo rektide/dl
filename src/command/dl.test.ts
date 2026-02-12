@@ -28,6 +28,14 @@ describe('parseRepositoryInput', () => {
       }
     },
     {
+      input: 'github.com/rektide/opencode/blob/dev/README.md',
+      expected: {
+        host: 'github.com',
+        repoPathCandidates: ['rektide/opencode'],
+        preferGitHub: true
+      }
+    },
+    {
       input: 'https://github.com/rektide/opencode/blob/dev/README.md',
       expected: {
         host: 'github.com',

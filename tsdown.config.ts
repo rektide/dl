@@ -5,5 +5,6 @@ export default defineConfig({
   target: "esnext",
   shims: false,
   clean: true,
+  outDir: "build",
   entry: ["rekon.ts"],
 });
