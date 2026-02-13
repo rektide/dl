@@ -13,6 +13,7 @@ const COMMAND_NAME = 'dl'
 interface ParsedArgs {
   inputs: string[]
   consumeDexportOutput: boolean
+  noLogCache: boolean
 }
 
 interface ResolvedRepo {
@@ -35,7 +36,8 @@ function parseArgs(argv: string[]): ParsedArgs {
   const tokens = argv[0] === COMMAND_NAME ? argv.slice(1) : argv
   const inputs = tokens.filter(token => !token.startsWith('-'))
   const consumeDexportOutput = tokens.includes('--consume-dexport-output') || tokens.includes('-c')
-  return { inputs, consumeDexportOutput }
+  const noLogCache = tokens.includes('--no-log-cache')
+  return { inputs, consumeDexportOutput, noLogCache }
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -283,7 +285,7 @@ async function cloneOrUpdate(remoteUrl: string, destination: string): Promise<vo
 
 async function run(ctx?: DlCommandContext) {
   try {
-    const { inputs, consumeDexportOutput } = parseArgs(process.argv.slice(2))
+    const { inputs, consumeDexportOutput, noLogCache } = parseArgs(process.argv.slice(2))
     if (inputs.length === 0) {
       console.error('usage: rekon dl <repo-url|org/repo> [repo-url|org/repo ...]')
       process.exit(1)
@@ -307,7 +309,9 @@ async function run(ctx?: DlCommandContext) {
           if (await exists(dexportPath)) {
             const deepwikiUrl = `https://deepwiki.com/${resolved.org}/${resolved.repo}`
             if (await exists(wikiDestination)) {
-              console.log(`dexport: skipped because ${wikiDestination} already exists`)
+              if (!noLogCache) {
+                console.log(`dexport: skipped because ${wikiDestination} already exists`)
+              }
             } else if (consumeDexportOutput) {
               try {
                 runDetached(dexportPath, [deepwikiUrl], wikiRoot)
@@ -383,6 +387,11 @@ export default define({
       short: 'c',
       default: false,
       description: 'Run dexport detached and suppress its output'
+    },
+    'no-log-cache': {
+      type: 'boolean',
+      default: false,
+      description: 'Disable logging of cached file names'
     }
   },
   run
