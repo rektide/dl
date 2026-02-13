@@ -82,6 +82,17 @@ async function urlExists(url: string): Promise<boolean> {
   }
 }
 
+function normalizeCloneUrl(remoteUrl: string): string {
+  const trimmed = remoteUrl.trim()
+  if (/^[a-z]+:\/\//i.test(trimmed) || /^git@/.test(trimmed)) {
+    return trimmed
+  }
+
+  const withoutLeadingSlashes = trimmed.replace(/^\/+/, '')
+  const withScheme = `https://${withoutLeadingSlashes}`
+  return withScheme.endsWith('.git') ? withScheme : `${withScheme}.git`
+}
+
 function buildRepoPathCandidates(host: string | undefined, segments: string[]): string[] {
   const candidates: string[] = []
   const addCandidate = (value: string) => {
@@ -255,6 +266,7 @@ async function resolveRepository(input: string): Promise<ResolvedRepo> {
 }
 
 async function cloneOrUpdate(remoteUrl: string, destination: string): Promise<void> {
+  const normalizedRemoteUrl = normalizeCloneUrl(remoteUrl)
   const gitDir = join(destination, '.git')
   if (await exists(gitDir)) {
     await runCommand('git', ['-C', destination, 'pull', '--ff-only'])
@@ -266,7 +278,7 @@ async function cloneOrUpdate(remoteUrl: string, destination: string): Promise<vo
   }
 
   await mkdir(dirname(destination), { recursive: true })
-  await runCommand('git', ['clone', remoteUrl, destination])
+  await runCommand('git', ['clone', normalizedRemoteUrl, destination])
 }
 
 async function run(ctx?: DlCommandContext) {
