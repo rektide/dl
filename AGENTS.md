@@ -2,10 +2,15 @@
 
 # Documentation / reference materials
 
-- please read INDEX files in documentation directories to be aware of what's included in the directory
+- the `summarizer` tool is WIP and not done yet. but will latter be a tool to write and read INDEX files in documentation directories to be aware of what's included in the directory.
+
+# well known directories
+
 - `~/wiki/<repo-org>/<repo-name>` has wiki resources describing projects.
 - `~/archive/<repo-org>/<repo-name>` is the place for git checkouts of projects, with the organization name included in the directory tree here. `~/src/<repo-name>` or `~/src/<repo-name>-<workspace-name>` has 1st party checkouts for projects by the author.
 - when writing files to explore behavior, please use a `.test-agent` folder at the top of the project for temporary files (creating it if needed), so they can be managed & cleaned up effectively. but git checkouts should be put in ~/archive
+- `~/ff` is future-fuze, our collection of kubernetes related resources
+- `/opt` and `/srv` for general software installs, and for instances of software / services
 
 # Project Planning
 
