@@ -18,6 +18,8 @@ interface ParsedArgs {
 	inputs: string[]
 	consumeDexportOutput: boolean
 	noLogCache: boolean
+	doArchive: boolean
+	doWiki: boolean
 }
 
 interface ResolvedRepo {
@@ -42,7 +44,15 @@ function parseArgs(argv: string[]): ParsedArgs {
 	const consumeDexportOutput =
 		tokens.includes("--consume-dexport-output") || tokens.includes("-c")
 	const noLogCache = tokens.includes("--no-log-cache")
-	return { inputs, consumeDexportOutput, noLogCache }
+	const hasArchiveFlag = tokens.includes("--archive")
+	const hasWikiFlag = tokens.includes("--wiki")
+	let doArchive = true
+	let doWiki = true
+	if (hasArchiveFlag || hasWikiFlag) {
+		doArchive = hasArchiveFlag
+		doWiki = hasWikiFlag
+	}
+	return { inputs, consumeDexportOutput, noLogCache, doArchive, doWiki }
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -349,9 +359,8 @@ async function cloneOrUpdate(
 
 async function run(ctx?: DlCommandContext) {
 	try {
-		const { inputs, consumeDexportOutput, noLogCache } = parseArgs(
-			process.argv.slice(2),
-		)
+		const { inputs, consumeDexportOutput, noLogCache, doArchive, doWiki } =
+			parseArgs(process.argv.slice(2))
 		if (inputs.length === 0) {
 			console.error(
 				"usage: rekon dl <repo-url|org/repo> [repo-url|org/repo ...]",
@@ -368,75 +377,87 @@ async function run(ctx?: DlCommandContext) {
 				const archiveDestination = join(archiveRoot, resolved.namespacePath)
 				const wikiDestination = join(wikiRoot, resolved.namespacePath)
 
-				console.log(`archive: ${archiveDestination}`)
-				await cloneOrUpdate(resolved.cloneUrl, archiveDestination)
-				if (!(await exists(join(archiveDestination, ".jj")))) {
-					await runCommand("jj", ["git", "init"], archiveDestination)
-					await trackMainBookmark(archiveDestination)
+				if (doArchive) {
+					console.log(`archive: ${archiveDestination}`)
+					await cloneOrUpdate(resolved.cloneUrl, archiveDestination)
+					if (!(await exists(join(archiveDestination, ".jj")))) {
+						await runCommand("jj", ["git", "init"], archiveDestination)
+						await trackMainBookmark(archiveDestination)
+					}
 				}
 
-				console.log(`wiki: ${wikiDestination}`)
-				if (resolved.host === "github.com") {
-					const dexportPath = join(homedir(), "src", "dexport", "src", "cli.ts")
-					if (await exists(dexportPath)) {
-						const deepwikiUrl = `https://deepwiki.com/${resolved.org}/${resolved.repo}`
-						if (await exists(wikiDestination)) {
-							if (!noLogCache) {
-								console.log(
-									`dexport: skipped because ${wikiDestination} already exists`,
-								)
-							}
-						} else if (consumeDexportOutput) {
-							try {
-								runDetached(dexportPath, [deepwikiUrl], homedir())
-								console.log(`dexport: queued ${deepwikiUrl}`)
-							} catch (error) {
-								const message =
-									error instanceof Error ? error.message : String(error)
-								console.warn(`dexport skipped: ${message}`)
+				if (doWiki) {
+					console.log(`wiki: ${wikiDestination}`)
+					if (resolved.host === "github.com") {
+						const dexportPath = join(
+							homedir(),
+							"src",
+							"dexport",
+							"src",
+							"cli.ts",
+						)
+						if (await exists(dexportPath)) {
+							const deepwikiUrl = `https://deepwiki.com/${resolved.org}/${resolved.repo}`
+							if (await exists(wikiDestination)) {
+								if (!noLogCache) {
+									console.log(
+										`dexport: skipped because ${wikiDestination} already exists`,
+									)
+								}
+							} else if (consumeDexportOutput) {
+								try {
+									runDetached(dexportPath, [deepwikiUrl], homedir())
+									console.log(`dexport: queued ${deepwikiUrl}`)
+								} catch (error) {
+									const message =
+										error instanceof Error ? error.message : String(error)
+									console.warn(`dexport skipped: ${message}`)
+								}
+							} else {
+								try {
+									console.log(`dexport: running ${deepwikiUrl}`)
+									await runCommand(dexportPath, [deepwikiUrl], homedir())
+								} catch (error) {
+									const message =
+										error instanceof Error ? error.message : String(error)
+									console.warn(`dexport skipped: ${message}`)
+								}
 							}
 						} else {
-							try {
-								console.log(`dexport: running ${deepwikiUrl}`)
-								await runCommand(dexportPath, [deepwikiUrl], homedir())
-							} catch (error) {
-								const message =
-									error instanceof Error ? error.message : String(error)
-								console.warn(`dexport skipped: ${message}`)
-							}
+							console.warn(`dexport skipped: not found at ${dexportPath}`)
 						}
 					} else {
-						console.warn(`dexport skipped: not found at ${dexportPath}`)
-					}
-				} else {
-					const wikiRemoteUrl = `https://${resolved.host}/${resolved.namespacePath}.wiki.git`
-					try {
-						await cloneOrUpdate(wikiRemoteUrl, wikiDestination)
-					} catch (error) {
-						const message =
-							error instanceof Error ? error.message : String(error)
-						console.warn(`wiki fetch skipped: ${message}`)
+						const wikiRemoteUrl = `https://${resolved.host}/${resolved.namespacePath}.wiki.git`
+						try {
+							await cloneOrUpdate(wikiRemoteUrl, wikiDestination)
+						} catch (error) {
+							const message =
+								error instanceof Error ? error.message : String(error)
+							console.warn(`wiki fetch skipped: ${message}`)
+						}
 					}
 				}
 
-				const linkErrors = await linkSpecificProject({
-					archiveRoot,
-					wikiRoot,
-					namespacePath: resolved.namespacePath,
-					onEvent: (event, useErrorStream = false) => {
-						if (!event.status.startsWith("error")) {
-							return
-						}
-						const line = JSON.stringify(event)
-						if (useErrorStream) {
-							console.error(line)
-							return
-						}
-						console.log(line)
-					},
-				})
-				if (linkErrors) {
-					hadError = true
+				if (doArchive && doWiki) {
+					const linkErrors = await linkSpecificProject({
+						archiveRoot,
+						wikiRoot,
+						namespacePath: resolved.namespacePath,
+						onEvent: (event, useErrorStream = false) => {
+							if (!event.status.startsWith("error")) {
+								return
+							}
+							const line = JSON.stringify(event)
+							if (useErrorStream) {
+								console.error(line)
+								return
+							}
+							console.log(line)
+						},
+					})
+					if (linkErrors) {
+						hadError = true
+					}
 				}
 			} catch (error) {
 				hadError = true
@@ -469,6 +490,16 @@ export default define({
 			type: "boolean",
 			default: false,
 			description: "Disable logging of cached file names",
+		},
+		archive: {
+			type: "boolean",
+			default: false,
+			description: "Only update archive (disables wiki unless --wiki also set)",
+		},
+		wiki: {
+			type: "boolean",
+			default: false,
+			description: "Only update wiki (disables archive unless --archive also set)",
 		},
 	},
 	run,
