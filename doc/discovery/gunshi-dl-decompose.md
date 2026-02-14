@@ -333,18 +333,336 @@ See [`dexport-integrate.md`](/home/rektide/src/rekon/doc/discovery/dexport-integ
 
 ---
 
-# Open Questions
+# Decisions Made (continued)
 
-1. **Dexport integration model** - subprocess vs module import vs shared plugin?
-2. **Repository merge strategy** - how to merge ~/src/dexport into ~/src/rekon?
+## 5. Dexport Integration Model ✓ ACCEPTED
+
+**Decision:** Use `scraper` plugin that does scraping work directly (module import).
+
+- Plugin name: `scraper` (NOT `dexport`)
+- Domain modules: `src/scraper/` (NOT `src/dexport/`)
+- Command: `rekon dexport` (thin command using scraper plugin)
+- Remove subprocess integration entirely
+- See [`dexport-integrate.md`](/home/rektide/src/rekon/doc/discovery/dexport-integrate.md) for full plan
+
+## 6. Merge Timing ✓ ACCEPTED
+
+**Decision:** Merge repos first, then refactor.
+
+1. Merge ~/src/dexport into ~/src/rekon (preserving all history)
+2. Refactor merged code into plugins and domain modules
+3. See [`repo-merge-plan.md`](/home/rektide/src/rekon/doc/discovery/repo-merge-plan.md) for merge strategy
+
+**Status:** Do not merge yet - plan is ready, awaiting execution.
+
+---
+
+# Journal - Figments Configuration
+
+*Exploring figments library for configuration management...*
+## Exploration Summary
+
+Explored the [`figments`](/home/rektide/src/figments) codebase:
+- [`README.md`](/home/rektide/src/figments/README.md) - Overview and usage examples
+- [`src/index.ts`](/home/rektide/src/figments/src/index.ts) - Main exports
+- [`src/figment.ts`](/home/rektide/src/figments/src/figment.ts) - Core Figment class
+- [`src/provider.ts`](/home/rektide/src/figments/src/provider.ts) - Provider interface
+- [`src/providers/`](/home/rektide/src/figments/src/providers/) - Built-in providers (Env, Data, Serialized)
+- [`src/core/`](/home/rektide/src/figments/src/core/) - Types, coalesce logic, metadata, path utilities
+
+## Figments Capabilities
+
+**Purpose:** TypeScript port of Rust `figment` library - configuration management with provider composition and conflict resolution.
+
+### Core Concepts
+
+1. **Figment** - Combiner class that aggregates configuration from multiple providers
+2. **Provider** - Interface for configuration sources (files, env vars, serialized values)
+3. **Profile** - Configuration namespaces: `default`, `global`, and custom profiles
+4. **Metadata/Tags** - Provenance tracking (which provider contributed each value)
+
+### Composition Strategies
+
+| Strategy | On Conflict | Arrays |
+|----------|-------------|--------|
+| `join` | Keep existing | Keep existing |
+| `merge` | Use incoming | Use incoming |
+| `adjoin` | Keep existing | Concatenate |
+| `admerge` | Use incoming | Concatenate |
+
+### Built-in Providers
+
+- **`Serialized`** - Inline/hardcoded values
+- **`Env`** - Environment variables (with prefix, split, filter, map)
+- **`Data`** (`Json`, `Toml`, `Yaml`) - File or string parsing
+
+### Key Features
+
+- Async file loading with parent directory search
+- Deep nested config via dot notation (`server.host`)
+- Provenance tracking (`findMetadata(path)`)
+- Profile overlay system (`default` < `global` < selected)
+- Subtree extraction via `focus(path)`
+
+### Main API Surface
+
+```typescript
+// Creation
+Figment.new()
+Figment.from(provider)
+
+// Composition
+figment.join(provider)
+figment.merge(provider)
+figment.adjoin(provider)
+figment.admerge(provider)
+
+// Profile selection
+figment.select(profile)
+
+// Extraction
+figment.extract<T>(decode?)       // Full config
+figment.extractInner<T>(path)     // Nested value
+figment.extractLossy<T>()         // Without tags
+
+// Query
+figment.findValue(path)
+figment.contains(path)
+figment.findMetadata(path)        // Provenance
+figment.focus(path)               // Subtree figment
+
+// Provider interface
+interface Provider {
+  metadata(): Metadata
+  data(): ProfileMap | Promise<ProfileMap>
+  selectedProfile?(): string | undefined
+  metadataMap?(): Map<number, Metadata>
+  tagMap?(): ProfileTagMap
+}
+```
+
+### Example Usage
+
+```typescript
+import { Figment, providers } from "figments"
+
+const figment = Figment.new()
+  .merge(providers.Toml.file("Config.toml"))
+  .merge(providers.Env.prefixed("APP_").split("_"))
+  .join(providers.Serialized.default("server.host", "localhost"))
+
+const config = await figment.extract<{ app: { name: string } }>()
+
+// With profile selection
+const prodConfig = Figment.new()
+  .select("production")
+  .merge(providers.Toml.file("Config.toml"))
+
+// Provenance lookup
+const source = await figment.findMetadata("server.host")
+// source?.name -> "Serialized" or "Toml file" etc.
+```
+
+---
+
+## `createFigmentsPlugin()` Design
+
+Following the factory pattern from [Decision 2](#2-plugin-factory-pattern-accepted):
+
+```typescript
+// src/plugin/figments.ts
+import { plugin } from 'gunshi/plugin'
+import { Figment, type Provider, type ConfigDict, type ProfileMap } from 'figments'
+
+export interface FigmentsPluginOptions {
+  /** Default profile name (default: "default") */
+  defaultProfile?: string
+  /** Environment variable for profile selection */
+  profileEnvKey?: string
+  /** Additional providers to always include */
+  providers?: Provider[]
+}
+
+export interface FigmentsExtension {
+  /** The configured figment instance */
+  figment: Figment
+  /** Extract typed configuration */
+  extract<T>(decode?: (value: ConfigDict) => T): Promise<T>
+  /** Get nested value */
+  get<T>(path: string): Promise<T>
+  /** Check if path exists */
+  has(path: string): Promise<boolean>
+  /** Get provenance metadata for a path */
+  source(path: string): Promise<string | undefined>
+}
+
+export function createFigmentsPlugin(options: FigmentsPluginOptions = {}): PluginWithExtension<FigmentsExtension> {
+  const {
+    defaultProfile = 'default',
+    profileEnvKey,
+    providers = []
+  } = options
+
+  return plugin({
+    id: 'figments',
+    name: 'Configuration Plugin',
+    
+    setup: (ctx) => {
+      // Add global --config option
+      ctx.addGlobalOption({
+        name: 'config',
+        type: 'string',
+        description: 'Path to config file',
+        short: 'c'
+      })
+      
+      // Add --profile option
+      ctx.addGlobalOption({
+        name: 'profile',
+        type: 'string',
+        description: 'Configuration profile to use'
+      })
+    },
+    
+    extension: (ctx, cmd) => {
+      // Build figment from options + command options
+      const profile = cmd.values.profile 
+        || (profileEnvKey ? process.env[profileEnvKey] : undefined)
+        || defaultProfile
+      
+      const figment = Figment.new().select(profile)
+      
+      // Add config file if specified
+      if (cmd.values.config) {
+        figment.merge(providers.Toml.file(cmd.values.config))
+      }
+      
+      // Add configured providers
+      for (const provider of providers) {
+        figment.merge(provider)
+      }
+      
+      // Add environment provider
+      figment.merge(
+        providers.Env.prefixed('REKON_').split('_')
+      )
+      
+      return {
+        figment,
+        extract: async <T>(decode?) => figment.extract<T>(decode),
+        get: async <T>(path: string) => figment.extractInner<T>(path),
+        has: async (path: string) => figment.contains(path),
+        source: async (path: string) => (await figment.findMetadata(path))?.name
+      }
+    }
+  })
+}
+
+export type { FigmentsPluginOptions, FigmentsExtension }
+```
+
+### Usage in Commands
+
+```typescript
+// src/command/dl.ts
+export default defineCommand({
+  name: 'dl',
+  async run(ctx) {
+    const config = ctx.extensions.figments
+    
+    // Get config values
+    const archiveRoot = await config.get<string>('archive.root')
+    const wikiRoot = await config.get<string>('wiki.root')
+    
+    // Or extract full typed config
+    interface DlConfig {
+      archive: { root: string }
+      wiki: { root: string; enabled: boolean }
+    }
+    const cfg = await config.extract<DlConfig>()
+  }
+})
+```
+
+### Registration in rekon.ts
+
+```typescript
+import { createFigmentsPlugin } from './src/plugin/figments.ts'
+
+await cli(process.argv.slice(2), mainCommand, {
+  plugins: [
+    createFigmentsPlugin({
+      profileEnvKey: 'REKON_PROFILE',
+      providers: [
+        providers.Toml.file('rekon.toml')
+      ]
+    }),
+    // ... other plugins
+  ],
+  subCommands: {
+    dl: lazy(() => import('./src/command/dl.ts')),
+  }
+})
+```
+
+---
+
+## Extension API Draft
+
+### Type Definitions
+
+```typescript
+// Types to re-export from figments plugin
+export type {
+  Provider,
+  ConfigDict,
+  ConfigValue,
+  ProfileMap,
+  Metadata,
+  FigmentError
+} from 'figments'
+
+export { Figment, providers } from 'figments'
+```
+
+### Config File Search Strategy
+
+The plugin should support multiple config file locations:
+
+```typescript
+// Search order (first wins):
+// 1. --config / -c CLI option
+// 2. REKON_CONFIG environment variable
+// 3. ./rekon.toml (cwd)
+// 4. ./.rekon/rekon.toml
+// 5. ~/.config/rekon/config.toml (XDG)
+```
+
+### Environment Variable Convention
+
+```typescript
+// REKON_<KEY> -> key (lowercased, split on _)
+// REKON_ARCHIVE_ROOT -> archive.root
+// REKON_WIKI_ENABLED -> wiki.enabled
+```
+
+### Profile Selection Priority
+
+```typescript
+// 1. --profile CLI option
+// 2. REKON_PROFILE environment variable
+// 3. default profile
+```
 
 ---
 
 # Next Steps
 
-1. Create `src/plugin/repo.ts` using factory pattern
-2. Extract repo parsing logic to `src/repo/` domain modules
-3. Convert `dl.ts` to use repo plugin extension
-4. Create `src/plugin/archive.ts` and `src/plugin/wiki.ts`
-5. Convert all commands to lazy loading
-6. Integrate dexport (see dexport-integrate.md)
+1. **Merge repos** - Execute merge plan (when ready)
+2. Create `src/plugin/repo.ts` using factory pattern
+3. Extract repo parsing logic to `src/repo/` domain modules
+4. Create `src/plugin/scraper.ts` from merged dexport code
+5. Create `src/plugin/archive.ts` and `src/plugin/wiki.ts`
+6. Create `src/plugin/figments.ts` for configuration
+7. Convert `dl.ts` to use plugins
+8. Convert all commands to lazy loading
