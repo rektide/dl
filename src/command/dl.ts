@@ -314,7 +314,7 @@ async function run(ctx?: DlCommandContext) {
               }
             } else if (consumeDexportOutput) {
               try {
-                runDetached(dexportPath, [deepwikiUrl], wikiRoot)
+                runDetached(dexportPath, [deepwikiUrl], homedir())
                 console.log(`dexport: queued ${deepwikiUrl}`)
               } catch (error) {
                 const message = error instanceof Error ? error.message : String(error)
@@ -323,7 +323,7 @@ async function run(ctx?: DlCommandContext) {
             } else {
               try {
                 console.log(`dexport: running ${deepwikiUrl}`)
-                await runCommand(dexportPath, [deepwikiUrl], wikiRoot)
+                await runCommand(dexportPath, [deepwikiUrl], homedir())
               } catch (error) {
                 const message = error instanceof Error ? error.message : String(error)
                 console.warn(`dexport skipped: ${message}`)
