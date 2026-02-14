@@ -309,9 +309,19 @@ async function resolveRepository(input: string): Promise<ResolvedRepo> {
 			? ["github.com", "gitlab.com"]
 			: ["gitlab.com", "github.com"]
 
+	const isKnownHost = (h: string) =>
+		h.includes("github.com") || h.includes("gitlab")
+
 	for (const host of hostCandidates) {
 		for (const repoPath of parsed.repoPathCandidates) {
-			const namespacePath = await validateRepositoryPath(host, repoPath)
+			let namespacePath: string | null = null
+
+			if (parsed.host && !isKnownHost(host)) {
+				namespacePath = repoPath
+			} else {
+				namespacePath = await validateRepositoryPath(host, repoPath)
+			}
+
 			if (!namespacePath) {
 				continue
 			}
@@ -331,8 +341,9 @@ async function resolveRepository(input: string): Promise<ResolvedRepo> {
 	}
 
 	const unresolvedSample = parsed.repoPathCandidates[0] ?? input
+	const triedHosts = hostCandidates.join(", ")
 	throw new Error(
-		`dl: could not resolve host for ${unresolvedSample} (tried github.com and gitlab.com)`,
+		`dl: could not resolve host for ${unresolvedSample} (tried ${triedHosts})`,
 	)
 }
 
