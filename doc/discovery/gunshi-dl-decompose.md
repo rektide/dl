@@ -238,41 +238,113 @@ This loads the command module only when `rekon dl` is invoked.
 
 ---
 
-# Decision Points
+# Decisions Made
 
-1. **Plugin registration location**
-   - Option A: Register plugins in [`rekon.ts`](/home/rektide/src/rekon/rekon.ts) globally
-   - Option B: Each command registers its needed plugins
-   - Recommendation: Option A for shared plugins (archive, wiki), keeps commands thin
+## 1. Repository Identity Plugin ✓ ACCEPTED
 
-2. **Extension naming**
-   - Plugin ID vs extension key: `ctx.extensions['archive']` vs `ctx.extensions.archive`
-   - gunshi uses the plugin's `id` as the extension key
+A `repo` plugin that handles repository identity for both `dl` and `dexport`:
+- Parses shorthand (`org/repo`) and full URLs
+- Resolves to canonical host (github.com, gitlab.com)
+- Provides host transformation (github.com → deepwiki.com)
+- Caches validation results
 
-3. **Domain module vs plugin separation**
-   - Keep domain logic in `src/archive/`, `src/wiki/` as pure functions
-   - Plugins in `src/plugin/` wrap domain modules and expose via extension
-   - This allows domain code to be tested independently
+**Extension API:**
+```typescript
+interface RepoExtension {
+  parse(input: string): ParsedRepositoryInput
+  resolve(input: string): Promise<ResolvedRepo>
+  transformHost(url: URL, newHost: string): URL
+  toDeepwikiUrl(org: string, repo: string): URL
+}
+```
 
-4. **Dexport integration**
-   - Current: hardcoded path `~/src/dexport/src/cli.ts`
-   - Plugin could make this configurable via global option
+## 2. Plugin Factory Pattern ✓ ACCEPTED
+
+Use `createPlugin(options): PluginWithExtension<T>` pattern (as seen in [gunsho11y](/home/rektide/src/gunsho11y/src/plugin.ts)):
+
+```typescript
+// src/plugin/repo.ts
+export function createRepoPlugin(options: RepoPluginOptions = {}): PluginWithExtension<RepoExtension> {
+  return plugin({
+    id: 'repo',
+    extension: (ctx, cmd) => {
+      return {
+        parse(input) { /* ... */ },
+        resolve(input) { /* ... */ },
+        // ...
+      }
+    }
+  })
+}
+
+export type { RepoPluginOptions, RepoExtension }
+```
+
+**Benefits:**
+- Configuration at registration time
+- Exports both plugin and extension types
+- Symmetric design across all plugins
+- Reusable, testable plugins
+
+## 3. Global Plugin Registration ✓ ACCEPTED
+
+Register shared plugins globally in [`rekon.ts`](/home/rektide/src/rekon/rekon.ts):
+
+```typescript
+await cli(process.argv.slice(2), mainCommand, {
+  plugins: [
+    createRepoPlugin(),      // Used by dl, dexport
+    createArchivePlugin(),   // Used by dl
+    createWikiPlugin(),      // Used by dl
+    createScraperPlugin(),   // Used by dexport
+  ],
+  subCommands: {
+    dl: lazy(() => import('./src/command/dl.ts')),
+    dexport: lazy(() => import('./src/command/dexport.ts')),
+  }
+})
+```
+
+**Principle:** Plugins should be lazy - they shouldn't do work unless their extension is used. Global registration is fine because the extension factory only runs when a command accesses `ctx.extensions.repo`.
+
+## 4. Domain Module Separation
+
+Keep domain logic in dedicated directories as pure functions:
+- `src/repo/` - Repository parsing, resolution logic
+- `src/archive/` - Clone/update, jujutsu init
+- `src/wiki/` - Wiki fetch, scraper integration
+- `src/scraper/` - HTML scraping, downloading
+
+Plugins wrap domain modules and expose via extension API.
 
 ---
 
-# Discussion Questions
+# Journal - dexport Integration Planning
 
-1. Should plugins be registered globally or per-command?
-2. How to handle shared state between plugins (e.g., resolved roots)?
-3. Should `--no-log-cache` become a global option added by wiki plugin?
-4. How to handle plugin dependencies (e.g., wiki depends on repository)?
+See [`dexport-integrate.md`](/home/rektide/src/rekon/doc/discovery/dexport-integrate.md) for the integration plan.
+
+---
+
+# Discussion Questions (Resolved)
+
+1. ~~Should plugins be registered globally or per-command?~~ → **Global**
+2. ~~Plugin factory pattern?~~ → **Use `createPlugin()` factory**
+3. ~~Repository plugin scope?~~ → **Global, shared by dl and dexport**
+
+---
+
+# Open Questions
+
+1. **Dexport integration model** - subprocess vs module import vs shared plugin?
+2. **Repository merge strategy** - how to merge ~/src/dexport into ~/src/rekon?
 
 ---
 
 # Next Steps
 
-1. Create `src/plugin/archive.ts` with basic extension
-2. Refactor clone/update logic to `src/archive/clone.ts`
-3. Update `dl.ts` to use archive plugin extension
-4. Repeat for wiki and repository plugins
+1. Create `src/plugin/repo.ts` using factory pattern
+2. Extract repo parsing logic to `src/repo/` domain modules
+3. Convert `dl.ts` to use repo plugin extension
+4. Create `src/plugin/archive.ts` and `src/plugin/wiki.ts`
 5. Convert all commands to lazy loading
+6. Integrate dexport (see dexport-integrate.md)

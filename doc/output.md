@@ -1,0 +1,1 @@
+- TODO: make a ticket a ticket to add to `dl` a flag --no-log-cache that disables logging of cached file names.
