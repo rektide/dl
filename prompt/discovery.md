@@ -19,7 +19,7 @@ if we are researching an existing tech product, start by launching an agent to r
 
 directories may have some relevant context, in INDEX.md files. please read these before getting started on the topic to have some background on what we are looking at and what the broader problem-space has.
 
-reference material: there ought be an existing git checkout of any pertinent projects in .test-agent/ subdirectory for the project, which can be used to see how libraries work. if the checkout is missing please download it.
+reference material: there ought be an existing git checkout of any pertinent projects in the archive for the project, which can be used to see how libraries work. if the checkout is missing please download it. the wiki also may hold a good overview. note that you must have or find the project org name to access these resources.
 
 optional additional notes:
 

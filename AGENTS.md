@@ -42,7 +42,7 @@
 
 # Rules and guidelines for JavaScript projects
 
-- When importing other typescript code in the same project, use an explicit .ts extension for the import statement.
+- When importing other typescript code in the same project, use an explicit ts file extension such as `import foo from "<whatever>.ts"` for the import .
 
 ## Preferred npm modules
 
