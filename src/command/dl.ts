@@ -68,6 +68,31 @@ async function runCommand(
 	})
 }
 
+async function getCommandOutput(
+	command: string,
+	args: string[],
+	cwd: string,
+): Promise<string> {
+	const result = await x(command, args, {
+		nodeOptions: { cwd },
+	})
+	return result.stdout.trim()
+}
+
+async function trackMainBookmark(destination: string): Promise<void> {
+	const remotesOutput = await getCommandOutput("git", ["remote"], destination)
+	const remotes = remotesOutput.split("\n").filter(Boolean)
+	for (const remote of remotes) {
+		try {
+			await runCommand(
+				"jj",
+				["bookmark", "track", `main@${remote}`],
+				destination,
+			)
+		} catch {}
+	}
+}
+
 function runDetached(command: string, args: string[], cwd: string): void {
 	const proc = x(command, args, {
 		persist: true,
@@ -347,6 +372,7 @@ async function run(ctx?: DlCommandContext) {
 				await cloneOrUpdate(resolved.cloneUrl, archiveDestination)
 				if (!(await exists(join(archiveDestination, ".jj")))) {
 					await runCommand("jj", ["git", "init"], archiveDestination)
+					await trackMainBookmark(archiveDestination)
 				}
 
 				console.log(`wiki: ${wikiDestination}`)
