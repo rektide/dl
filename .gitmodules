@@ -1,3 +1,9 @@
 [submodule "vendor/opencode"]
 	path = vendor/opencode
 	url = https://github.com/anomalyco/opencode
+[submodule "vendor/pauljphilp-effect-patterns"]
+	path = vendor/pauljphilp-effect-patterns
+	url = https://github.com/PaulJPhilp/EffectPatterns
+[submodule "vendor/ojowwalker77-claude-matrix"]
+	path = vendor/ojowwalker77-claude-matrix
+	url = https://github.com/ojowwalker77/Claude-Matrix
