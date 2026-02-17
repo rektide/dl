@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { access, mkdir, realpath } from "node:fs/promises"
+import { access, lstat, mkdir, realpath } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { pathToFileURL } from "node:url"
@@ -59,6 +59,15 @@ async function exists(path: string): Promise<boolean> {
 	try {
 		await access(path)
 		return true
+	} catch {
+		return false
+	}
+}
+
+async function isDirectory(path: string): Promise<boolean> {
+	try {
+		const stats = await lstat(path)
+		return stats.isDirectory()
 	} catch {
 		return false
 	}
@@ -409,7 +418,7 @@ async function run(ctx?: DlCommandContext) {
 						)
 						if (await exists(dexportPath)) {
 							const deepwikiUrl = `https://deepwiki.com/${resolved.org}/${resolved.repo}`
-							if (await exists(wikiDestination)) {
+							if (await isDirectory(wikiDestination)) {
 								if (!noLogCache) {
 									console.log(
 										`dexport: skipped because ${wikiDestination} already exists`,
@@ -417,7 +426,8 @@ async function run(ctx?: DlCommandContext) {
 								}
 							} else if (consumeDexportOutput) {
 								try {
-									runDetached(dexportPath, [deepwikiUrl], homedir())
+									await mkdir(dirname(wikiDestination), { recursive: true })
+									runDetached(dexportPath, ["--output", wikiDestination, "--strip-host", deepwikiUrl], homedir())
 									console.log(`dexport: queued ${deepwikiUrl}`)
 								} catch (error) {
 									const message =
@@ -427,7 +437,8 @@ async function run(ctx?: DlCommandContext) {
 							} else {
 								try {
 									console.log(`dexport: running ${deepwikiUrl}`)
-									await runCommand(dexportPath, [deepwikiUrl], homedir())
+									await mkdir(dirname(wikiDestination), { recursive: true })
+									await runCommand(dexportPath, ["--output", wikiDestination, "--strip-host", deepwikiUrl], homedir())
 								} catch (error) {
 									const message =
 										error instanceof Error ? error.message : String(error)
