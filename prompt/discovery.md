@@ -2,7 +2,7 @@ we want to create a `doc/discovery/$1.md` markdown file `$1`, exploring this top
 
 $2
 
-elaboration might include:
+elaboration of the topic might include:
 
 - overview of relevant tech systems involved
 - different features and capabilities of the topic
@@ -20,6 +20,8 @@ if we are researching an existing tech product, start by launching an agent to r
 directories may have some relevant context, in INDEX.md files. please read these before getting started on the topic to have some background on what we are looking at and what the broader problem-space has.
 
 reference material: there ought be an existing git checkout of any pertinent projects in the archive for the project, which can be used to see how libraries work. if the checkout is missing please download it. the wiki also may hold a good overview. note that you must have or find the project org name to access these resources.
+
+please start your work by creating the markdown file, and stating the topic.
 
 optional additional notes:
 
