@@ -426,8 +426,7 @@ async function run(ctx?: DlCommandContext) {
 								}
 							} else if (consumeDexportOutput) {
 								try {
-									await mkdir(dirname(wikiDestination), { recursive: true })
-									runDetached(dexportPath, ["--output", wikiDestination, "--strip-host", deepwikiUrl], homedir())
+									runDetached(dexportPath, ["--output", wikiRoot, "--strip-host", deepwikiUrl], homedir())
 									console.log(`dexport: queued ${deepwikiUrl}`)
 								} catch (error) {
 									const message =
@@ -437,8 +436,7 @@ async function run(ctx?: DlCommandContext) {
 							} else {
 								try {
 									console.log(`dexport: running ${deepwikiUrl}`)
-									await mkdir(dirname(wikiDestination), { recursive: true })
-									await runCommand(dexportPath, ["--output", wikiDestination, "--strip-host", deepwikiUrl], homedir())
+									await runCommand(dexportPath, ["--output", wikiRoot, "--strip-host", deepwikiUrl], homedir())
 								} catch (error) {
 									const message =
 										error instanceof Error ? error.message : String(error)
