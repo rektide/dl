@@ -38,8 +38,12 @@
 - `nextest` for testing
 - `criterion` for benchmarking with cargo-criterion. `criterion-perf-events` for linux performance events and `criterion-cycles-per-byte` when measuring throughput of data-oriented systems.
 - `jiff` for time (not chrono!)
-- use `clippy` for rust checking.
+- `use `clippy` for rust checking.
 - `tracing`, with good use of spans!
+
+## Clap + Figment2 integration
+
+Derive `Parser` (clap), `Serialize`/`Deserialize` (serde), and `Builder` (bon) on the config struct. Use `figment2::providers::Serialized::defaults(CliArgs::parse())` to feed clap-parsed args into figment2. Precedence: CLI > env vars > defaults.
 
 # Rules and guidelines for JavaScript projects
 
