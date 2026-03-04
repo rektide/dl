@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { access, lstat, mkdir, realpath } from "node:fs/promises"
+import { access, appendFile, lstat, mkdir, realpath } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { pathToFileURL } from "node:url"
@@ -394,6 +394,8 @@ async function run(ctx?: DlCommandContext) {
 		for (const input of inputs) {
 			try {
 				const resolved = await resolveRepository(input)
+				const archlistPath = join(homedir(), "archlist")
+				await appendFile(archlistPath, `${resolved.cloneUrl}\n`)
 				const archiveDestination = join(archiveRoot, resolved.namespacePath)
 				const wikiDestination = join(wikiRoot, resolved.namespacePath)
 
