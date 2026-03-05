@@ -20,6 +20,7 @@ interface ParsedArgs {
 	noLogCache: boolean
 	doArchive: boolean
 	doWiki: boolean
+	doArchlist: boolean
 }
 
 interface ResolvedRepo {
@@ -46,13 +47,19 @@ function parseArgs(argv: string[]): ParsedArgs {
 	const noLogCache = tokens.includes("--no-log-cache")
 	const hasArchiveFlag = tokens.includes("--archive")
 	const hasWikiFlag = tokens.includes("--wiki")
+	const hasArchlistFlag = tokens.includes("--archlist")
+
+	// ADR: Action flags (archive, wiki, archlist) are all on by default.
+	// If any action flag is explicitly set, only those explicitly-set actions run.
 	let doArchive = true
 	let doWiki = true
-	if (hasArchiveFlag || hasWikiFlag) {
+	let doArchlist = true
+	if (hasArchiveFlag || hasWikiFlag || hasArchlistFlag) {
 		doArchive = hasArchiveFlag
 		doWiki = hasWikiFlag
+		doArchlist = hasArchlistFlag
 	}
-	return { inputs, consumeDexportOutput, noLogCache, doArchive, doWiki }
+	return { inputs, consumeDexportOutput, noLogCache, doArchive, doWiki, doArchlist }
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -379,7 +386,7 @@ async function cloneOrUpdate(
 
 async function run(ctx?: DlCommandContext) {
 	try {
-		const { inputs, consumeDexportOutput, noLogCache, doArchive, doWiki } =
+		const { inputs, consumeDexportOutput, noLogCache, doArchive, doWiki, doArchlist } =
 			parseArgs(process.argv.slice(2))
 		if (inputs.length === 0) {
 			console.error(
@@ -394,8 +401,10 @@ async function run(ctx?: DlCommandContext) {
 		for (const input of inputs) {
 			try {
 				const resolved = await resolveRepository(input)
-				const archlistPath = join(homedir(), "archlist")
-				await appendFile(archlistPath, `${resolved.cloneUrl}\n`)
+				if (doArchlist) {
+					const archlistPath = join(homedir(), "archlist")
+					await appendFile(archlistPath, `${resolved.cloneUrl}\n`)
+				}
 				const archiveDestination = join(archiveRoot, resolved.namespacePath)
 				const wikiDestination = join(wikiRoot, resolved.namespacePath)
 
@@ -522,6 +531,11 @@ export default define({
 			type: "boolean",
 			default: false,
 			description: "Only update wiki (disables archive unless --archive also set)",
+		},
+		archlist: {
+			type: "boolean",
+			default: false,
+			description: "Append resolved repository URLs to ~/archlist",
 		},
 	},
 	run,
