@@ -164,8 +164,8 @@ Create beads tickets for each migration phase and annotate this document with ti
 
 ## Ticket Mapping
 
-- Phase 1: Split dl process into archive and wiki domain modules (`rekon-386`)
-- Phase 2: Add roots and repo Gunshi plugins (`rekon-vnc`)
-- Phase 3: Add archive wiki and archlist Gunshi plugins (`rekon-9ld`)
-- Phase 4: Normalize command wiring to thin orchestration (`rekon-1dn`)
-- Phase 5: Add decomposition tests and extension docs (`rekon-xlj`)
+- Phase 1: Split dl process into archive and wiki domain modules (`rekon-gunshi-domain-split`)
+- Phase 2: Add roots and repo Gunshi plugins (`rekon-gunshi-roots-repo-plugin`)
+- Phase 3: Add archive wiki and archlist Gunshi plugins (`rekon-gunshi-capability-plugins`)
+- Phase 4: Normalize command wiring to thin orchestration (`rekon-gunshi-thin-command-wiring`)
+- Phase 5: Add decomposition tests and extension docs (`rekon-gunshi-tests-docs`)
