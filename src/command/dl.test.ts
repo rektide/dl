@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { parseRepositoryInput } from './dl.ts'
+import { parseRepositoryInput } from '../dl/repository.ts'
 
 describe('parseRepositoryInput', () => {
   test.each([
