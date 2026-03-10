@@ -1,11 +1,13 @@
-import { access, appendFile, lstat, mkdir } from "node:fs/promises"
+import { access, appendFile, lstat } from "node:fs/promises"
 import { homedir } from "node:os"
-import { dirname, join } from "node:path"
+import { join } from "node:path"
 import { x } from "tinyexec"
+import { cloneOrUpdate } from "../archive/git.ts"
+import { syncArchive } from "../archive/sync.ts"
 import {
 	linkSpecificProject,
 } from "../repo/link.ts"
-import { normalizeCloneUrl, resolveRepository } from "./repository.ts"
+import { resolveRepository } from "./repository.ts"
 import type { DestinationRoots, ProcessInputOptions } from "./types.ts"
 
 async function exists(path: string): Promise<boolean> {
@@ -26,19 +28,6 @@ async function isDirectory(path: string): Promise<boolean> {
 	}
 }
 
-async function trackMainBookmark(destination: string): Promise<void> {
-	const result = await x("git", ["remote"], { nodeOptions: { cwd: destination } })
-	const remotes = result.stdout.trim().split("\n").filter(Boolean)
-	for (const remote of remotes) {
-		try {
-			await x("jj", ["bookmark", "track", `main@${remote}`], {
-				throwOnError: true,
-				nodeOptions: { cwd: destination, stdio: "inherit" },
-			})
-		} catch {}
-	}
-}
-
 function runDetached(command: string, args: string[], cwd: string): void {
 	const proc = x(command, args, {
 		persist: true,
@@ -49,33 +38,6 @@ function runDetached(command: string, args: string[], cwd: string): void {
 		},
 	})
 	proc.process?.unref()
-}
-
-async function cloneOrUpdate(
-	remoteUrl: string,
-	destination: string,
-): Promise<void> {
-	const normalizedRemoteUrl = normalizeCloneUrl(remoteUrl)
-	const gitDir = join(destination, ".git")
-	if (await exists(gitDir)) {
-		await x("git", ["-C", destination, "pull", "--ff-only"], {
-			throwOnError: true,
-			nodeOptions: { stdio: "inherit" },
-		})
-		return
-	}
-
-	if (await exists(destination)) {
-		throw new Error(
-			`Destination exists and is not a git checkout: ${destination}`,
-		)
-	}
-
-	await mkdir(dirname(destination), { recursive: true })
-	await x("git", ["clone", normalizedRemoteUrl, destination], {
-		throwOnError: true,
-		nodeOptions: { stdio: "inherit" },
-	})
 }
 
 export async function processInput(
@@ -90,19 +52,10 @@ export async function processInput(
 			await appendFile(archlistPath, `${resolved.cloneUrl}\n`)
 		}
 
-		const archiveDestination = join(roots.archiveRoot, resolved.namespacePath)
 		const wikiDestination = join(roots.wikiRoot, resolved.namespacePath)
 
 		if (options.doArchive) {
-			console.log(`archive: ${archiveDestination}`)
-			await cloneOrUpdate(resolved.cloneUrl, archiveDestination)
-			if (!(await exists(join(archiveDestination, ".jj")))) {
-				await x("jj", ["git", "init"], {
-					throwOnError: true,
-					nodeOptions: { cwd: archiveDestination, stdio: "inherit" },
-				})
-				await trackMainBookmark(archiveDestination)
-			}
+			await syncArchive(resolved, roots)
 		}
 
 		if (options.doWiki) {
