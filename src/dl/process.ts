@@ -26,41 +26,15 @@ async function isDirectory(path: string): Promise<boolean> {
 	}
 }
 
-async function runCommand(
-	command: string,
-	args: string[],
-	cwd?: string,
-): Promise<void> {
-	await x(command, args, {
-		throwOnError: true,
-		nodeOptions: {
-			cwd,
-			stdio: "inherit",
-		},
-	})
-}
-
-async function getCommandOutput(
-	command: string,
-	args: string[],
-	cwd: string,
-): Promise<string> {
-	const result = await x(command, args, {
-		nodeOptions: { cwd },
-	})
-	return result.stdout.trim()
-}
-
 async function trackMainBookmark(destination: string): Promise<void> {
-	const remotesOutput = await getCommandOutput("git", ["remote"], destination)
-	const remotes = remotesOutput.split("\n").filter(Boolean)
+	const result = await x("git", ["remote"], { nodeOptions: { cwd: destination } })
+	const remotes = result.stdout.trim().split("\n").filter(Boolean)
 	for (const remote of remotes) {
 		try {
-			await runCommand(
-				"jj",
-				["bookmark", "track", `main@${remote}`],
-				destination,
-			)
+			await x("jj", ["bookmark", "track", `main@${remote}`], {
+				throwOnError: true,
+				nodeOptions: { cwd: destination, stdio: "inherit" },
+			})
 		} catch {}
 	}
 }
@@ -84,7 +58,10 @@ async function cloneOrUpdate(
 	const normalizedRemoteUrl = normalizeCloneUrl(remoteUrl)
 	const gitDir = join(destination, ".git")
 	if (await exists(gitDir)) {
-		await runCommand("git", ["-C", destination, "pull", "--ff-only"])
+		await x("git", ["-C", destination, "pull", "--ff-only"], {
+			throwOnError: true,
+			nodeOptions: { stdio: "inherit" },
+		})
 		return
 	}
 
@@ -95,7 +72,10 @@ async function cloneOrUpdate(
 	}
 
 	await mkdir(dirname(destination), { recursive: true })
-	await runCommand("git", ["clone", normalizedRemoteUrl, destination])
+	await x("git", ["clone", normalizedRemoteUrl, destination], {
+		throwOnError: true,
+		nodeOptions: { stdio: "inherit" },
+	})
 }
 
 export async function processInput(
@@ -117,7 +97,10 @@ export async function processInput(
 			console.log(`archive: ${archiveDestination}`)
 			await cloneOrUpdate(resolved.cloneUrl, archiveDestination)
 			if (!(await exists(join(archiveDestination, ".jj")))) {
-				await runCommand("jj", ["git", "init"], archiveDestination)
+				await x("jj", ["git", "init"], {
+					throwOnError: true,
+					nodeOptions: { cwd: archiveDestination, stdio: "inherit" },
+				})
 				await trackMainBookmark(archiveDestination)
 			}
 		}
@@ -156,11 +139,10 @@ export async function processInput(
 					} else {
 						try {
 							console.log(`dexport: running ${deepwikiUrl}`)
-							await runCommand(
-								dexportPath,
-								["--output", roots.wikiRoot, "--strip-host", deepwikiUrl],
-								homedir(),
-							)
+							await x(dexportPath, ["--output", roots.wikiRoot, "--strip-host", deepwikiUrl], {
+								throwOnError: true,
+								nodeOptions: { cwd: homedir(), stdio: "inherit" },
+							})
 						} catch (error) {
 							const message =
 								error instanceof Error ? error.message : String(error)
