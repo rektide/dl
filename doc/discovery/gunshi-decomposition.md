@@ -161,3 +161,11 @@ Risk: command/plugin coupling gets opaque
 ## Immediate Next Step
 
 Create beads tickets for each migration phase and annotate this document with ticket IDs.
+
+## Ticket Mapping
+
+- Phase 1: Split dl process into archive and wiki domain modules (`rekon-386`)
+- Phase 2: Add roots and repo Gunshi plugins (`rekon-vnc`)
+- Phase 3: Add archive wiki and archlist Gunshi plugins (`rekon-9ld`)
+- Phase 4: Normalize command wiring to thin orchestration (`rekon-1dn`)
+- Phase 5: Add decomposition tests and extension docs (`rekon-xlj`)
