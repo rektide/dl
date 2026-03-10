@@ -153,6 +153,11 @@ Risk: command/plugin coupling gets opaque
 - Which global flags should be plugin-provided versus command-local?
 - Do we want a typed `DlContext` for orchestration only, or rely entirely on plugin extensions?
 
+## Future Work
+
+- Adopt the Gunshi author's logger plugin for CLI logging once the decomposition settles.
+- This is intentionally deferred so we do not mix logging migration with the structural refactor.
+
 ## Immediate Next Step
 
 Create beads tickets for each migration phase and annotate this document with ticket IDs.
