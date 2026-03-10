@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { access, appendFile, lstat, mkdir, realpath } from "node:fs/promises"
+import { access, appendFile, lstat, mkdir, open, realpath, stat, watch } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { pathToFileURL } from "node:url"
@@ -16,6 +16,7 @@ const COMMAND_NAME = "dl"
 
 interface ParsedArgs {
 	inputs: string[]
+	watch: boolean
 	consumeDexportOutput: boolean
 	noLogCache: boolean
 	doArchive: boolean
@@ -44,6 +45,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 	const inputs = tokens.filter((token) => !token.startsWith("-"))
 	const consumeDexportOutput =
 		tokens.includes("--consume-dexport-output") || tokens.includes("-c")
+	const watch = tokens.includes("--watch")
 	const noLogCache = tokens.includes("--no-log-cache")
 	const hasArchiveFlag = tokens.includes("--archive")
 	const hasWikiFlag = tokens.includes("--wiki")
@@ -59,7 +61,15 @@ function parseArgs(argv: string[]): ParsedArgs {
 		doWiki = hasWikiFlag
 		doArchlist = hasArchlistFlag
 	}
-	return { inputs, consumeDexportOutput, noLogCache, doArchive, doWiki, doArchlist }
+	return {
+		inputs,
+		watch,
+		consumeDexportOutput,
+		noLogCache,
+		doArchive,
+		doWiki,
+		doArchlist,
+	}
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -384,117 +394,288 @@ async function cloneOrUpdate(
 	await runCommand("git", ["clone", normalizedRemoteUrl, destination])
 }
 
+interface ProcessInputOptions {
+	consumeDexportOutput: boolean
+	noLogCache: boolean
+	doArchive: boolean
+	doWiki: boolean
+	doArchlist: boolean
+}
+
+interface DestinationRoots {
+	archiveRoot: string
+	wikiRoot: string
+}
+
+async function processInput(
+	input: string,
+	roots: DestinationRoots,
+	options: ProcessInputOptions,
+): Promise<boolean> {
+	try {
+		const resolved = await resolveRepository(input)
+		if (options.doArchlist) {
+			const archlistPath = join(homedir(), "archlist")
+			await appendFile(archlistPath, `${resolved.cloneUrl}\n`)
+		}
+
+		const archiveDestination = join(roots.archiveRoot, resolved.namespacePath)
+		const wikiDestination = join(roots.wikiRoot, resolved.namespacePath)
+
+		if (options.doArchive) {
+			console.log(`archive: ${archiveDestination}`)
+			await cloneOrUpdate(resolved.cloneUrl, archiveDestination)
+			if (!(await exists(join(archiveDestination, ".jj")))) {
+				await runCommand("jj", ["git", "init"], archiveDestination)
+				await trackMainBookmark(archiveDestination)
+			}
+		}
+
+		if (options.doWiki) {
+			console.log(`wiki: ${wikiDestination}`)
+			if (resolved.host === "github.com") {
+				const dexportPath = join(
+					homedir(),
+					"src",
+					"dexport",
+					"src",
+					"cli.ts",
+				)
+				if (await exists(dexportPath)) {
+					const deepwikiUrl = `https://deepwiki.com/${resolved.org}/${resolved.repo}`
+					if (await isDirectory(wikiDestination)) {
+						if (!options.noLogCache) {
+							console.log(
+								`dexport: skipped because ${wikiDestination} already exists`,
+							)
+						}
+					} else if (options.consumeDexportOutput) {
+						try {
+							runDetached(
+								dexportPath,
+								["--output", roots.wikiRoot, "--strip-host", deepwikiUrl],
+								homedir(),
+							)
+							console.log(`dexport: queued ${deepwikiUrl}`)
+						} catch (error) {
+							const message =
+								error instanceof Error ? error.message : String(error)
+							console.warn(`dexport skipped: ${message}`)
+						}
+					} else {
+						try {
+							console.log(`dexport: running ${deepwikiUrl}`)
+							await runCommand(
+								dexportPath,
+								["--output", roots.wikiRoot, "--strip-host", deepwikiUrl],
+								homedir(),
+							)
+						} catch (error) {
+							const message =
+								error instanceof Error ? error.message : String(error)
+							console.warn(`dexport skipped: ${message}`)
+						}
+					}
+				} else {
+					console.warn(`dexport skipped: not found at ${dexportPath}`)
+				}
+			} else {
+				const wikiRemoteUrl = `https://${resolved.host}/${resolved.namespacePath}.wiki.git`
+				try {
+					await cloneOrUpdate(wikiRemoteUrl, wikiDestination)
+				} catch (error) {
+					const message = error instanceof Error ? error.message : String(error)
+					console.warn(`wiki fetch skipped: ${message}`)
+				}
+			}
+		}
+
+		if (options.doArchive && options.doWiki) {
+			const linkErrors = await linkSpecificProject({
+				archiveRoot: roots.archiveRoot,
+				wikiRoot: roots.wikiRoot,
+				namespacePath: resolved.namespacePath,
+				onEvent: (event, useErrorStream = false) => {
+					if (!event.status.startsWith("error")) {
+						return
+					}
+					const line = JSON.stringify(event)
+					if (useErrorStream) {
+						console.error(line)
+						return
+					}
+					console.log(line)
+				},
+			})
+			if (linkErrors) {
+				return true
+			}
+		}
+
+		return false
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error)
+		console.error(message)
+		return true
+	}
+}
+
+function parseAppendedLines(chunk: string): { lines: string[]; remainder: string } {
+	const normalized = chunk.replace(/\r\n/g, "\n")
+	const parts = normalized.split("\n")
+	const remainder = parts.pop() ?? ""
+	const lines = parts.map((line) => line.trim()).filter(Boolean)
+	return { lines, remainder }
+}
+
+async function readAppendedText(
+	filePath: string,
+	position: number,
+): Promise<{ text: string; nextPosition: number }> {
+	const stats = await stat(filePath)
+	if (stats.size <= position) {
+		return { text: "", nextPosition: stats.size }
+	}
+
+	const bytesToRead = stats.size - position
+	const handle = await open(filePath, "r")
+	try {
+		const buffer = Buffer.alloc(bytesToRead)
+		await handle.read(buffer, 0, bytesToRead, position)
+		return { text: buffer.toString("utf8"), nextPosition: stats.size }
+	} finally {
+		await handle.close()
+	}
+}
+
+async function watchArchlist(
+	roots: DestinationRoots,
+	options: ProcessInputOptions,
+): Promise<boolean> {
+	const archlistPath = join(homedir(), "archlist")
+	await appendFile(archlistPath, "")
+
+	let hadError = false
+	let filePosition = (await stat(archlistPath)).size
+	let trailing = ""
+	const queue: string[] = []
+	let processing = false
+
+	const drainQueue = async () => {
+		if (processing) {
+			return
+		}
+		processing = true
+		try {
+			while (queue.length > 0) {
+				const nextInput = queue.shift()
+				if (!nextInput) {
+					continue
+				}
+				hadError =
+					(await processInput(nextInput, roots, options)) || hadError
+			}
+		} finally {
+			processing = false
+		}
+	}
+
+	let readChain = Promise.resolve()
+	const scheduleRead = () => {
+		readChain = readChain
+			.then(async () => {
+				const { text, nextPosition } = await readAppendedText(
+					archlistPath,
+					filePosition,
+				)
+				filePosition = nextPosition
+				if (!text) {
+					return
+				}
+
+				const parsed = parseAppendedLines(`${trailing}${text}`)
+				trailing = parsed.remainder
+				for (const line of parsed.lines) {
+					queue.push(line)
+				}
+				await drainQueue()
+			})
+			.catch((error) => {
+				hadError = true
+				const message = error instanceof Error ? error.message : String(error)
+				console.error(message)
+			})
+	}
+
+	console.log(`watching: ${archlistPath}`)
+	const abortController = new AbortController()
+
+	process.on("SIGINT", () => {
+		abortController.abort()
+	})
+	process.on("SIGTERM", () => {
+		abortController.abort()
+	})
+
+	try {
+		for await (const event of watch(archlistPath, { signal: abortController.signal })) {
+			if (event.eventType !== "change") {
+				continue
+			}
+			scheduleRead()
+		}
+	} catch (error) {
+		if (!(error instanceof Error) || error.name !== "AbortError") {
+			throw error
+		}
+	}
+
+	await readChain
+	return hadError
+}
+
 async function run(ctx?: DlCommandContext) {
 	try {
-		const { inputs, consumeDexportOutput, noLogCache, doArchive, doWiki, doArchlist } =
+		const {
+			inputs,
+			watch,
+			consumeDexportOutput,
+			noLogCache,
+			doArchive,
+			doWiki,
+			doArchlist,
+		} =
 			parseArgs(process.argv.slice(2))
-		if (inputs.length === 0) {
+		if (inputs.length === 0 && !watch) {
 			console.error(
-				"usage: rekon dl <repo-url|org/repo> [repo-url|org/repo ...]",
+				"usage: rekon dl [--watch] <repo-url|org/repo> [repo-url|org/repo ...]",
 			)
 			process.exit(1)
 		}
 
 		const { archiveRoot, wikiRoot } = await resolveDestinationRoots(ctx)
+		const roots = { archiveRoot, wikiRoot }
+
+		const options: ProcessInputOptions = {
+			consumeDexportOutput,
+			noLogCache,
+			doArchive,
+			doWiki,
+			doArchlist,
+		}
+
+		if (watch && options.doArchlist) {
+			console.warn("--watch disables --archlist to avoid feedback loops")
+			options.doArchlist = false
+		}
 
 		let hadError = false
 		for (const input of inputs) {
-			try {
-				const resolved = await resolveRepository(input)
-				if (doArchlist) {
-					const archlistPath = join(homedir(), "archlist")
-					await appendFile(archlistPath, `${resolved.cloneUrl}\n`)
-				}
-				const archiveDestination = join(archiveRoot, resolved.namespacePath)
-				const wikiDestination = join(wikiRoot, resolved.namespacePath)
+			hadError = (await processInput(input, roots, options)) || hadError
+		}
 
-				if (doArchive) {
-					console.log(`archive: ${archiveDestination}`)
-					await cloneOrUpdate(resolved.cloneUrl, archiveDestination)
-					if (!(await exists(join(archiveDestination, ".jj")))) {
-						await runCommand("jj", ["git", "init"], archiveDestination)
-						await trackMainBookmark(archiveDestination)
-					}
-				}
-
-				if (doWiki) {
-					console.log(`wiki: ${wikiDestination}`)
-					if (resolved.host === "github.com") {
-						const dexportPath = join(
-							homedir(),
-							"src",
-							"dexport",
-							"src",
-							"cli.ts",
-						)
-						if (await exists(dexportPath)) {
-							const deepwikiUrl = `https://deepwiki.com/${resolved.org}/${resolved.repo}`
-							if (await isDirectory(wikiDestination)) {
-								if (!noLogCache) {
-									console.log(
-										`dexport: skipped because ${wikiDestination} already exists`,
-									)
-								}
-							} else if (consumeDexportOutput) {
-								try {
-									runDetached(dexportPath, ["--output", wikiRoot, "--strip-host", deepwikiUrl], homedir())
-									console.log(`dexport: queued ${deepwikiUrl}`)
-								} catch (error) {
-									const message =
-										error instanceof Error ? error.message : String(error)
-									console.warn(`dexport skipped: ${message}`)
-								}
-							} else {
-								try {
-									console.log(`dexport: running ${deepwikiUrl}`)
-									await runCommand(dexportPath, ["--output", wikiRoot, "--strip-host", deepwikiUrl], homedir())
-								} catch (error) {
-									const message =
-										error instanceof Error ? error.message : String(error)
-									console.warn(`dexport skipped: ${message}`)
-								}
-							}
-						} else {
-							console.warn(`dexport skipped: not found at ${dexportPath}`)
-						}
-					} else {
-						const wikiRemoteUrl = `https://${resolved.host}/${resolved.namespacePath}.wiki.git`
-						try {
-							await cloneOrUpdate(wikiRemoteUrl, wikiDestination)
-						} catch (error) {
-							const message =
-								error instanceof Error ? error.message : String(error)
-							console.warn(`wiki fetch skipped: ${message}`)
-						}
-					}
-				}
-
-				if (doArchive && doWiki) {
-					const linkErrors = await linkSpecificProject({
-						archiveRoot,
-						wikiRoot,
-						namespacePath: resolved.namespacePath,
-						onEvent: (event, useErrorStream = false) => {
-							if (!event.status.startsWith("error")) {
-								return
-							}
-							const line = JSON.stringify(event)
-							if (useErrorStream) {
-								console.error(line)
-								return
-							}
-							console.log(line)
-						},
-					})
-					if (linkErrors) {
-						hadError = true
-					}
-				}
-			} catch (error) {
-				hadError = true
-				const message = error instanceof Error ? error.message : String(error)
-				console.error(message)
-			}
+		if (watch) {
+			hadError = (await watchArchlist(roots, options)) || hadError
 		}
 
 		if (hadError) {
@@ -536,6 +717,11 @@ export default define({
 			type: "boolean",
 			default: false,
 			description: "Append resolved repository URLs to ~/archlist",
+		},
+		watch: {
+			type: "boolean",
+			default: false,
+			description: "Watch ~/archlist and process appended entries serially",
 		},
 	},
 	run,
