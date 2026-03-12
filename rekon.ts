@@ -8,6 +8,7 @@ import projectLinkCommand from './src/command/project-link.ts'
 import projectFilesCommand from './src/command/project-files.ts'
 import completion from '@gunshi/plugin-completion'
 import { c12 } from 'gunshi-c12'
+import { createRootsPlugin } from './src/plugin/roots.ts'
 
 const mainCommand = define({
 	name: 'rekon',
@@ -32,6 +33,7 @@ await cli(process.argv.slice(2), mainCommand, {
 	},
 	plugins: [
 		completion(),
-		c12({ name: 'rekon' })
+		c12({ name: 'rekon' }),
+		createRootsPlugin()
 	]
 })

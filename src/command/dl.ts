@@ -8,11 +8,19 @@ import { processInput } from "../dl/process.ts"
 import type { ProcessInputOptions } from "../dl/types.ts"
 import { watchArchlist } from "../dl/watch.ts"
 import {
-	resolveDestinationRoots,
+	createRootsPlugin,
+	ROOTS_PLUGIN_ID,
+	type RootsExtension,
+} from "../plugin/roots.ts"
+import {
 	type LinkContext,
 } from "../repo/link.ts"
 
-interface DlCommandContext extends LinkContext {}
+interface DlCommandContext extends LinkContext {
+	extensions?: LinkContext["extensions"] & {
+		[ROOTS_PLUGIN_ID]?: RootsExtension
+	}
+}
 
 async function run(ctx?: DlCommandContext) {
 	try {
@@ -33,7 +41,11 @@ async function run(ctx?: DlCommandContext) {
 			process.exit(1)
 		}
 
-		const roots = await resolveDestinationRoots(ctx)
+		const rootsExtension = ctx?.extensions?.[ROOTS_PLUGIN_ID]
+		if (!rootsExtension) {
+			throw new Error("dl: roots plugin extension is not available")
+		}
+		const roots = await rootsExtension.resolveRoots()
 		const options: ProcessInputOptions = {
 			consumeDexportOutput,
 			noLogCache,
@@ -112,7 +124,7 @@ void (async () => {
 		const module = await import("./dl.ts")
 		await cli(process.argv.slice(2), module.default, {
 			name: DL_COMMAND_NAME,
-			plugins: [c12({ name: "rekon" })],
+			plugins: [c12({ name: "rekon" }), createRootsPlugin()],
 		})
 	}
 })()
