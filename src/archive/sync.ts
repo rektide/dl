@@ -1,7 +1,7 @@
 import { join } from "node:path"
 import type { DestinationRoots, ResolvedRepo } from "../dl/types.ts"
-import { cloneOrUpdate } from "./git.ts"
-import { ensureJjInitialized } from "./jj.ts"
+import { cloneOrUpdate } from "../git/clone.ts"
+import { ensureJjInitialized } from "../git/jj.ts"
 
 export async function syncArchive(
 	resolved: ResolvedRepo,

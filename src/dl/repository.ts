@@ -13,17 +13,6 @@ async function urlExists(url: string): Promise<boolean> {
 	}
 }
 
-export function normalizeCloneUrl(remoteUrl: string): string {
-	const trimmed = remoteUrl.trim()
-	if (/^[a-z]+:\/\//i.test(trimmed) || trimmed.startsWith("git@")) {
-		return trimmed
-	}
-
-	const withoutLeadingSlashes = trimmed.replace(/^\/+/, "")
-	const withScheme = `https://${withoutLeadingSlashes}`
-	return withScheme.endsWith(".git") ? withScheme : `${withScheme}.git`
-}
-
 function buildRepoPathCandidates(
 	host: string | undefined,
 	segments: string[],

@@ -1,6 +1,7 @@
 import { access } from "node:fs/promises"
 import { join } from "node:path"
 import { x } from "tinyexec"
+import { listRemotes } from "./remote.ts"
 
 async function exists(path: string): Promise<boolean> {
 	try {
@@ -12,8 +13,7 @@ async function exists(path: string): Promise<boolean> {
 }
 
 async function trackMainBookmark(destination: string): Promise<void> {
-	const result = await x("git", ["remote"], { nodeOptions: { cwd: destination } })
-	const remotes = result.stdout.trim().split("\n").filter(Boolean)
+	const remotes = await listRemotes(destination)
 	for (const remote of remotes) {
 		try {
 			await x("jj", ["bookmark", "track", `main@${remote}`], {

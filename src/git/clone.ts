@@ -1,7 +1,7 @@
 import { access, mkdir } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { x } from "tinyexec"
-import { normalizeCloneUrl } from "../dl/repository.ts"
+import { normalizeCloneUrl } from "./remote.ts"
 
 async function exists(path: string): Promise<boolean> {
 	try {
