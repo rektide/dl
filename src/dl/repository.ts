@@ -202,11 +202,15 @@ export async function resolveRepository(input: string): Promise<ResolvedRepo> {
 			const repo = pathParts[pathParts.length - 1]
 
 			return {
+				input,
 				host,
 				namespacePath,
 				org,
 				repo,
 				cloneUrl: `https://${host}/${namespacePath}.git`,
+				repoUrl: `https://${host}/${namespacePath}`,
+				deepwikiUrl: `https://deepwiki.com/${org}/${repo}`,
+				wikiCloneUrl: `https://${host}/${namespacePath}.wiki.git`,
 			}
 		}
 	}

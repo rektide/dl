@@ -5,14 +5,15 @@ import {
 } from "../dl/repository.ts"
 import type {
 	ParsedRepositoryInput,
-	ResolvedRepo,
+	RepoContext,
 } from "../dl/types.ts"
 
 export const REPO_PLUGIN_ID = "rekon:repo" as const
 
 export interface RepoExtension {
 	parse: (input: string) => ParsedRepositoryInput
-	resolve: (input: string) => Promise<ResolvedRepo>
+	resolveContext: (input: string) => Promise<RepoContext>
+	resolve: (input: string) => Promise<RepoContext>
 }
 
 export function createRepoPlugin() {
@@ -21,6 +22,7 @@ export function createRepoPlugin() {
 		name: "Rekon Repository",
 		extension: (): RepoExtension => ({
 			parse: (input) => parseRepositoryInput(input),
+			resolveContext: (input) => resolveRepository(input),
 			resolve: (input) => resolveRepository(input),
 		}),
 	})

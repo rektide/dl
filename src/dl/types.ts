@@ -8,13 +8,19 @@ export interface ParsedArgs {
 	doArchlist: boolean
 }
 
-export interface ResolvedRepo {
+export interface RepoContext {
+	input: string
 	host: string
 	namespacePath: string
 	org: string
 	repo: string
 	cloneUrl: string
+	repoUrl: string
+	deepwikiUrl: string
+	wikiCloneUrl: string
 }
+
+export type ResolvedRepo = RepoContext
 
 export interface ParsedRepositoryInput {
 	host?: string

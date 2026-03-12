@@ -2,7 +2,6 @@ import type { DestinationRoots, ProcessInputOptions, ResolvedRepo } from "../../
 import { resolveDexportPath } from "./path.ts"
 import { runDexport, runDexportDetached } from "./launch.ts"
 import { chooseDexportPlan } from "./policy.ts"
-import { toDeepwikiUrl } from "./url.ts"
 
 export async function syncGithubWiki(
 	resolved: ResolvedRepo,
@@ -16,7 +15,7 @@ export async function syncGithubWiki(
 		return
 	}
 
-	const deepwikiUrl = toDeepwikiUrl(resolved.org, resolved.repo)
+	const deepwikiUrl = resolved.deepwikiUrl
 	const plan = await chooseDexportPlan(
 		wikiDestination,
 		options.consumeDexportOutput,

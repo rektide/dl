@@ -5,9 +5,8 @@ export async function syncGitWiki(
 	resolved: ResolvedRepo,
 	wikiDestination: string,
 ): Promise<void> {
-	const wikiRemoteUrl = `https://${resolved.host}/${resolved.namespacePath}.wiki.git`
 	try {
-		await cloneOrUpdate(wikiRemoteUrl, wikiDestination)
+		await cloneOrUpdate(resolved.wikiCloneUrl, wikiDestination)
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
 		console.warn(`wiki fetch skipped: ${message}`)
