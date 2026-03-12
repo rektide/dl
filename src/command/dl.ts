@@ -4,9 +4,14 @@ import { pathToFileURL } from "node:url"
 import { define, cli } from "gunshi"
 import { c12 } from "gunshi-c12"
 import { parseArgs, DL_COMMAND_NAME } from "../dl/args.ts"
-import { processInput } from "../dl/process.ts"
+import { processResolvedInput } from "../dl/process.ts"
 import type { ProcessInputOptions } from "../dl/types.ts"
 import { watchArchlist } from "../dl/watch.ts"
+import {
+	createRepoPlugin,
+	REPO_PLUGIN_ID,
+	type RepoExtension,
+} from "../plugin/repo.ts"
 import {
 	createRootsPlugin,
 	ROOTS_PLUGIN_ID,
@@ -19,6 +24,7 @@ import {
 interface DlCommandContext extends LinkContext {
 	extensions?: LinkContext["extensions"] & {
 		[ROOTS_PLUGIN_ID]?: RootsExtension
+		[REPO_PLUGIN_ID]?: RepoExtension
 	}
 }
 
@@ -42,8 +48,12 @@ async function run(ctx?: DlCommandContext) {
 		}
 
 		const rootsExtension = ctx?.extensions?.[ROOTS_PLUGIN_ID]
+		const repoExtension = ctx?.extensions?.[REPO_PLUGIN_ID]
 		if (!rootsExtension) {
 			throw new Error("dl: roots plugin extension is not available")
+		}
+		if (!repoExtension) {
+			throw new Error("dl: repo plugin extension is not available")
 		}
 		const roots = await rootsExtension.resolveRoots()
 		const options: ProcessInputOptions = {
@@ -61,7 +71,15 @@ async function run(ctx?: DlCommandContext) {
 
 		let hadError = false
 		for (const input of inputs) {
-			hadError = (await processInput(input, roots, options)) || hadError
+			try {
+				const resolved = await repoExtension.resolve(input)
+				hadError =
+					(await processResolvedInput(resolved, roots, options)) || hadError
+			} catch (error) {
+				hadError = true
+				const message = error instanceof Error ? error.message : String(error)
+				console.error(message)
+			}
 		}
 
 		if (watch) {
@@ -124,7 +142,7 @@ void (async () => {
 		const module = await import("./dl.ts")
 		await cli(process.argv.slice(2), module.default, {
 			name: DL_COMMAND_NAME,
-			plugins: [c12({ name: "rekon" }), createRootsPlugin()],
+			plugins: [c12({ name: "rekon" }), createRootsPlugin(), createRepoPlugin()],
 		})
 	}
 })()

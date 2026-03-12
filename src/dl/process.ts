@@ -7,15 +7,18 @@ import {
 	linkSpecificProject,
 } from "../repo/link.ts"
 import { resolveRepository } from "./repository.ts"
-import type { DestinationRoots, ProcessInputOptions } from "./types.ts"
+import type {
+	DestinationRoots,
+	ProcessInputOptions,
+	ResolvedRepo,
+} from "./types.ts"
 
-export async function processInput(
-	input: string,
+export async function processResolvedInput(
+	resolved: ResolvedRepo,
 	roots: DestinationRoots,
 	options: ProcessInputOptions,
 ): Promise<boolean> {
 	try {
-		const resolved = await resolveRepository(input)
 		if (options.doArchlist) {
 			const archlistPath = join(homedir(), "archlist")
 			await appendFile(archlistPath, `${resolved.cloneUrl}\n`)
@@ -52,6 +55,21 @@ export async function processInput(
 		}
 
 		return false
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error)
+		console.error(message)
+		return true
+	}
+}
+
+export async function processInput(
+	input: string,
+	roots: DestinationRoots,
+	options: ProcessInputOptions,
+): Promise<boolean> {
+	try {
+		const resolved = await resolveRepository(input)
+		return await processResolvedInput(resolved, roots, options)
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
 		console.error(message)
