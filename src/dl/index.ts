@@ -4,18 +4,18 @@ import { join } from "node:path"
 import { syncArchive } from "../archive/sync.ts"
 import { defaultGitOps } from "../git/default.ts"
 import type { GitOps } from "../git/types.ts"
-import { syncWiki } from "../wiki/sync.ts"
 import {
 	linkSpecificProject,
 } from "../repo/link.ts"
-import { resolveRepository } from "./repository.ts"
+import type { RepoExtension } from "../plugin/repo.ts"
+import { syncWiki } from "../wiki/sync.ts"
 import type {
 	DestinationRoots,
 	ProcessInputOptions,
 	RepoContext,
 } from "./types.ts"
 
-export async function processResolvedInput(
+export async function processRepoContext(
 	resolved: RepoContext,
 	roots: DestinationRoots,
 	options: ProcessInputOptions,
@@ -65,18 +65,20 @@ export async function processResolvedInput(
 	}
 }
 
-export async function processInput(
-	input: string,
+export function createProcessEntry(
+	repoExtension: RepoExtension,
 	roots: DestinationRoots,
 	options: ProcessInputOptions,
 	gitOps: GitOps = defaultGitOps,
-): Promise<boolean> {
-	try {
-		const resolved = await resolveRepository(input)
-		return await processResolvedInput(resolved, roots, options, gitOps)
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error)
-		console.error(message)
-		return true
+): (input: string) => Promise<boolean> {
+	return async (input: string) => {
+		try {
+			const resolved = await repoExtension.resolve(input)
+			return await processRepoContext(resolved, roots, options, gitOps)
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			console.error(message)
+			return true
+		}
 	}
 }

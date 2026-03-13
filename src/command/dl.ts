@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url"
 import { define, cli } from "gunshi"
 import { c12 } from "gunshi-c12"
 import { parseArgs, DL_COMMAND_NAME } from "../dl/args.ts"
-import { processResolvedInput } from "../dl/process.ts"
+import { createProcessEntry } from "../dl/index.ts"
 import type { ProcessInputOptions } from "../dl/types.ts"
 import { watchArchlist } from "../dl/watch.ts"
 import {
@@ -80,37 +80,18 @@ async function run(ctx?: DlCommandContext) {
 		}
 
 		let hadError = false
+		const processEntry = createProcessEntry(
+			repoExtension,
+			roots,
+			options,
+			gitExtension,
+		)
 		for (const input of inputs) {
-			try {
-				const resolved = await repoExtension.resolve(input)
-				hadError =
-					(await processResolvedInput(resolved, roots, options, gitExtension)) ||
-					hadError
-			} catch (error) {
-				hadError = true
-				const message = error instanceof Error ? error.message : String(error)
-				console.error(message)
-			}
+			hadError = (await processEntry(input)) || hadError
 		}
 
 		if (watch) {
-			hadError =
-				(await watchArchlist(roots, options, async (input) => {
-					try {
-						const resolved = await repoExtension.resolve(input)
-						return await processResolvedInput(
-							resolved,
-							roots,
-							options,
-							gitExtension,
-						)
-					} catch (error) {
-						const message =
-							error instanceof Error ? error.message : String(error)
-						console.error(message)
-						return true
-					}
-				})) || hadError
+			hadError = (await watchArchlist(processEntry)) || hadError
 		}
 
 		if (hadError) {

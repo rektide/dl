@@ -1,8 +1,6 @@
 import { appendFile, open, stat, watch } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { processInput } from "./process.ts"
-import type { DestinationRoots, ProcessInputOptions } from "./types.ts"
 
 function parseAppendedLines(chunk: string): { lines: string[]; remainder: string } {
 	const normalized = chunk.replace(/\r\n/g, "\n")
@@ -33,10 +31,7 @@ async function readAppendedText(
 }
 
 export async function watchArchlist(
-	roots: DestinationRoots,
-	options: ProcessInputOptions,
-	processEntry: (input: string) => Promise<boolean> = (input) =>
-		processInput(input, roots, options),
+	processEntry: (input: string) => Promise<boolean>,
 ): Promise<boolean> {
 	const archlistPath = join(homedir(), "archlist")
 	await appendFile(archlistPath, "")
