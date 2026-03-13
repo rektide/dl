@@ -2,6 +2,8 @@ import { appendFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { syncArchive } from "../archive/sync.ts"
+import { defaultGitOps } from "../git/default.ts"
+import type { GitOps } from "../git/types.ts"
 import { syncWiki } from "../wiki/sync.ts"
 import {
 	linkSpecificProject,
@@ -17,6 +19,7 @@ export async function processResolvedInput(
 	resolved: RepoContext,
 	roots: DestinationRoots,
 	options: ProcessInputOptions,
+	gitOps: GitOps = defaultGitOps,
 ): Promise<boolean> {
 	try {
 		if (options.doArchlist) {
@@ -25,11 +28,11 @@ export async function processResolvedInput(
 		}
 
 		if (options.doArchive) {
-			await syncArchive(resolved, roots)
+			await syncArchive(resolved, roots, gitOps)
 		}
 
 		if (options.doWiki) {
-			await syncWiki(resolved, roots, options)
+			await syncWiki(resolved, roots, options, gitOps)
 		}
 
 		if (options.doArchive && options.doWiki) {
@@ -66,10 +69,11 @@ export async function processInput(
 	input: string,
 	roots: DestinationRoots,
 	options: ProcessInputOptions,
+	gitOps: GitOps = defaultGitOps,
 ): Promise<boolean> {
 	try {
 		const resolved = await resolveRepository(input)
-		return await processResolvedInput(resolved, roots, options)
+		return await processResolvedInput(resolved, roots, options, gitOps)
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
 		console.error(message)

@@ -35,6 +35,8 @@ async function readAppendedText(
 export async function watchArchlist(
 	roots: DestinationRoots,
 	options: ProcessInputOptions,
+	processEntry: (input: string) => Promise<boolean> = (input) =>
+		processInput(input, roots, options),
 ): Promise<boolean> {
 	const archlistPath = join(homedir(), "archlist")
 	await appendFile(archlistPath, "")
@@ -56,8 +58,7 @@ export async function watchArchlist(
 				if (!nextInput) {
 					continue
 				}
-				hadError =
-					(await processInput(nextInput, roots, options)) || hadError
+				hadError = (await processEntry(nextInput)) || hadError
 			}
 		} finally {
 			processing = false

@@ -1,5 +1,7 @@
 import { join } from "node:path"
 import type { DestinationRoots, ProcessInputOptions, RepoContext } from "../dl/types.ts"
+import { defaultGitOps } from "../git/default.ts"
+import type { GitOps } from "../git/types.ts"
 import { syncGithubWiki } from "./dexport/sync.ts"
 import { syncGitWiki } from "./git.ts"
 
@@ -7,6 +9,7 @@ export async function syncWiki(
 	resolved: RepoContext,
 	roots: DestinationRoots,
 	options: ProcessInputOptions,
+	gitOps: GitOps = defaultGitOps,
 ): Promise<void> {
 	const wikiDestination = join(roots.wikiRoot, resolved.namespacePath)
 	console.log(`wiki: ${wikiDestination}`)
@@ -16,5 +19,5 @@ export async function syncWiki(
 		return
 	}
 
-	await syncGitWiki(resolved, wikiDestination)
+	await syncGitWiki(resolved, wikiDestination, gitOps)
 }

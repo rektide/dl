@@ -8,6 +8,11 @@ import { processResolvedInput } from "../dl/process.ts"
 import type { ProcessInputOptions } from "../dl/types.ts"
 import { watchArchlist } from "../dl/watch.ts"
 import {
+	createGitPlugin,
+	GIT_PLUGIN_ID,
+	type GitExtension,
+} from "../plugin/git.ts"
+import {
 	createRepoPlugin,
 	REPO_PLUGIN_ID,
 	type RepoExtension,
@@ -25,6 +30,7 @@ interface DlCommandContext extends LinkContext {
 	extensions?: LinkContext["extensions"] & {
 		[ROOTS_PLUGIN_ID]?: RootsExtension
 		[REPO_PLUGIN_ID]?: RepoExtension
+		[GIT_PLUGIN_ID]?: GitExtension
 	}
 }
 
@@ -49,11 +55,15 @@ async function run(ctx?: DlCommandContext) {
 
 		const rootsExtension = ctx?.extensions?.[ROOTS_PLUGIN_ID]
 		const repoExtension = ctx?.extensions?.[REPO_PLUGIN_ID]
+		const gitExtension = ctx?.extensions?.[GIT_PLUGIN_ID]
 		if (!rootsExtension) {
 			throw new Error("dl: roots plugin extension is not available")
 		}
 		if (!repoExtension) {
 			throw new Error("dl: repo plugin extension is not available")
+		}
+		if (!gitExtension) {
+			throw new Error("dl: git plugin extension is not available")
 		}
 		const roots = await rootsExtension.resolveRoots()
 		const options: ProcessInputOptions = {
@@ -74,7 +84,8 @@ async function run(ctx?: DlCommandContext) {
 			try {
 				const resolved = await repoExtension.resolve(input)
 				hadError =
-					(await processResolvedInput(resolved, roots, options)) || hadError
+					(await processResolvedInput(resolved, roots, options, gitExtension)) ||
+					hadError
 			} catch (error) {
 				hadError = true
 				const message = error instanceof Error ? error.message : String(error)
@@ -83,7 +94,23 @@ async function run(ctx?: DlCommandContext) {
 		}
 
 		if (watch) {
-			hadError = (await watchArchlist(roots, options)) || hadError
+			hadError =
+				(await watchArchlist(roots, options, async (input) => {
+					try {
+						const resolved = await repoExtension.resolve(input)
+						return await processResolvedInput(
+							resolved,
+							roots,
+							options,
+							gitExtension,
+						)
+					} catch (error) {
+						const message =
+							error instanceof Error ? error.message : String(error)
+						console.error(message)
+						return true
+					}
+				})) || hadError
 		}
 
 		if (hadError) {
@@ -142,7 +169,12 @@ void (async () => {
 		const module = await import("./dl.ts")
 		await cli(process.argv.slice(2), module.default, {
 			name: DL_COMMAND_NAME,
-			plugins: [c12({ name: "rekon" }), createRootsPlugin(), createRepoPlugin()],
+			plugins: [
+				c12({ name: "rekon" }),
+				createRootsPlugin(),
+				createRepoPlugin(),
+				createGitPlugin(),
+			],
 		})
 	}
 })()
