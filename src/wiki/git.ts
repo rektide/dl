@@ -1,8 +1,8 @@
-import type { ResolvedRepo } from "../dl/types.ts"
+import type { RepoContext } from "../dl/types.ts"
 import { cloneOrUpdate } from "../git/clone.ts"
 
 export async function syncGitWiki(
-	resolved: ResolvedRepo,
+	resolved: RepoContext,
 	wikiDestination: string,
 ): Promise<void> {
 	try {

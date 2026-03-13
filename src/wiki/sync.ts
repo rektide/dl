@@ -1,10 +1,10 @@
 import { join } from "node:path"
-import type { DestinationRoots, ProcessInputOptions, ResolvedRepo } from "../dl/types.ts"
+import type { DestinationRoots, ProcessInputOptions, RepoContext } from "../dl/types.ts"
 import { syncGithubWiki } from "./dexport/sync.ts"
 import { syncGitWiki } from "./git.ts"
 
 export async function syncWiki(
-	resolved: ResolvedRepo,
+	resolved: RepoContext,
 	roots: DestinationRoots,
 	options: ProcessInputOptions,
 ): Promise<void> {

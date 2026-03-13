@@ -1,10 +1,10 @@
-import type { DestinationRoots, ProcessInputOptions, ResolvedRepo } from "../../dl/types.ts"
+import type { DestinationRoots, ProcessInputOptions, RepoContext } from "../../dl/types.ts"
 import { resolveDexportPath } from "./path.ts"
 import { runDexport, runDexportDetached } from "./launch.ts"
 import { chooseDexportPlan } from "./policy.ts"
 
 export async function syncGithubWiki(
-	resolved: ResolvedRepo,
+	resolved: RepoContext,
 	roots: DestinationRoots,
 	options: ProcessInputOptions,
 	wikiDestination: string,

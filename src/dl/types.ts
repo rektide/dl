@@ -20,8 +20,6 @@ export interface RepoContext {
 	wikiCloneUrl: string
 }
 
-export type ResolvedRepo = RepoContext
-
 export interface ParsedRepositoryInput {
 	host?: string
 	repoPathCandidates: string[]

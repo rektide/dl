@@ -10,11 +10,11 @@ import { resolveRepository } from "./repository.ts"
 import type {
 	DestinationRoots,
 	ProcessInputOptions,
-	ResolvedRepo,
+	RepoContext,
 } from "./types.ts"
 
 export async function processResolvedInput(
-	resolved: ResolvedRepo,
+	resolved: RepoContext,
 	roots: DestinationRoots,
 	options: ProcessInputOptions,
 ): Promise<boolean> {

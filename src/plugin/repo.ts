@@ -12,7 +12,6 @@ export const REPO_PLUGIN_ID = "rekon:repo" as const
 
 export interface RepoExtension {
 	parse: (input: string) => ParsedRepositoryInput
-	resolveContext: (input: string) => Promise<RepoContext>
 	resolve: (input: string) => Promise<RepoContext>
 }
 
@@ -22,7 +21,6 @@ export function createRepoPlugin() {
 		name: "Rekon Repository",
 		extension: (): RepoExtension => ({
 			parse: (input) => parseRepositoryInput(input),
-			resolveContext: (input) => resolveRepository(input),
 			resolve: (input) => resolveRepository(input),
 		}),
 	})

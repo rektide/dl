@@ -1,4 +1,4 @@
-import type { ParsedRepositoryInput, ResolvedRepo } from "./types.ts"
+import type { ParsedRepositoryInput, RepoContext } from "./types.ts"
 
 async function urlExists(url: string): Promise<boolean> {
 	try {
@@ -171,7 +171,7 @@ async function validateRepositoryPath(
 	return null
 }
 
-export async function resolveRepository(input: string): Promise<ResolvedRepo> {
+export async function resolveRepository(input: string): Promise<RepoContext> {
 	const parsed = parseRepositoryInput(input)
 
 	const hostCandidates = parsed.host
