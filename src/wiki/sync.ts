@@ -17,7 +17,7 @@ export async function syncWiki(
 	console.log(`wiki: ${wikiDestination}`)
 	await dexportOps.sync(resolved, roots, options, wikiDestination)
 
-	if (resolved.host !== "github.com") {
+	if (resolved.host === "github.com") {
 		await syncGitWiki(resolved, wikiDestination, gitOps)
 	}
 }
