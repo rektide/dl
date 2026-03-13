@@ -1,14 +1,12 @@
-import type { DestinationRoots, ProcessInputOptions, RepoContext } from "../../dl/types.ts"
+import type { DexportOps } from "./types.ts"
 import { resolveDexportPath } from "./path.ts"
 import { runDexport, runDexportDetached } from "./launch.ts"
 import { chooseDexportPlan } from "./policy.ts"
 
-export async function syncGithubWiki(
-	resolved: RepoContext,
-	roots: DestinationRoots,
-	options: ProcessInputOptions,
-	wikiDestination: string,
+export async function syncDexportWiki(
+	...args: Parameters<DexportOps["sync"]>
 ): Promise<void> {
+	const [resolved, roots, options, wikiDestination] = args
 	const dexportPath = await resolveDexportPath()
 	if (!dexportPath) {
 		console.warn("dexport skipped: not found at ~/src/dexport/src/cli.ts")

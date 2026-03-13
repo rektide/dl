@@ -8,6 +8,11 @@ import { createProcessEntry } from "../dl/index.ts"
 import type { ProcessInputOptions } from "../dl/types.ts"
 import { watchArchlist } from "../dl/watch.ts"
 import {
+	createDexportPlugin,
+	DEXPORT_PLUGIN_ID,
+	type DexportExtension,
+} from "../plugin/dexport.ts"
+import {
 	createGitPlugin,
 	GIT_PLUGIN_ID,
 	type GitExtension,
@@ -31,6 +36,7 @@ interface DlCommandContext extends LinkContext {
 		[ROOTS_PLUGIN_ID]?: RootsExtension
 		[REPO_PLUGIN_ID]?: RepoExtension
 		[GIT_PLUGIN_ID]?: GitExtension
+		[DEXPORT_PLUGIN_ID]?: DexportExtension
 	}
 }
 
@@ -56,6 +62,7 @@ async function run(ctx?: DlCommandContext) {
 		const rootsExtension = ctx?.extensions?.[ROOTS_PLUGIN_ID]
 		const repoExtension = ctx?.extensions?.[REPO_PLUGIN_ID]
 		const gitExtension = ctx?.extensions?.[GIT_PLUGIN_ID]
+		const dexportExtension = ctx?.extensions?.[DEXPORT_PLUGIN_ID]
 		if (!rootsExtension) {
 			throw new Error("dl: roots plugin extension is not available")
 		}
@@ -64,6 +71,9 @@ async function run(ctx?: DlCommandContext) {
 		}
 		if (!gitExtension) {
 			throw new Error("dl: git plugin extension is not available")
+		}
+		if (!dexportExtension) {
+			throw new Error("dl: dexport plugin extension is not available")
 		}
 		const roots = await rootsExtension.resolveRoots()
 		const options: ProcessInputOptions = {
@@ -85,6 +95,7 @@ async function run(ctx?: DlCommandContext) {
 			roots,
 			options,
 			gitExtension,
+			dexportExtension,
 		)
 		for (const input of inputs) {
 			hadError = (await processEntry(input)) || hadError
@@ -155,6 +166,7 @@ void (async () => {
 				createRootsPlugin(),
 				createRepoPlugin(),
 				createGitPlugin(),
+				createDexportPlugin(),
 			],
 		})
 	}

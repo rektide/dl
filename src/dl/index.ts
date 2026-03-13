@@ -2,6 +2,8 @@ import { appendFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { syncArchive } from "../archive/sync.ts"
+import { defaultDexportOps } from "../dexport/default.ts"
+import type { DexportOps } from "../dexport/types.ts"
 import { defaultGitOps } from "../git/default.ts"
 import type { GitOps } from "../git/types.ts"
 import {
@@ -20,6 +22,7 @@ export async function processRepoContext(
 	roots: DestinationRoots,
 	options: ProcessInputOptions,
 	gitOps: GitOps = defaultGitOps,
+	dexportOps: DexportOps = defaultDexportOps,
 ): Promise<boolean> {
 	try {
 		if (options.doArchlist) {
@@ -32,7 +35,7 @@ export async function processRepoContext(
 		}
 
 		if (options.doWiki) {
-			await syncWiki(resolved, roots, options, gitOps)
+			await syncWiki(resolved, roots, options, gitOps, dexportOps)
 		}
 
 		if (options.doArchive && options.doWiki) {
@@ -70,11 +73,12 @@ export function createProcessEntry(
 	roots: DestinationRoots,
 	options: ProcessInputOptions,
 	gitOps: GitOps = defaultGitOps,
+	dexportOps: DexportOps = defaultDexportOps,
 ): (input: string) => Promise<boolean> {
 	return async (input: string) => {
 		try {
 			const resolved = await repoExtension.resolve(input)
-			return await processRepoContext(resolved, roots, options, gitOps)
+			return await processRepoContext(resolved, roots, options, gitOps, dexportOps)
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error)
 			console.error(message)

@@ -1,0 +1,15 @@
+import { plugin } from "gunshi/plugin"
+import { defaultDexportOps } from "../dexport/default.ts"
+import type { DexportOps } from "../dexport/types.ts"
+
+export const DEXPORT_PLUGIN_ID = "rekon:dexport" as const
+
+export interface DexportExtension extends DexportOps {}
+
+export function createDexportPlugin() {
+	return plugin({
+		id: DEXPORT_PLUGIN_ID,
+		name: "Rekon Dexport",
+		extension: (): DexportExtension => defaultDexportOps,
+	})
+}

@@ -8,6 +8,7 @@ import projectLinkCommand from './src/command/project-link.ts'
 import projectFilesCommand from './src/command/project-files.ts'
 import completion from '@gunshi/plugin-completion'
 import { c12 } from 'gunshi-c12'
+import { createDexportPlugin } from './src/plugin/dexport.ts'
 import { createGitPlugin } from './src/plugin/git.ts'
 import { createRepoPlugin } from './src/plugin/repo.ts'
 import { createRootsPlugin } from './src/plugin/roots.ts'
@@ -38,6 +39,7 @@ await cli(process.argv.slice(2), mainCommand, {
 		c12({ name: 'rekon' }),
 		createRootsPlugin(),
 		createRepoPlugin(),
-		createGitPlugin()
+		createGitPlugin(),
+		createDexportPlugin()
 	]
 })
