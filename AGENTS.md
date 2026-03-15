@@ -7,9 +7,10 @@
 
 # well known directories and files
 
-- `~/wiki/<repo-org>/<repo-name>` has wiki resources describing projects.
-- `~/archive/<repo-org>/<repo-name>` is the place for git checkouts of projects, with the organization name included in the directory tree here. `~/src/<repo-name>` or `~/src/<repo-name>-<workspace-name>` has 1st party checkouts for projects by the author.
-- read a `/llms.txt` from each project inthe archive. it might not exist, that's fine.
+- **ALWAYS check `~/archive/<repo-org>/<repo-name>` FIRST for source code** before fetching from the web. This is the primary location for third-party project checkouts.
+- **ALWAYS check `~/wiki/<repo-org>/<repo-name>` FIRST for documentation/wiki** before fetching from the web.
+- `~/src/<repo-name>` or `~/src/<repo-name>-<workspace-name>` has 1st party checkouts for projects by the author.
+- read a `/llms.txt` from each project in the archive. it might not exist, that's fine.
 - `~/ff` is future-fuze, our collection of kubernetes related resources
 - `/opt` and `/srv` for general software installs, and for instances of software / services
 - if you want to checkout source, get the repo and wiki for it via `~/src/rekon/src/command/dl.ts <url>`
