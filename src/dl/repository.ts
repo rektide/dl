@@ -1,5 +1,20 @@
 import type { ParsedRepositoryInput, RepoContext } from "./types.ts"
 
+const TANGLED_DOMAINS = ["tangled.org", "tangled.sh", "tangled.com"]
+
+function isTangledDomain(host: string): boolean {
+	return TANGLED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))
+}
+
+function parseTangledPath(segments: string[]): { org: string; repo: string } | null {
+	if (segments.length < 2) return null
+	const org = segments[0]
+	const repo = segments[1]
+	if (!org || !repo) return null
+	if (!org.includes(".")) return null
+	return { org, repo }
+}
+
 async function urlExists(url: string): Promise<boolean> {
 	try {
 		const response = await fetch(url, {
@@ -174,6 +189,25 @@ async function validateRepositoryPath(
 export async function resolveRepository(input: string): Promise<RepoContext> {
 	const parsed = parseRepositoryInput(input)
 
+	if (parsed.host && isTangledDomain(parsed.host)) {
+		const segments = parsed.repoPathCandidates[0]?.split("/").filter(Boolean) ?? []
+		const tangled = parseTangledPath(segments)
+		if (tangled) {
+			const namespacePath = `${tangled.org}/${tangled.repo}`
+			return {
+				input,
+				host: parsed.host,
+				namespacePath,
+				org: tangled.org,
+				repo: tangled.repo,
+				cloneUrl: `https://${parsed.host}/${namespacePath}.git`,
+				repoUrl: `https://${parsed.host}/${namespacePath}`,
+				deepwikiUrl: `https://deepwiki.com/${tangled.org}/${tangled.repo}`,
+				wikiCloneUrl: `https://${parsed.host}/${namespacePath}.wiki.git`,
+			}
+		}
+	}
+
 	const hostCandidates = parsed.host
 		? [parsed.host]
 		: parsed.preferGitHub
@@ -181,7 +215,7 @@ export async function resolveRepository(input: string): Promise<RepoContext> {
 			: ["gitlab.com", "github.com"]
 
 	const isKnownHost = (h: string) =>
-		h.includes("github.com") || h.includes("gitlab")
+		h.includes("github.com") || h.includes("gitlab") || isTangledDomain(h)
 
 	for (const host of hostCandidates) {
 		for (const repoPath of parsed.repoPathCandidates) {
