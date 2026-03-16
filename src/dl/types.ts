@@ -24,6 +24,7 @@ export interface ParsedRepositoryInput {
 	host?: string
 	repoPathCandidates: string[]
 	preferGitHub: boolean
+	isTangledStyle?: boolean
 }
 
 export interface ProcessInputOptions {

@@ -108,6 +108,19 @@ export function parseRepositoryInput(input: string): ParsedRepositoryInput {
 	path = path.replace(/\.git$/, "")
 
 	const segments = path.split("/").filter(Boolean)
+	
+	if (host && segments.length === 1 && host.includes(".") && !host.includes("github") && !host.includes("gitlab")) {
+		const repo = segments[0]
+		if (repo) {
+			return {
+				host: undefined,
+				repoPathCandidates: [`${host}/${repo}`],
+				preferGitHub: false,
+				isTangledStyle: true,
+			}
+		}
+	}
+	
 	if (segments.length < 2) {
 		throw new Error(`dl: unsupported repository input: ${input}`)
 	}
@@ -188,6 +201,26 @@ async function validateRepositoryPath(
 
 export async function resolveRepository(input: string): Promise<RepoContext> {
 	const parsed = parseRepositoryInput(input)
+
+	if (parsed.isTangledStyle) {
+		const segments = parsed.repoPathCandidates[0]?.split("/").filter(Boolean) ?? []
+		const tangled = parseTangledPath(segments)
+		if (tangled) {
+			const host = "tangled.org"
+			const namespacePath = `${tangled.org}/${tangled.repo}`
+			return {
+				input,
+				host,
+				namespacePath,
+				org: tangled.org,
+				repo: tangled.repo,
+				cloneUrl: `https://${host}/${namespacePath}.git`,
+				repoUrl: `https://${host}/${namespacePath}`,
+				deepwikiUrl: `https://deepwiki.com/${tangled.org}/${tangled.repo}`,
+				wikiCloneUrl: `https://${host}/${namespacePath}.wiki.git`,
+			}
+		}
+	}
 
 	if (parsed.host && isTangledDomain(parsed.host)) {
 		const segments = parsed.repoPathCandidates[0]?.split("/").filter(Boolean) ?? []
