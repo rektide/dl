@@ -1,114 +1,97 @@
 import { describe, expect, test } from 'vitest'
-import { parseRepositoryInput } from '../dl/repository.ts'
+import { parseInput } from '../dl/repository.ts'
 
-describe('parseRepositoryInput', () => {
+describe('parseInput', () => {
   test.each([
     {
       input: 'huggingface/transformers',
       expected: {
         host: undefined,
-        repoPathCandidates: ['huggingface/transformers'],
-        preferGitHub: false
+        path: 'huggingface/transformers',
+        segments: ['huggingface', 'transformers']
       }
     },
     {
       input: '/huggingface/transformers',
       expected: {
         host: undefined,
-        repoPathCandidates: ['huggingface/transformers'],
-        preferGitHub: false
+        path: 'huggingface/transformers',
+        segments: ['huggingface', 'transformers']
       }
     },
     {
       input: 'github.com/huggingface/transformers',
       expected: {
         host: 'github.com',
-        repoPathCandidates: ['huggingface/transformers'],
-        preferGitHub: false
+        path: 'huggingface/transformers',
+        segments: ['huggingface', 'transformers']
       }
     },
     {
       input: 'github.com/rektide/opencode/blob/dev/README.md',
       expected: {
         host: 'github.com',
-        repoPathCandidates: ['rektide/opencode'],
-        preferGitHub: true
+        path: 'rektide/opencode/blob/dev/README.md',
+        segments: ['rektide', 'opencode', 'blob', 'dev', 'README.md']
       }
     },
     {
       input: 'https://github.com/rektide/opencode/blob/dev/README.md',
       expected: {
         host: 'github.com',
-        repoPathCandidates: ['rektide/opencode'],
-        preferGitHub: true
+        path: 'rektide/opencode/blob/dev/README.md',
+        segments: ['rektide', 'opencode', 'blob', 'dev', 'README.md']
       }
     },
     {
       input: 'https://github.com/huggingface/transformers.git',
       expected: {
         host: 'github.com',
-        repoPathCandidates: ['huggingface/transformers'],
-        preferGitHub: false
+        path: 'huggingface/transformers',
+        segments: ['huggingface', 'transformers']
       }
     },
     {
       input: 'ssh://github.com/huggingface/transformers',
       expected: {
         host: 'github.com',
-        repoPathCandidates: ['huggingface/transformers'],
-        preferGitHub: false
+        path: 'huggingface/transformers',
+        segments: ['huggingface', 'transformers']
       }
     },
     {
       input: 'git@github.com:huggingface/transformers.git',
       expected: {
         host: 'github.com',
-        repoPathCandidates: ['huggingface/transformers'],
-        preferGitHub: false
+        path: 'huggingface/transformers',
+        segments: ['huggingface', 'transformers']
       }
     },
     {
       input: 'gitlab.com/group/subgroup/project',
       expected: {
         host: 'gitlab.com',
-        repoPathCandidates: ['group/subgroup/project', 'group/subgroup'],
-        preferGitHub: false
+        path: 'group/subgroup/project',
+        segments: ['group', 'subgroup', 'project']
       }
     },
     {
       input: 'https://gitlab.com/group/subgroup/project/-/blob/main/README.md',
       expected: {
         host: 'gitlab.com',
-        repoPathCandidates: [
-          'group/subgroup/project',
-          'group/subgroup',
-          'group/subgroup/project/-/blob/main/README.md',
-          'group/subgroup/project/-/blob/main',
-          'group/subgroup/project/-/blob',
-          'group/subgroup/project/-'
-        ],
-        preferGitHub: true
+        path: 'group/subgroup/project/-/blob/main/README.md',
+        segments: ['group', 'subgroup', 'project', '-', 'blob', 'main', 'README.md']
       }
     },
     {
       input: 'localhost/team/repo',
       expected: {
         host: 'localhost',
-        repoPathCandidates: ['team/repo'],
-        preferGitHub: false
+        path: 'team/repo',
+        segments: ['team', 'repo']
       }
     }
   ])('transforms $input', ({ input, expected }) => {
-    expect(parseRepositoryInput(input)).toEqual(expected)
-  })
-
-  test.each([
-    '',
-    '/',
-    'foo',
-    'https://github.com',
-    'git@github.com:'
-  ])('rejects unsupported input: %s', (input) => {
-    expect(() => parseRepositoryInput(input)).toThrow('dl: unsupported repository input')
+    expect(parseInput(input)).toEqual(expected)
   })
 })

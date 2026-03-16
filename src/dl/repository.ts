@@ -1,4 +1,5 @@
-import type { ParsedRepositoryInput, RepoContext } from "./types.ts"
+import type { RepoContext } from "./types.ts"
+import { createProvider, type ParsedInput, type RepoProvider, resolveWithProviders } from "./provider.ts"
 
 const TANGLED_DOMAINS = ["tangled.org", "tangled.sh", "tangled.com"]
 
@@ -15,12 +16,12 @@ function parseTangledPath(segments: string[]): { org: string; repo: string } | n
 	return { org, repo }
 }
 
-async function urlExists(url: string): Promise<boolean> {
+async function urlExists(url: string, signal: AbortSignal): Promise<boolean> {
 	try {
 		const response = await fetch(url, {
 			method: "HEAD",
 			redirect: "manual",
-			signal: AbortSignal.timeout(8000),
+			signal,
 		})
 		return response.status >= 200 && response.status < 400
 	} catch {
@@ -28,54 +29,82 @@ async function urlExists(url: string): Promise<boolean> {
 	}
 }
 
-function buildRepoPathCandidates(
-	host: string | undefined,
-	segments: string[],
-): string[] {
+function buildGitHubCandidates(segments: string[]): string[] {
+	if (segments.length < 2) return []
+	return [segments.slice(0, 2).join("/")]
+}
+
+async function validateGitHubPath(
+	host: string,
+	repoPath: string,
+	signal: AbortSignal,
+): Promise<string | null> {
+	const parts = repoPath.split("/").filter(Boolean)
+	if (parts.length !== 2) return null
+
+	const base = host === "github.com" ? "https://api.github.com" : `https://${host}/api/v3`
+	const response = await fetch(`${base}/repos/${parts[0]}/${parts[1]}`, {
+		method: "GET",
+		headers: { "user-agent": "rekon-dl" },
+		signal,
+	}).catch(() => null)
+
+	if (!response || !response.ok) return null
+	return `${parts[0]}/${parts[1]}`
+}
+
+function buildGitLabCandidates(segments: string[]): string[] {
 	const candidates: string[] = []
-	const addCandidate = (value: string) => {
-		if (!value || candidates.includes(value)) {
-			return
-		}
-		candidates.push(value)
-	}
-
-	const markerIndex = segments.indexOf("-")
-	if (markerIndex >= 2) {
-		addCandidate(segments.slice(0, markerIndex).join("/"))
-	}
-
-	const isGitHubHost = host?.includes("github.com") ?? false
-	const isGitLabHost = host?.includes("gitlab") ?? false
-	const hasGitHubMarker =
-		segments.includes("blob") ||
-		segments.includes("tree") ||
-		segments.includes("raw")
-
-	if (isGitHubHost || hasGitHubMarker) {
-		addCandidate(segments.slice(0, 2).join("/"))
-	}
-
-	if (isGitLabHost || !host) {
-		for (let length = segments.length; length >= 2; length--) {
-			addCandidate(segments.slice(0, length).join("/"))
+	for (let length = segments.length; length >= 2; length--) {
+		const candidate = segments.slice(0, length).join("/")
+		if (candidate && !candidates.includes(candidate)) {
+			candidates.push(candidate)
 		}
 	}
-
-	if (!isGitHubHost && !isGitLabHost && !hasGitHubMarker) {
-		addCandidate(segments.slice(0, 2).join("/"))
-	}
-
 	return candidates
 }
 
-export function parseRepositoryInput(input: string): ParsedRepositoryInput {
+async function validateGitLabPath(
+	host: string,
+	repoPath: string,
+	signal: AbortSignal,
+): Promise<string | null> {
+	const encodedPath = encodeURIComponent(repoPath)
+	const response = await fetch(`https://${host}/api/v4/projects/${encodedPath}`, {
+		method: "GET",
+		headers: { "user-agent": "rekon-dl" },
+		signal,
+	}).catch(() => null)
+
+	if (!response || !response.ok) return null
+
+	const body = (await response.json()) as { path_with_namespace?: string }
+	return body.path_with_namespace ?? repoPath
+}
+
+const gitHubProvider = createProvider({
+	name: "github",
+	hostMatchers: ["github.com"],
+	buildPathCandidates: buildGitHubCandidates,
+	validate: validateGitHubPath,
+})
+
+const gitLabProvider = createProvider({
+	name: "gitlab",
+	hostMatchers: ["gitlab"],
+	buildPathCandidates: buildGitLabCandidates,
+	validate: validateGitLabPath,
+})
+
+const providers: RepoProvider[] = [gitHubProvider, gitLabProvider]
+
+export function parseInput(input: string): ParsedInput {
 	const trimmedInput = input.trim()
 	if (!trimmedInput) {
 		throw new Error(`dl: unsupported repository input: ${input}`)
 	}
 
-	let host = ""
+	let host: string | undefined
 	let path = ""
 
 	const sshMatch = trimmedInput.match(/^git@([^:]+):(.+)$/)
@@ -108,122 +137,15 @@ export function parseRepositoryInput(input: string): ParsedRepositoryInput {
 	path = path.replace(/\.git$/, "")
 
 	const segments = path.split("/").filter(Boolean)
-	
-	if (host && segments.length === 1 && host.includes(".") && !host.includes("github") && !host.includes("gitlab")) {
-		const repo = segments[0]
-		if (repo) {
-			return {
-				host: undefined,
-				repoPathCandidates: [`${host}/${repo}`],
-				preferGitHub: false,
-				isTangledStyle: true,
-			}
-		}
-	}
-	
-	if (segments.length < 2) {
-		throw new Error(`dl: unsupported repository input: ${input}`)
-	}
 
-	const hasGitHubMarker =
-		segments.includes("blob") ||
-		segments.includes("tree") ||
-		segments.includes("raw")
-	const repoPathCandidates = buildRepoPathCandidates(host || undefined, segments)
-	if (repoPathCandidates.length === 0) {
-		throw new Error(`dl: unsupported repository input: ${input}`)
-	}
-
-	return {
-		host: host || undefined,
-		repoPathCandidates,
-		preferGitHub: hasGitHubMarker,
-	}
-}
-
-async function validateRepositoryPath(
-	host: string,
-	repoPath: string,
-): Promise<string | null> {
-	const signal = AbortSignal.timeout(8000)
-
-	if (host.includes("github.com")) {
-		const parts = repoPath.split("/").filter(Boolean)
-		if (parts.length !== 2) {
-			return null
-		}
-
-		const base =
-			host === "github.com"
-				? "https://api.github.com"
-				: `https://${host}/api/v3`
-		const response = await fetch(`${base}/repos/${parts[0]}/${parts[1]}`, {
-			method: "GET",
-			headers: {
-				"user-agent": "rekon-dl",
-			},
-			signal,
-		}).catch(() => null)
-
-		if (!response || !response.ok) {
-			return null
-		}
-		return `${parts[0]}/${parts[1]}`
-	}
-
-	if (host.includes("gitlab")) {
-		const encodedPath = encodeURIComponent(repoPath)
-		const response = await fetch(
-			`https://${host}/api/v4/projects/${encodedPath}`,
-			{
-				method: "GET",
-				headers: {
-					"user-agent": "rekon-dl",
-				},
-				signal,
-			},
-		).catch(() => null)
-
-		if (!response || !response.ok) {
-			return null
-		}
-
-		const body = (await response.json()) as { path_with_namespace?: string }
-		return body.path_with_namespace ?? repoPath
-	}
-
-	if (await urlExists(`https://${host}/${repoPath}`)) {
-		return repoPath
-	}
-
-	return null
+	return { host, path, segments }
 }
 
 export async function resolveRepository(input: string): Promise<RepoContext> {
-	const parsed = parseRepositoryInput(input)
-
-	if (parsed.isTangledStyle) {
-		const segments = parsed.repoPathCandidates[0]?.split("/").filter(Boolean) ?? []
-		const tangled = parseTangledPath(segments)
-		if (tangled) {
-			const host = "tangled.org"
-			const namespacePath = `${tangled.org}/${tangled.repo}`
-			return {
-				input,
-				host,
-				namespacePath,
-				org: tangled.org,
-				repo: tangled.repo,
-				cloneUrl: `https://${host}/${namespacePath}.git`,
-				repoUrl: `https://${host}/${namespacePath}`,
-				deepwikiUrl: `https://deepwiki.com/${tangled.org}/${tangled.repo}`,
-				wikiCloneUrl: `https://${host}/${namespacePath}.wiki.git`,
-			}
-		}
-	}
+	const parsed = parseInput(input)
 
 	if (parsed.host && isTangledDomain(parsed.host)) {
-		const segments = parsed.repoPathCandidates[0]?.split("/").filter(Boolean) ?? []
+		const segments = parsed.segments
 		const tangled = parseTangledPath(segments)
 		if (tangled) {
 			const namespacePath = `${tangled.org}/${tangled.repo}`
@@ -241,50 +163,9 @@ export async function resolveRepository(input: string): Promise<RepoContext> {
 		}
 	}
 
-	const hostCandidates = parsed.host
-		? [parsed.host]
-		: parsed.preferGitHub
-			? ["github.com", "gitlab.com"]
-			: ["gitlab.com", "github.com"]
-
-	const isKnownHost = (h: string) =>
-		h.includes("github.com") || h.includes("gitlab") || isTangledDomain(h)
-
-	for (const host of hostCandidates) {
-		for (const repoPath of parsed.repoPathCandidates) {
-			let namespacePath: string | null = null
-
-			if (parsed.host && !isKnownHost(host)) {
-				namespacePath = repoPath
-			} else {
-				namespacePath = await validateRepositoryPath(host, repoPath)
-			}
-
-			if (!namespacePath) {
-				continue
-			}
-
-			const pathParts = namespacePath.split("/")
-			const org = pathParts[0]
-			const repo = pathParts[pathParts.length - 1]
-
-			return {
-				input,
-				host,
-				namespacePath,
-				org,
-				repo,
-				cloneUrl: `https://${host}/${namespacePath}.git`,
-				repoUrl: `https://${host}/${namespacePath}`,
-				deepwikiUrl: `https://deepwiki.com/${org}/${repo}`,
-				wikiCloneUrl: `https://${host}/${namespacePath}.wiki.git`,
-			}
-		}
+	if (parsed.segments.length < 2) {
+		throw new Error(`dl: unsupported repository input: ${input}`)
 	}
 
-	const unresolvedSample = parsed.repoPathCandidates[0] ?? input
-	const triedHosts = hostCandidates.join(", ")
-	throw new Error(
-		`dl: could not resolve host for ${unresolvedSample} (tried ${triedHosts})`,
-	)
+	return resolveWithProviders(input, parsed, providers)
 }

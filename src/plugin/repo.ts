@@ -1,17 +1,15 @@
 import { plugin } from "gunshi/plugin"
 import {
-	parseRepositoryInput,
+	parseInput,
 	resolveRepository,
 } from "../dl/repository.ts"
-import type {
-	ParsedRepositoryInput,
-	RepoContext,
-} from "../dl/types.ts"
+import type { ParsedInput } from "../dl/provider.ts"
+import type { RepoContext } from "../dl/types.ts"
 
 export const REPO_PLUGIN_ID = "rekon:repo" as const
 
 export interface RepoExtension {
-	parse: (input: string) => ParsedRepositoryInput
+	parse: (input: string) => ParsedInput
 	resolve: (input: string) => Promise<RepoContext>
 }
 
@@ -20,7 +18,7 @@ export function createRepoPlugin() {
 		id: REPO_PLUGIN_ID,
 		name: "Rekon Repository",
 		extension: (): RepoExtension => ({
-			parse: (input) => parseRepositoryInput(input),
+			parse: (input) => parseInput(input),
 			resolve: (input) => resolveRepository(input),
 		}),
 	})
