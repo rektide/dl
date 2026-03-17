@@ -261,6 +261,7 @@ export function parseInput(input: string): ParsedInput {
 			host = url.host
 			path = url.pathname
 		} else {
+			host = "github.com"
 			path = normalized
 		}
 	}
