@@ -6,232 +6,296 @@ The `dl` command is rekon's workhorse. You give it something that identifies a r
 
 The journey of an input through `dl` has three phases:
 
-1. **Parse** — interpret the raw string into structured candidates
-2. **Resolve** — validate those candidates against real hosts and yield repository contexts
-3. **Act** — clone, export wiki content, cross-link archive and wiki directories
+1. **Expand** — interpret the raw input string into candidate URLs
+2. **Verify** — test candidates against real hosts, resolve canonical git URLs
+3. **Enrich** — fill in optional capabilities like wiki and deepwiki URLs
 
-This document covers the redesign of phases 1 and 2. Phase 3 (the actions) already works well and doesn't change, but it does gain a richer `RepoContext` from the new resolution system.
+A single `RepoContext` flows through all three phases, accumulating fields as information resolves. There are no intermediate types — just one context that grows.
 
 ```
   "git@github.com:org/repo"
            │
            ▼
-    ┌─────────────┐     All parsers run.
-    │   Parse     │     Each one that recognizes the
-    │   (src/url) │     format produces a ParseResult.
+    ┌─────────────┐     All expanders run on the raw string.
+    │   Expand    │     Each produces candidate URLs.
+    │             │     Deduped by URL.toString() via Set.
     └──────┬──────┘
            │
            ▼
-    ┌─────────────┐     ParseContext bundles the original
-    │ ParseContext │     input with all parse results.
-    │ { input,    │     Every provider sees every result.
-    │   results } │
+      URL[]  (deduplicated)
+           │
+           ▼
+    ┌─────────────┐     Registry maps host → Repo.
+    │   Verify    │     Repo.resolve(url) returns a
+    │             │     RepoContext with url set,
+    │             │     or undefined for no match.
     └──────┬──────┘
            │
            ▼
-    ┌──────────────┐    All providers run in parallel.
-    │   Resolve    │    Each is an async generator that
-    │  (src/repo)  │    yields zero or more RepoContexts.
-    └──────┬───────┘
+    RepoContext  (input, inputUrl, url, source filled in)
            │
            ▼
-    ┌──────────────┐
-    │ RepoContext  │──▶  clone into ~/archive/
-    │ RepoContext  │──▶  dexport deepwiki into ~/wiki/
-    │ RepoContext  │──▶  sync github wiki
-    │   ...        │──▶  cross-link archive ↔ wiki
-    └──────────────┘
+    ┌─────────────┐     Separate Repo methods fill in
+    │   Enrich    │     optional fields: deepwikiUrl,
+    │             │     wikiGitUrl.
+    └──────┬──────┘
+           │
+           ▼
+    RepoContext  (fully resolved)
+           │
+           ├──▶  git clone into ~/archive/
+           ├──▶  dexport deepwiki into ~/wiki/
+           ├──▶  sync git wiki (when wikiGitUrl present)
+           └──▶  cross-link archive ↔ wiki
 ```
+
+Multiple `RepoContext` values can emerge from a single input. A bare `org/repo` might resolve on both GitHub and a self-hosted instance. The action pipeline runs for each.
 
 ## Why Redesign
 
-The current [`src/dl/repository.ts`](/src/dl/repository.ts) mixes parsing with resolution in ways that make the system brittle:
+The current [`src/dl/repository.ts`](/src/dl/repository.ts) mixes parsing with resolution:
 
-1. **Global parsing assumptions**: `parseInput()` decides that bare `org/repo` means `host: "github.com"` before any provider sees it. No other host gets a chance.
+1. **Global parsing assumptions**: `parseInput()` decides that bare `org/repo` means `host: "github.com"` before any provider gets a chance. No other host is tried.
 
-2. **Leaky abstractions**: `isTangledStylePath()` is checked both in `resolveRepository()` *and* inside the tangled provider. The same condition evaluated in two places, with different consequences. This kind of cross-cutting check is exactly what we want to eliminate.
+2. **Leaky abstractions**: `isTangledStylePath()` is checked both in `resolveRepository()` and inside the tangled provider — the same condition in two places with different consequences.
 
-3. **First-match semantics**: `resolveWithProviders()` stops at the first provider that returns a result. A single input can legitimately resolve to multiple repositories (a shorthand like `org/repo` could exist on GitHub *and* a self-hosted instance), but the current system can't express that.
+3. **First-match semantics**: `resolveWithProviders()` stops at the first provider that returns a result. A single input can legitimately resolve to multiple repositories, but the system can't express that.
 
-4. **Host-per-provider coupling**: GitHub, GitLab, and tangled are each a separate `RepoProvider`, but they all do the same thing: try a host, validate a path, build a context. The host-specific bits are just validation strategies, not fundamentally different providers.
+4. **Hardcoded host logic**: `wiki/sync.ts` checks `host === "github.com"` to decide whether to sync a git wiki. Host-specific behavior should come from the provider, not downstream code.
 
-## Architecture
+## RepoContext
 
-### Phase 1: Parse (`src/url/`)
-
-Parsers recognize input *formats*, not hosts. Each parser looks at the raw string and either produces a `ParseResult` or returns `null`. All parsers run on every input — there's no short-circuiting.
-
-| Parser | Recognizes | Example | Result |
-|--------|-----------|---------|--------|
-| `ssh` | `git@host:path` | `git@github.com:org/repo` | `{ host: "github.com", path: "org/repo" }` |
-| `url` | `scheme://...` | `https://gitlab.com/group/project` | `{ host: "gitlab.com", path: "group/project" }` |
-| `host-path` | `dotted.host/path` | `tangled.sh/did:plc:xyz/repo` | `{ host: "tangled.sh", path: "did:plc:xyz/repo" }` |
-| `shorthand` | `name/name` (no dots in first segment) | `huggingface/transformers` | `{ host: undefined, path: "huggingface/transformers" }` |
-
-The parsers strip `.git` suffixes, query parameters, and leading slashes as part of normalization. Each parser is a pure function — no network calls, no side effects.
-
-All non-null results are collected into a **`ParseContext`**:
+One interface flows through the entire pipeline. Fields start unset and resolve progressively.
 
 ```typescript
-interface ParseResult {
-  source: string          // which parser produced this ("ssh", "url", "host-path", "shorthand")
-  host: string | undefined
-  path: string            // normalized path portion
-  segments: string[]      // path.split("/"), pre-computed for consumers
+interface Source {
+  expander?: string     // which expander produced inputUrl (by name)
+  provider?: string     // which Repo resolved it (by name)
 }
 
-interface ParseContext {
-  input: string           // the original raw input, untouched
-  results: ParseResult[]  // every successful parse
-}
-```
-
-`segments` is pre-computed because multiple providers will want it. The small cost of splitting up front saves repeated work downstream.
-
-A single input can produce multiple parse results. For example, `github.com/org/repo` matches both `host-path` (host: `github.com`) and `url` (after prefixing `https://`). Both results flow downstream.
-
-### Phase 2: Resolve (`src/repo/`)
-
-Repository providers receive the *entire* `ParseContext` — all parse results, not just one. Each provider is an **async generator** that yields zero or more `RepoContext` objects. All providers run. There is no priority ordering, no first-match, no fallback — every provider gets a chance to claim every input.
-
-```typescript
-interface RepoProvider {
-  name: string
-  resolve(ctx: ParseContext): AsyncGenerator<RepoContext>
-}
-```
-
-The async generator design is important: a provider that tries multiple hosts can yield results as they validate, without buffering. The caller can decide whether to collect all results or stop after the first.
-
-#### The Host Provider
-
-The central insight is that GitHub, GitLab, tangled, and generic hosts aren't fundamentally different providers — they're different **host strategies** plugged into one resolution pattern: "given a host and a path, validate it and build a context."
-
-The **host provider** holds a registry of host strategies. For each `ParseResult` in the context, it finds applicable strategies and tries them. Each strategy knows how to validate a path against its host and how to construct a `RepoContext` from a validated result.
-
-```typescript
-interface HostStrategy {
-  name: string
-  claims(host: string | undefined, segments: string[]): boolean
-  buildCandidates(segments: string[]): string[]
-  validate(host: string, path: string, signal: AbortSignal): Promise<string | null>
-  buildContext(input: string, host: string, namespacePath: string): RepoContext
-}
-```
-
-Strategies:
-
-| Strategy | Claims | Validation |
-|----------|--------|------------|
-| `github` | `host` is `github.com`, a GHE domain, or `undefined` (shorthand) | GitHub API `/repos/{org}/{repo}` |
-| `gitlab` | `host` contains `"gitlab"` | GitLab API `/projects/{encoded_path}` |
-| `tangled` | `host` is a tangled domain, or domain-as-org format | HTTP fetch to `https://{host}/{path}` |
-| `generic` | Any host with a path | HTTP HEAD request |
-
-When a `ParseResult` has `host: undefined` (shorthand), *all* strategies that accept hostless inputs get a chance. GitHub claims it. Tangled could claim it if the path segments look like its format. They all run. Multiple `RepoContext` objects can be yielded from a single input.
-
-The host provider is not "the fallback" — it's just a provider. Other providers can exist alongside it. A future provider might resolve npm package names, or look up local filesystem paths, or consult a custom registry. They all implement the same `RepoProvider` interface.
-
-#### RepoContext
-
-```typescript
 interface RepoContext {
-  input: string          // original raw input
-  provider: string       // which provider/strategy resolved this ("github", "gitlab", etc.)
-  host: string           // resolved host
-  namespacePath: string  // full path (org/repo, group/subgroup/project)
-  org: string            // first path segment
-  repo: string           // last path segment
-  cloneUrl: string       // git clone URL
-  repoUrl: string        // web URL
-  deepwikiUrl: string    // deepwiki link
-  wikiCloneUrl: string   // wiki git URL
-  hasGitWiki: boolean    // whether this host supports git-based wikis
+  input?: string        // original raw string, set by pipeline
+  inputUrl?: URL        // candidate URL from expander, set by pipeline
+  url?: URL             // canonical git URL, set by Repo.resolve()
+  source: Source        // tracks provenance
+
+  deepwikiUrl?: URL     // set by Repo.resolveDeepwiki()
+  wikiGitUrl?: URL      // set by Repo.resolveWiki()
+
+  // Computed from url. Extension-less basename = project, rest = org.
+  readonly project: string | undefined
+  readonly org: string | undefined
 }
 ```
 
-Two additions from the current `RepoContext`:
-- **`provider`**: which strategy resolved this, for logging and debugging
-- **`hasGitWiki`**: eliminates the hardcoded `if (host === "github.com")` check in [`wiki/sync.ts`](/src/wiki/sync.ts) line 20. The provider knows whether its host supports git wikis — downstream code shouldn't have to guess.
+`org` and `project` are computed from `url.pathname` on access — not stored. The extension-less basename of the path is the project, everything before it is the org. For `https://github.com/huggingface/transformers.git`:
+- `project` → `"transformers"`
+- `org` → `"huggingface"`
 
-### Phase 3: Act (unchanged)
+For `https://gitlab.com/group/subgroup/project.git`:
+- `project` → `"project"`
+- `org` → `"group/subgroup"`
 
-Once we have `RepoContext` values, the existing action pipeline runs:
+The default implementation is a class:
 
-1. **Archive sync** ([`src/archive/sync.ts`](/src/archive/sync.ts)): `git clone` or `git pull` into `~/archive/{namespacePath}`
-2. **Dexport** ([`src/dexport/sync.ts`](/src/dexport/sync.ts)): export deepwiki content into `~/wiki/{namespacePath}`
-3. **Git wiki sync** ([`src/wiki/git.ts`](/src/wiki/git.ts)): clone the wiki repo (when `hasGitWiki` is true)
-4. **Cross-linking** ([`src/repo/link.ts`](/src/repo/link.ts)): symlink corresponding archive and wiki directories
+```typescript
+class DefaultRepoContext implements RepoContext {
+  input?: string
+  inputUrl?: URL
+  url?: URL
+  source: Source = {}
+  deepwikiUrl?: URL
+  wikiGitUrl?: URL
 
-Because providers can now yield multiple `RepoContext` values per input, the action pipeline runs for each one. An input that resolves to repos on two different hosts produces two archive checkouts, two wiki exports, etc.
+  get project(): string | undefined {
+    if (!this.url) return undefined
+    const base = this.url.pathname.split("/").filter(Boolean).at(-1)
+    return base?.replace(/\.git$/, "")
+  }
 
-## Shared Utilities (`src/repo/util.ts`)
+  get org(): string | undefined {
+    if (!this.url) return undefined
+    const segments = this.url.pathname.split("/").filter(Boolean)
+    if (segments.length < 2) return undefined
+    return segments.slice(0, -1).map(s => s.replace(/\.git$/, "")).join("/")
+  }
+}
+```
 
-Parsers and providers share common operations:
+All consumers — providers, actions, everything downstream — take the `RepoContext` interface, never the class directly.
 
-- **`urlExists(url, signal)`**: HEAD request with redirect handling
-- **`buildRepoContext(opts)`**: standard `RepoContext` constructor, deduplicating the identical object-building code currently copy-pasted across every provider
-- **`stripGitSuffix(path)`**: remove `.git` suffix
-- **`stripQueryAndFragment(path)`**: remove `?` and `#` portions
-- **`RESOLVE_TIMEOUT`**: shared timeout constant (currently hardcoded as `8000` in multiple places)
+## Repo
+
+A `Repo` resolves a candidate URL into a `RepoContext`. It tests whether the URL points to a real repository and returns the context with `url` set to the canonical git URL — or `undefined` if the candidate isn't valid.
+
+```typescript
+interface Repo {
+  name: string
+  resolve(url: URL, signal: AbortSignal): Promise<RepoContext | undefined>
+  resolveWiki?(ctx: RepoContext): void
+  resolveDeepwiki?(ctx: RepoContext): void
+}
+```
+
+`resolve` does the network validation. It constructs a `RepoContext` with `url` set. The pipeline fills in `input`, `inputUrl`, and `source` after.
+
+`resolveWiki` and `resolveDeepwiki` are separate methods that operate on an existing `RepoContext` and fill in their respective fields. They run during the enrich phase. Not every `Repo` supports these — they're optional.
+
+Provider implementations live in `src/repo/provider/`:
+
+| Provider | Validation | Wiki | Deepwiki |
+|----------|-----------|------|----------|
+| `src/repo/provider/github.ts` | GitHub API `/repos/{org}/{project}` | `.wiki.git` clone URL | deepwiki.com link |
+| `src/repo/provider/gitlab.ts` | GitLab API `/projects/{encoded_path}` | GitLab wiki URL | deepwiki.com link |
+| `src/repo/provider/tangled.ts` | HTTP fetch to host | none | none |
+| `src/repo/provider/generic.ts` | HTTP HEAD request (TODO: iterate — try `git ls-remote`, smarter repo detection) | none | none |
+
+## Expanders
+
+Expanders take a raw input string and produce candidate URLs. Each expander recognizes one input format. All expanders run on every input — there's no short-circuiting.
+
+```typescript
+interface Expander {
+  name: string
+  expand(input: string): URL[]
+}
+```
+
+| Expander | Recognizes | Example Input | Produces |
+|----------|-----------|---------------|----------|
+| `url` | Has a scheme (`https://`, `ssh://`, etc.) | `https://github.com/org/repo` | `[URL("https://github.com/org/repo")]` |
+| `ssh` | `git@host:path` format | `git@github.com:org/repo.git` | `[URL("https://github.com/org/repo")]` |
+| `host-path` | First segment has dots or is `localhost` | `github.com/org/repo` | `[URL("https://github.com/org/repo")]` |
+| `shorthand` | Bare path, no dots in first segment | `org/repo` | `[URL("https://github.com/org/repo"), URL("https://gitlab.com/org/repo"), ...]` |
+
+The `shorthand` expander is configured with the full list of default hosts to try. This is configurable — add Codeberg, add a GHE instance, whatever makes sense.
+
+Expanders strip `.git` suffixes, query parameters, and leading slashes as part of normalization. Each expander is a pure function — no network calls, no side effects.
+
+## Registry
+
+The registry maps hosts to `Repo` providers.
+
+```typescript
+interface RepoRegistry {
+  byHost: Map<string, Repo>
+  generic: Repo
+
+  register(provider: Repo): void
+  lookup(host: string): Repo    // always returns something — falls through to generic
+}
+```
+
+`lookup` checks `byHost` first, falls through to `generic` for unknown hosts. The generic provider isn't special — it's just the one that handles hosts without a specific provider registered.
+
+## Pipeline
+
+Three explicit phases. Each does one thing to the `RepoContext`.
+
+```typescript
+// Phase 1: Expand
+// Run all expanders, dedup by URL.toString()
+function expand(input: string, expanders: Expander[]): { url: URL, expander: string }[] {
+  const seen = new Set<string>()
+  const candidates: { url: URL, expander: string }[] = []
+  for (const exp of expanders) {
+    for (const url of exp.expand(input)) {
+      const key = url.toString()
+      if (seen.has(key)) continue
+      seen.add(key)
+      candidates.push({ url, expander: exp.name })
+    }
+  }
+  return candidates
+}
+
+// Phase 2: Verify
+// Look up provider per host, resolve, fill in context fields
+async function* verify(
+  input: string,
+  candidates: { url: URL, expander: string }[],
+  registry: RepoRegistry,
+  signal: AbortSignal,
+): AsyncGenerator<RepoContext> {
+  for (const candidate of candidates) {
+    const repo = registry.lookup(candidate.url.host)
+    const ctx = await repo.resolve(candidate.url, signal)
+    if (!ctx) continue
+
+    ctx.input = input
+    ctx.inputUrl = candidate.url
+    ctx.source.expander = candidate.expander
+    ctx.source.provider = repo.name
+    yield ctx
+  }
+}
+
+// Phase 3: Enrich
+// Fill in optional wiki/deepwiki URLs
+function enrich(ctx: RepoContext, registry: RepoRegistry): void {
+  const repo = registry.lookup(ctx.url!.host)
+  repo.resolveDeepwiki?.(ctx)
+  repo.resolveWiki?.(ctx)
+}
+```
 
 ## File Structure
 
 ```
-src/url/                        # Phase 1: input parsing
-├── index.ts                    # parseAll(): string → ParseContext
-├── types.ts                    # ParseResult, ParseContext, Parser interface
-├── ssh.ts                      # git@host:path
-├── url.ts                      # scheme://host/path
-├── host-path.ts                # dotted.host/path
-└── shorthand.ts                # org/repo (no dots)
+src/url/                            # Expanders: raw input → candidate URLs
+├── index.ts                        # expand(): string → {url, expander}[]
+├── types.ts                        # Expander interface
+├── ssh.ts                          # git@host:path → URL
+├── url.ts                          # scheme://... → URL
+├── host-path.ts                    # dotted.host/path → URL
+└── shorthand.ts                    # org/repo → URL[] (one per default host)
 
-src/repo/                       # Phase 2: repository resolution + repo operations
-├── resolve.ts                  # resolveAll(): ParseContext → AsyncGenerator<RepoContext>
-├── types.ts                    # RepoContext, RepoProvider
-├── host-provider.ts            # the host-based provider (strategy pattern)
-├── host/                       # host-specific validation strategies
+src/repo/                           # Repository resolution + operations
+├── context.ts                      # RepoContext interface + DefaultRepoContext class
+├── types.ts                        # Repo interface, Source interface
+├── registry.ts                     # RepoRegistry: host → Repo lookup
+├── resolve.ts                      # verify() + enrich() pipeline phases
+├── provider/                       # Repo implementations per host type
 │   ├── github.ts
 │   ├── gitlab.ts
 │   ├── tangled.ts
-│   └── generic.ts
-├── util.ts                     # urlExists, buildRepoContext, RESOLVE_TIMEOUT
-└── link.ts                     # (existing) cross-link archive ↔ wiki
+│   └── generic.ts                  # TODO: iterate — smarter repo detection
+├── util.ts                         # urlExists, RESOLVE_TIMEOUT
+└── link.ts                         # (existing) cross-link archive ↔ wiki
 
-src/dl/                         # Orchestration: wires parse → resolve → act
-├── types.ts                    # ParsedArgs, ProcessInputOptions, DestinationRoots
-├── args.ts                     # CLI argument parsing (unchanged)
-├── index.ts                    # processRepoContext, createProcessEntry
-└── watch.ts                    # archlist file watcher (unchanged)
+src/dl/                             # Orchestration: wires expand → verify → enrich → act
+├── types.ts                        # ParsedArgs, ProcessInputOptions, DestinationRoots
+├── args.ts                         # CLI argument parsing (unchanged)
+├── index.ts                        # processRepoContext, createProcessEntry
+└── watch.ts                        # archlist file watcher (unchanged)
 ```
 
-The current `src/dl/repository.ts` and `src/dl/provider.ts` are eliminated entirely. Their parsing logic moves to `src/url/`, their provider logic moves to `src/repo/`, and the glue code in `resolveRepository()` becomes a thin call in `src/dl/index.ts`.
+The current `src/dl/repository.ts` and `src/dl/provider.ts` are eliminated entirely. Their URL parsing moves to `src/url/`, their provider logic moves to `src/repo/provider/`, and the orchestration stays in `src/dl/index.ts`.
 
-`src/url/` is named for what it parses — URLs in the broad sense, including shorthands that are URL-adjacent. `src/repo/` is named for what it produces — resolved repository contexts. The `link.ts` file already lives there and fits naturally.
+## Cleanup
 
-## Cleanup Opportunities
+Along the way:
 
-Along the way, these existing issues get fixed:
+1. **`isTangledStylePath` eliminated** — tangled is just a provider in `src/repo/provider/tangled.ts` that validates its own URLs. No cross-cutting checks.
 
-1. **`isTangledStylePath` eliminated**: this function is checked in two places (`resolveRepository` and `tangledProvider.canHandle`) with different effects. In the new system, tangled's host strategy declares what it claims via `claims()` — one place, one check.
+2. **Duplicate context construction consolidated** — every provider currently copy-pastes the same `RepoContext` object literal. Now they all return `DefaultRepoContext` instances (or any `RepoContext` implementation).
 
-2. **Duplicate `RepoContext` construction consolidated**: currently the `createProvider` helper, `genericProvider`, and `tangledProvider` all build identical `RepoContext` objects with copy-pasted field assignments. The `buildRepoContext` utility replaces all of them.
+3. **Hardcoded GitHub wiki check removed** — `wiki/sync.ts` currently checks `host === "github.com"`. Now it checks whether `ctx.wikiGitUrl` is set. The provider decides, not downstream code.
 
-3. **Hardcoded GitHub wiki check removed**: `wiki/sync.ts` line 20 checks `host === "github.com"` to decide whether to sync a git wiki. The `hasGitWiki` field on `RepoContext` lets each strategy declare this capability.
+4. **Hardcoded timeouts consolidated** — `AbortSignal.timeout(8000)` appears in every provider. A shared `RESOLVE_TIMEOUT` constant in `src/repo/util.ts` replaces them.
 
-4. **Hardcoded timeouts consolidated**: `AbortSignal.timeout(8000)` appears in every provider. A shared `RESOLVE_TIMEOUT` constant replaces them.
-
-5. **`ParsedInput` import path cleaned up**: currently `plugin/repo.ts` imports `ParsedInput` from `dl/provider.ts`, an awkward coupling. The new `ParseContext` from `src/url/types.ts` is a cleaner import.
-
-6. **`resolveRepository()` tangled guard removed**: the special-case `if (isTangledStylePath(...))` bypass of the `segments.length < 2` validation in `resolveRepository()` goes away. Segment count requirements are each strategy's concern, not the orchestrator's.
+5. **Generic provider needs iteration** — the current HEAD-request approach is loose. Future improvements could try `git ls-remote`, check for `.git/` paths, or look for forge-specific markers. The plan acknowledges this with TODO comments in the code.
 
 ## Migration Path
 
-1. Create `src/url/` with types and all four parsers, extracted from current `parseInput()`
-2. Create `src/repo/types.ts`, `src/repo/util.ts`, and `src/repo/host/` strategies extracted from current providers
-3. Create `src/repo/host-provider.ts` — the async generator host provider
-4. Create `src/repo/resolve.ts` — the provider runner
-5. Update `src/dl/index.ts` and `src/plugin/repo.ts` to use the new parse → resolve flow
-6. Update `src/wiki/sync.ts` to use `hasGitWiki` instead of host check
-7. Update tests in `src/command/dl.test.ts` to test parsers and providers independently
-8. Remove `src/dl/repository.ts` and `src/dl/provider.ts`
+1. Create `src/repo/context.ts` with `RepoContext` interface and `DefaultRepoContext` class
+2. Create `src/repo/types.ts` with `Repo`, `Source`, and registry interfaces
+3. Create `src/url/` with expander interface and all four expanders, extracted from current `parseInput()`
+4. Create `src/repo/provider/` with github, gitlab, tangled, and generic providers extracted from current code
+5. Create `src/repo/registry.ts` with host → provider lookup
+6. Create `src/repo/resolve.ts` with verify and enrich pipeline phases
+7. Update `src/dl/index.ts` to use the new expand → verify → enrich flow
+8. Update `src/plugin/repo.ts` to expose new interfaces
+9. Update `src/wiki/sync.ts` to check `ctx.wikiGitUrl` instead of `host === "github.com"`
+10. Update tests in `src/command/dl.test.ts` to test expanders and providers independently
+11. Remove `src/dl/repository.ts` and `src/dl/provider.ts`
