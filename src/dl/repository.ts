@@ -7,13 +7,11 @@ function isTangledDomain(host: string): boolean {
 	return TANGLED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))
 }
 
-function parseTangledPath(segments: string[]): { org: string; repo: string } | null {
-	if (segments.length < 2) return null
-	const org = segments[0]
-	const repo = segments[1]
-	if (!org || !repo) return null
-	if (!org.includes(".")) return null
-	return { org, repo }
+function isTangledStylePath(host: string | undefined, segments: string[]): boolean {
+	if (segments.length === 1 && host?.includes(".") && !host.includes("github") && !host.includes("gitlab")) {
+		return true
+	}
+	return false
 }
 
 async function urlExists(url: string, signal: AbortSignal): Promise<boolean> {
@@ -82,6 +80,32 @@ async function validateGitLabPath(
 	return body.path_with_namespace ?? repoPath
 }
 
+function buildTangledCandidates(segments: string[]): string[] {
+	if (segments.length < 2) return []
+	if (!segments[0]?.includes(".")) return []
+	return [segments.slice(0, 2).join("/")]
+}
+
+async function validateTangledPath(
+	host: string,
+	repoPath: string,
+	signal: AbortSignal,
+): Promise<string | null> {
+	try {
+		const response = await fetch(`https://${host}/${repoPath}`, {
+			method: "GET",
+			signal,
+		}).catch(() => null)
+
+		if (!response) return null
+		if (response.status >= 200 && response.status < 400) return repoPath
+		if (response.status === 405) return repoPath
+		return null
+	} catch {
+		return null
+	}
+}
+
 const gitHubProvider = createProvider({
 	name: "github",
 	hostMatchers: ["github.com"],
@@ -96,7 +120,55 @@ const gitLabProvider = createProvider({
 	validate: validateGitLabPath,
 })
 
-const providers: RepoProvider[] = [gitHubProvider, gitLabProvider]
+const tangledProvider: RepoProvider = {
+	name: "tangled",
+	canHandle(parsed: ParsedInput): boolean {
+		if (parsed.host && isTangledDomain(parsed.host)) return true
+		return isTangledStylePath(parsed.host, parsed.segments)
+	},
+	async resolve(input: string, parsed: ParsedInput): Promise<RepoContext | null> {
+		const host = isTangledStylePath(parsed.host, parsed.segments)
+			? "tangled.org"
+			: parsed.host
+
+		if (!host) return null
+
+		let segments = parsed.segments
+		if (isTangledStylePath(parsed.host, parsed.segments)) {
+			segments = [parsed.host!, ...parsed.segments]
+		}
+
+		const candidates = buildTangledCandidates(segments)
+		if (candidates.length === 0) return null
+
+		const signal = AbortSignal.timeout(8000)
+
+		for (const repoPath of candidates) {
+			const namespacePath = await validateTangledPath(host, repoPath, signal)
+			if (!namespacePath) continue
+
+			const pathParts = namespacePath.split("/")
+			const org = pathParts[0]
+			const repo = pathParts[pathParts.length - 1]
+
+			return {
+				input,
+				host,
+				namespacePath,
+				org,
+				repo,
+				cloneUrl: `https://${host}/${namespacePath}.git`,
+				repoUrl: `https://${host}/${namespacePath}`,
+				deepwikiUrl: `https://deepwiki.com/${org}/${repo}`,
+				wikiCloneUrl: `https://${host}/${namespacePath}.wiki.git`,
+			}
+		}
+
+		return null
+	},
+}
+
+const providers: RepoProvider[] = [tangledProvider, gitHubProvider, gitLabProvider]
 
 export function parseInput(input: string): ParsedInput {
 	const trimmedInput = input.trim()
@@ -144,23 +216,8 @@ export function parseInput(input: string): ParsedInput {
 export async function resolveRepository(input: string): Promise<RepoContext> {
 	const parsed = parseInput(input)
 
-	if (parsed.host && isTangledDomain(parsed.host)) {
-		const segments = parsed.segments
-		const tangled = parseTangledPath(segments)
-		if (tangled) {
-			const namespacePath = `${tangled.org}/${tangled.repo}`
-			return {
-				input,
-				host: parsed.host,
-				namespacePath,
-				org: tangled.org,
-				repo: tangled.repo,
-				cloneUrl: `https://${parsed.host}/${namespacePath}.git`,
-				repoUrl: `https://${parsed.host}/${namespacePath}`,
-				deepwikiUrl: `https://deepwiki.com/${tangled.org}/${tangled.repo}`,
-				wikiCloneUrl: `https://${parsed.host}/${namespacePath}.wiki.git`,
-			}
-		}
+	if (isTangledStylePath(parsed.host, parsed.segments)) {
+		return resolveWithProviders(input, parsed, providers)
 	}
 
 	if (parsed.segments.length < 2) {
