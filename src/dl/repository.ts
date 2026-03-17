@@ -62,6 +62,27 @@ function buildGitLabCandidates(segments: string[]): string[] {
 	return candidates
 }
 
+function buildGenericCandidates(segments: string[]): string[] {
+	const candidates: string[] = []
+	for (let length = segments.length; length >= 1; length--) {
+		const candidate = segments.slice(0, length).join("/")
+		if (candidate && !candidates.includes(candidate)) {
+			candidates.push(candidate)
+		}
+	}
+	return candidates
+}
+
+async function validateGenericPath(
+	host: string,
+	repoPath: string,
+	signal: AbortSignal,
+): Promise<string | null> {
+	const url = `https://${host}/${repoPath}`
+	const exists = await urlExists(url, signal)
+	return exists ? repoPath : null
+}
+
 async function validateGitLabPath(
 	host: string,
 	repoPath: string,
@@ -120,6 +141,46 @@ const gitLabProvider = createProvider({
 	validate: validateGitLabPath,
 })
 
+const genericProvider: RepoProvider = {
+	name: "generic",
+	canHandle(parsed: ParsedInput): boolean {
+		if (!parsed.host) return false
+		if (isTangledDomain(parsed.host)) return false
+		if (parsed.host.includes("github")) return false
+		if (parsed.host.includes("gitlab")) return false
+		return true
+	},
+	async resolve(input: string, parsed: ParsedInput): Promise<RepoContext | null> {
+		if (!parsed.host) return null
+
+		const candidates = buildGenericCandidates(parsed.segments)
+		const signal = AbortSignal.timeout(8000)
+
+		for (const repoPath of candidates) {
+			const namespacePath = await validateGenericPath(parsed.host, repoPath, signal)
+			if (!namespacePath) continue
+
+			const pathParts = namespacePath.split("/")
+			const org = pathParts[0]
+			const repo = pathParts[pathParts.length - 1]
+
+			return {
+				input,
+				host: parsed.host,
+				namespacePath,
+				org,
+				repo,
+				cloneUrl: `https://${parsed.host}/${namespacePath}.git`,
+				repoUrl: `https://${parsed.host}/${namespacePath}`,
+				deepwikiUrl: `https://deepwiki.com/${org}/${repo}`,
+				wikiCloneUrl: `https://${parsed.host}/${namespacePath}.wiki.git`,
+			}
+		}
+
+		return null
+	},
+}
+
 const tangledProvider: RepoProvider = {
 	name: "tangled",
 	canHandle(parsed: ParsedInput): boolean {
@@ -168,7 +229,7 @@ const tangledProvider: RepoProvider = {
 	},
 }
 
-const providers: RepoProvider[] = [tangledProvider, gitHubProvider, gitLabProvider]
+const providers: RepoProvider[] = [gitHubProvider, gitLabProvider, genericProvider, tangledProvider]
 
 export function parseInput(input: string): ParsedInput {
 	const trimmedInput = input.trim()
