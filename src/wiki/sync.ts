@@ -13,7 +13,8 @@ export async function syncWiki(
 	gitOps: GitOps = defaultGitOps,
 	dexportOps: DexportOps = defaultDexportOps,
 ): Promise<void> {
-	const wikiDestination = join(ctx.roots.wikiRoot, resolved.namespacePath!)
+	const pathname = resolved.url!.pathname.replace(/^\//, "")
+	const wikiDestination = join(ctx.roots.wikiRoot, pathname)
 	ctx.log.info("sync", "wiki", { destination: wikiDestination })
 	await dexportOps.sync(resolved, ctx.roots, ctx.options, wikiDestination, ctx.log)
 

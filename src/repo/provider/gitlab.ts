@@ -26,10 +26,10 @@ export const gitlabProvider: Repo = {
 			const body = (await response.json()) as {
 				path_with_namespace?: string
 			}
-			const namespacePath = body.path_with_namespace ?? candidate
+			const resolvedPath = body.path_with_namespace ?? candidate
 
 			const ctx = new DefaultRepoContext()
-			ctx.url = new URL(`https://${url.host}/${namespacePath}`)
+			ctx.url = new URL(`https://${url.host}/${resolvedPath}`)
 			return ctx
 		}
 

@@ -112,7 +112,7 @@ interface DlCommandContext extends LinkContext {
 					logExtension.info("expand", "resolved", {
 						input,
 						url: resolved.url?.toString(),
-						namespacePath: resolved.namespacePath,
+						pathname: resolved.url?.pathname,
 						wikiGitUrl: resolved.wikiGitUrl?.toString(),
 						source: resolved.source,
 					})

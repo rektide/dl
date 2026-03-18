@@ -20,7 +20,6 @@ export interface LinkContext {
 }
 
 export interface ProjectEntry {
-  namespacePath: string
   org: string
   project: string
   sourcePath: string
@@ -32,10 +31,10 @@ export interface LinkEvent {
   targetRoot: RootName
   org: string
   project: string
-  namespacePath: string
   sourcePath: string
   targetPath: string
   message?: string
+  [key: string]: unknown
 }
 
 export type LinkEventHandler = (event: LinkEvent, useErrorStream?: boolean) => void
@@ -50,18 +49,16 @@ function configuredDirectory(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
-function parseNamespace(namespacePath: string): { org: string, project: string } {
-  const parts = namespacePath.split('/').filter(Boolean)
+function parsePathname(pathname: string): { org: string, project: string } {
+  const parts = pathname.split('/').filter(Boolean)
   return {
     org: parts[0] ?? '',
     project: parts[parts.length - 1] ?? ''
   }
 }
 
-function createProjectEntry(namespacePath: string, sourcePath: string): ProjectEntry {
-  const { org, project } = parseNamespace(namespacePath)
+function createProjectEntry(org: string, project: string, sourcePath: string): ProjectEntry {
   return {
-    namespacePath,
     org,
     project,
     sourcePath
@@ -144,8 +141,7 @@ export async function discoverProjects(rootPath: string): Promise<ProjectEntry[]
         continue
       }
 
-      const namespacePath = `${orgEntry.name}/${projectEntry.name}`
-      const projectPath = join(rootPath, namespacePath)
+      const projectPath = join(rootPath, orgEntry.name, projectEntry.name)
       let hasGitMarker = false
       try {
         await lstat(join(projectPath, '.git'))
@@ -161,7 +157,7 @@ export async function discoverProjects(rootPath: string): Promise<ProjectEntry[]
         continue
       }
 
-      projects.push(createProjectEntry(namespacePath, projectPath))
+      projects.push(createProjectEntry(orgEntry.name, projectEntry.name, projectPath))
     }
   }
 
@@ -176,7 +172,7 @@ export async function ensureLinkedProject(
   verbose: boolean,
   onEvent?: LinkEventHandler
 ): Promise<boolean> {
-  const targetPath = join(targetBase, entry.namespacePath)
+  const targetPath = join(targetBase, entry.org, entry.project)
 
   try {
     await mkdir(dirname(targetPath), { recursive: true })
@@ -199,7 +195,6 @@ export async function ensureLinkedProject(
         targetRoot,
         org: entry.org,
         project: entry.project,
-        namespacePath: entry.namespacePath,
         sourcePath: entry.sourcePath,
         targetPath
       })
@@ -214,7 +209,6 @@ export async function ensureLinkedProject(
           targetRoot,
           org: entry.org,
           project: entry.project,
-          namespacePath: entry.namespacePath,
           sourcePath: entry.sourcePath,
           targetPath
         })
@@ -233,7 +227,6 @@ export async function ensureLinkedProject(
             targetRoot,
             org: entry.org,
             project: entry.project,
-            namespacePath: entry.namespacePath,
             sourcePath: entry.sourcePath,
             targetPath
           })
@@ -247,7 +240,6 @@ export async function ensureLinkedProject(
         targetRoot,
         org: entry.org,
         project: entry.project,
-        namespacePath: entry.namespacePath,
         sourcePath: entry.sourcePath,
         targetPath,
         message: `Existing symlink points to ${existingLinkTarget}`
@@ -261,7 +253,6 @@ export async function ensureLinkedProject(
       targetRoot,
       org: entry.org,
       project: entry.project,
-      namespacePath: entry.namespacePath,
       sourcePath: entry.sourcePath,
       targetPath,
       message: 'Target exists and is not a directory or symlink'
@@ -275,7 +266,6 @@ export async function ensureLinkedProject(
       targetRoot,
       org: entry.org,
       project: entry.project,
-      namespacePath: entry.namespacePath,
       sourcePath: entry.sourcePath,
       targetPath,
       message
@@ -327,15 +317,16 @@ export async function linkDiscoveredProjects(options: {
 export async function linkSpecificProject(options: {
   archiveRoot: string
   wikiRoot: string
-  namespacePath: string
+  pathname: string
   verbose?: boolean
   onEvent?: LinkEventHandler
 }): Promise<boolean> {
   const resolvedArchiveRoot = resolve(options.archiveRoot)
   const resolvedWikiRoot = resolve(options.wikiRoot)
-  const namespacePath = options.namespacePath.replace(/^\/+/, '').replace(/\.git$/, '')
-  const archiveEntry = createProjectEntry(namespacePath, join(resolvedArchiveRoot, namespacePath))
-  const wikiEntry = createProjectEntry(namespacePath, join(resolvedWikiRoot, namespacePath))
+  const pathname = options.pathname.replace(/^\/+/, '').replace(/\.git$/, '')
+  const { org, project } = parsePathname(pathname)
+  const archiveEntry = createProjectEntry(org, project, join(resolvedArchiveRoot, pathname))
+  const wikiEntry = createProjectEntry(org, project, join(resolvedWikiRoot, pathname))
 
   let hadError = false
   const verbose = Boolean(options.verbose)

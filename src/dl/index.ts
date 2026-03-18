@@ -22,17 +22,18 @@ export async function processRepoContext(
 	dexportOps: DexportOps = defaultDexportOps,
 ): Promise<boolean> {
 	try {
+		const pathname = resolved.url?.pathname?.replace(/^\//, "")
 		if (ctx.options.dryRun) {
 			ctx.log.info("dry-run", "would_sync", {
 				url: resolved.url?.toString(),
-				namespacePath: resolved.namespacePath,
+				pathname,
 				doArchive: ctx.options.doArchive,
 				doWiki: ctx.options.doWiki,
-				archivePath: ctx.options.doArchive && resolved.namespacePath
-					? `${ctx.roots.archiveRoot}/${resolved.namespacePath}`
+				archivePath: ctx.options.doArchive && pathname
+					? `${ctx.roots.archiveRoot}/${pathname}`
 					: undefined,
-				wikiPath: ctx.options.doWiki && resolved.namespacePath
-					? `${ctx.roots.wikiRoot}/${resolved.namespacePath}`
+				wikiPath: ctx.options.doWiki && pathname
+					? `${ctx.roots.wikiRoot}/${pathname}`
 					: undefined,
 			})
 			return false
@@ -51,18 +52,16 @@ export async function processRepoContext(
 			await syncWiki(resolved, ctx, gitOps, dexportOps)
 		}
 
-		if (ctx.options.doArchive && ctx.options.doWiki) {
+		if (ctx.options.doArchive && ctx.options.doWiki && resolved.url) {
 			const linkErrors = await linkSpecificProject({
 				archiveRoot: ctx.roots.archiveRoot,
 				wikiRoot: ctx.roots.wikiRoot,
-				namespacePath: resolved.namespacePath!,
-				onEvent: (event, useErrorStream = false) => {
+				pathname: resolved.url.pathname.replace(/^\//, ""),
+				onEvent: (event) => {
 					if (!event.status.startsWith("error")) {
 						return
 					}
-					const line = JSON.stringify(event)
-					const stream = useErrorStream ? ctx.log.getErrorStream() : ctx.log.getOutputStream()
-					stream.write(line + "\n")
+					ctx.log.error("link", event.status, event)
 				},
 			})
 			if (linkErrors) {

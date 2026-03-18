@@ -21,16 +21,9 @@ describe("DefaultRepoContext", () => {
 		expect(ctx.project).toBe("project")
 	})
 
-	test("namespacePath combines org and project", () => {
-		const ctx = new DefaultRepoContext()
-		ctx.url = new URL("https://github.com/org/repo")
-		expect(ctx.namespacePath).toBe("org/repo")
-	})
-
 	test("returns undefined when url not set", () => {
-		const ctx = new DefaultRepoContext()
-		expect(ctx.project).toBeUndefined()
-		expect(ctx.org).toBeUndefined()
-		expect(ctx.namespacePath).toBeUndefined()
-	})
+    const ctx = new DefaultRepoContext()
+    expect(ctx.project).toBeUndefined()
+    expect(ctx.org).toBeUndefined()
+})
 })

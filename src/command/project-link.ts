@@ -53,7 +53,6 @@ async function run(ctx?: ProjectLinkContext) {
       targetRoot: 'wiki',
       org: '',
       project: '',
-      namespacePath: '',
       sourcePath: '',
       targetPath: '',
       message

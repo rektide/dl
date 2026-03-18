@@ -9,7 +9,8 @@ export async function syncArchive(
 	ctx: DlContext,
 	gitOps: GitOps = defaultGitOps,
 ): Promise<void> {
-	const archiveDestination = join(ctx.roots.archiveRoot, resolved.namespacePath!)
+	const pathname = resolved.url!.pathname.replace(/^\//, "")
+	const archiveDestination = join(ctx.roots.archiveRoot, pathname)
 	ctx.log.info("sync", "archive", { destination: archiveDestination })
 	await gitOps.cloneOrUpdate(resolved.url!.toString(), archiveDestination)
 	await gitOps.ensureJjInitialized(archiveDestination)

@@ -10,8 +10,7 @@ export interface RepoContext {
 	wikiGitUrl?: URL
 
 	readonly project: string | undefined
-	readonly org: string | undefined
-	readonly namespacePath: string | undefined
+    readonly org: string | undefined
 }
 
 export class DefaultRepoContext implements RepoContext {
@@ -38,10 +37,4 @@ export class DefaultRepoContext implements RepoContext {
 			.join("/")
 	}
 
-	get namespacePath(): string | undefined {
-		const o = this.org
-		const p = this.project
-		if (!o || !p) return undefined
-		return `${o}/${p}`
-	}
 }

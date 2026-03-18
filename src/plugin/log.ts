@@ -3,8 +3,7 @@ import { plugin } from "gunshi/plugin"
 export const LOG_PLUGIN_ID = "rekon:log" as const
 
 export type LogLevel = "debug" | "info" | "warn" | "error"
-export type LogStage = "expand" | "verify" | "enrich" | "sync" | "link"
-export type LogStream = "stdout" | "stderr"
+export type LogStage = "dry-run" | "expand" | "verify" | "enrich" | "sync" | "link"
 
 export interface LogEvent {
 	level: LogLevel
@@ -14,10 +13,13 @@ export interface LogEvent {
 	timestamp?: string
 }
 
+export type OutputValue = true | false | "stdout" | "stderr"
+export type StdioMode = "inherit" | "ignore" | "pipe"
+
 export interface LogOptions {
-	output?: LogStream
-	outputStdout?: boolean
-	outputStderr?: boolean
+	output?: OutputValue
+	outputStdout?: OutputValue
+	outputStderr?: OutputValue
 	json?: boolean
 }
 
@@ -26,17 +28,21 @@ export interface LogExtension {
 	info: (stage: LogStage, event: string, data?: Record<string, unknown>) => void
 	warn: (stage: LogStage, event: string, data?: Record<string, unknown>) => void
 	error: (stage: LogStage, event: string, data?: Record<string, unknown>) => void
-	getOutputStream: () => NodeJS.WritableStream
-	getErrorStream: () => NodeJS.WritableStream
-	getOutputStdout: () => NodeJS.WritableStream
-	getOutputStderr: () => NodeJS.WritableStream
 	formatEvent: (event: LogEvent) => string
+	getOutputStdout: () => StdioMode | number
+	getOutputStderr: () => StdioMode | number
 }
 
-function resolveOutputStream(options: LogOptions): LogStream {
-	if (options.outputStdout) return "stdout"
-	if (options.outputStderr) return "stderr"
-	return options.output ?? "stdout"
+function resolveStreamMode(
+	specific: OutputValue | undefined,
+	fallback: OutputValue | undefined,
+): StdioMode | number {
+	const val = specific ?? fallback ?? true
+	if (val === true) return "inherit"
+	if (val === false) return "ignore"
+	if (val === "stdout") return 1
+	if (val === "stderr") return 2
+	return "inherit"
 }
 
 function formatEventText(event: LogEvent): string {
@@ -58,15 +64,18 @@ export function createLogPlugin() {
 		setup: (ctx) => {
 			ctx.addGlobalOption("output", {
 				type: "string",
-				description: "Default output stream (stdout|stderr)",
+				description:
+					'Default child process output (true|false|stdout|stderr). true=inherit, false=ignore, stdout/stderr=redirect',
 			})
 			ctx.addGlobalOption("output-stdout", {
-				type: "boolean",
-				description: "Send output to stdout (overrides --output)",
+				type: "string",
+				description:
+					'Child stdout handling (true|false|stdout|stderr). Overrides --output for stdout',
 			})
 			ctx.addGlobalOption("output-stderr", {
-				type: "boolean",
-				description: "Send output to stderr (overrides --output)",
+				type: "string",
+				description:
+					'Child stderr handling (true|false|stdout|stderr). Overrides --output for stderr',
 			})
 			ctx.addGlobalOption("json", {
 				type: "boolean",
@@ -76,30 +85,24 @@ export function createLogPlugin() {
 		},
 		extension: (core): LogExtension => {
 			const values = core.values as LogOptions
-			const outputStream = resolveOutputStream(values)
 			const useJson = values.json ?? false
 			const formatter = useJson ? formatEventJson : formatEventText
 
 			const log = (event: LogEvent) => {
-				const stream = outputStream === "stderr" ? process.stderr : process.stdout
-				stream.write(formatter(event) + "\n")
+				process.stderr.write(formatter(event) + "\n")
 			}
 
-			const getOutputStdout = () =>
-				outputStream === "stderr" ? process.stderr : process.stdout
-
-			const getOutputStderr = () => process.stderr
+			const getOutputStdout = () => resolveStreamMode(values.outputStdout, values.output)
+			const getOutputStderr = () => resolveStreamMode(values.outputStderr, values.output)
 
 			return {
 				log,
 				info: (stage, event, data = {}) => log({ level: "info", stage, event, data }),
 				warn: (stage, event, data = {}) => log({ level: "warn", stage, event, data }),
 				error: (stage, event, data = {}) => log({ level: "error", stage, event, data }),
-				getOutputStream: getOutputStdout,
-				getErrorStream: getOutputStderr,
+				formatEvent: formatter,
 				getOutputStdout,
 				getOutputStderr,
-				formatEvent: formatter,
 			}
 		},
 	})
