@@ -12,11 +12,7 @@ import {
 import type { RepoContext } from "../repo/context.ts"
 import type { RepoExtension } from "../plugin/repo.ts"
 import { syncWiki } from "../wiki/sync.ts"
-import type {
-	DestinationRoots,
-	ProcessInputOptions,
-	DlContext,
-} from "./types.ts"
+import type { DlOptions, DlContext } from "./types.ts"
 import type { LogExtension } from "../plugin/log.ts"
 
 export async function processRepoContext(
@@ -68,8 +64,8 @@ export async function processRepoContext(
 
 export function createProcessEntry(
 	repoExtension: RepoExtension,
-	roots: DestinationRoots,
-	options: ProcessInputOptions,
+	roots: DlContext["roots"],
+	options: DlOptions,
 	log: LogExtension,
 	gitOps: GitOps = defaultGitOps,
 	dexportOps: DexportOps = defaultDexportOps,

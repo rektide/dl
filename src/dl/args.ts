@@ -1,6 +1,11 @@
-import type { ParsedArgs } from "./types.ts"
+import type { DlOptions } from "./types.ts"
 
 export const DL_COMMAND_NAME = "dl"
+
+interface ParsedArgs extends DlOptions {
+	inputs: string[]
+	watch: boolean
+}
 
 export function parseArgs(argv: string[]): ParsedArgs {
 	const tokens = argv[0] === DL_COMMAND_NAME ? argv.slice(1) : argv

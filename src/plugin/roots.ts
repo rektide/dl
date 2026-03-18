@@ -3,12 +3,11 @@ import {
 	resolveDestinationRoots,
 	type LinkContext,
 } from "../repo/link.ts"
-import type { DestinationRoots } from "../dl/types.ts"
 
 export const ROOTS_PLUGIN_ID = "rekon:roots" as const
 
 export interface RootsExtension {
-	resolveRoots: () => Promise<DestinationRoots>
+	resolveRoots: () => Promise<{ archiveRoot: string; wikiRoot: string }>
 }
 
 export function createRootsPlugin() {

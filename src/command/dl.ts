@@ -5,7 +5,7 @@ import { define, cli } from "gunshi"
 import { c12 } from "gunshi-c12"
 import { parseArgs, DL_COMMAND_NAME } from "../dl/args.ts"
 import { createProcessEntry } from "../dl/index.ts"
-import type { ProcessInputOptions } from "../dl/types.ts"
+import type { DlOptions } from "../dl/types.ts"
 import { watchArchlist } from "../dl/watch.ts"
 import {
 	createDexportPlugin,
@@ -87,7 +87,7 @@ async function run(ctx?: DlCommandContext) {
 			throw new Error("dl: dexport plugin extension is not available")
 		}
 		const roots = await rootsExtension.resolveRoots()
-		const options: ProcessInputOptions = {
+		const options: DlOptions = {
 			consumeDexportOutput,
 			noLogCache,
 			doArchive,

@@ -15,5 +15,5 @@
     "moduleDetection": "force"
   },
   "include": ["**/*.ts"],
-  "exclude": ["node_modules", "dist", "build"]
+  "exclude": ["node_modules", "dist", "build", "vendor"]
 }
