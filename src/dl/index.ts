@@ -90,8 +90,13 @@ export function createProcessEntry(
 		try {
 			const ctx: DlContext = { roots, options, log }
 			let hadError = false
+			let found = false
 			for await (const resolved of repoExtension.resolve(input)) {
+				found = true
 				hadError = (await processRepoContext(resolved, ctx, gitOps, dexportOps)) || hadError
+			}
+			if (!found) {
+				log.warn("sync", "no_match", { input })
 			}
 			return hadError
 		} catch (error) {

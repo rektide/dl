@@ -106,7 +106,9 @@ interface DlCommandContext extends LinkContext {
 
 		if (expand) {
 			for (const input of inputs) {
+				let found = false
 				for await (const resolved of repoExtension.resolve(input)) {
+					found = true
 					logExtension.info("expand", "resolved", {
 						input,
 						url: resolved.url?.toString(),
@@ -114,6 +116,9 @@ interface DlCommandContext extends LinkContext {
 						wikiGitUrl: resolved.wikiGitUrl?.toString(),
 						source: resolved.source,
 					})
+				}
+				if (!found) {
+					logExtension.warn("expand", "no_match", { input })
 				}
 			}
 			return
