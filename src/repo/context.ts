@@ -6,8 +6,8 @@ export interface RepoContext {
 	url?: URL
 	source: Source
 
-	deepwikiUrl?: URL
-	wikiGitUrl?: URL
+	wikiDeepUrl?: URL
+	wikiRepoUrl?: URL
 
 	readonly project: string | undefined
     readonly org: string | undefined
@@ -18,8 +18,8 @@ export class DefaultRepoContext implements RepoContext {
 	inputUrl?: URL
 	url?: URL
 	source: Source = {}
-	deepwikiUrl?: URL
-	wikiGitUrl?: URL
+	wikiDeepUrl?: URL
+	wikiRepoUrl?: URL
 
 	get project(): string | undefined {
 		if (!this.url) return undefined

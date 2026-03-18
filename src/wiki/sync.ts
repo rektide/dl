@@ -18,7 +18,7 @@ export async function syncWiki(
 	ctx.log.info("sync", "wiki", { destination: wikiDestination })
 	await dexportOps.sync(resolved, ctx.roots, ctx.options, wikiDestination, ctx.log)
 
-	if (resolved.wikiGitUrl) {
+	if (resolved.wikiRepoUrl) {
 		await syncGitWiki(resolved, wikiDestination, gitOps, ctx.log)
 	}
 }

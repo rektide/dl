@@ -17,8 +17,8 @@ export const syncDexportWiki: DexportOps["sync"] = async (
 		return
 	}
 
-	const deepwikiUrl = resolved.deepwikiUrl?.toString()
-	if (!deepwikiUrl) {
+	const wikiDeepUrl = resolved.wikiDeepUrl?.toString()
+	if (!wikiDeepUrl) {
 		log.warn("sync", "dexport_skipped", { reason: "no deepwiki URL for this repository" })
 		return
 	}
@@ -37,8 +37,8 @@ export const syncDexportWiki: DexportOps["sync"] = async (
 
 	if (plan === "queue") {
 		try {
-			runDexportDetached(dexportPath, roots.wikiRoot, deepwikiUrl)
-			log.info("sync", "dexport_queued", { url: deepwikiUrl })
+			runDexportDetached(dexportPath, roots.wikiRoot, wikiDeepUrl)
+			log.info("sync", "dexport_queued", { url: wikiDeepUrl })
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error)
 			log.warn("sync", "dexport_skipped", { message })
@@ -47,8 +47,8 @@ export const syncDexportWiki: DexportOps["sync"] = async (
 	}
 
 	try {
-		log.info("sync", "dexport_running", { url: deepwikiUrl })
-		await runDexport(dexportPath, roots.wikiRoot, deepwikiUrl)
+		log.info("sync", "dexport_running", { url: wikiDeepUrl })
+		await runDexport(dexportPath, roots.wikiRoot, wikiDeepUrl)
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
 		log.warn("sync", "dexport_skipped", { message })

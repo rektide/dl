@@ -10,7 +10,7 @@ export async function syncGitWiki(
 	log: LogExtension,
 ): Promise<void> {
 	try {
-		await gitOps.cloneOrUpdate(resolved.wikiGitUrl!.toString(), wikiDestination)
+		await gitOps.cloneOrUpdate(resolved.wikiRepoUrl!.toString(), wikiDestination)
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
 		log.warn("sync", "wiki_fetch_skipped", { message })

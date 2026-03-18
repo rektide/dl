@@ -110,7 +110,7 @@ interface DlCommandContext {
 						input,
 						url: resolved.url?.toString(),
 						pathname: resolved.url?.pathname,
-						wikiGitUrl: resolved.wikiGitUrl?.toString(),
+						wikiRepoUrl: resolved.wikiRepoUrl?.toString(),
 						source: resolved.source,
 					})
 				}

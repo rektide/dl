@@ -29,13 +29,13 @@ export const githubProvider: Repo = {
 		return ctx
 	},
 
-	resolveWiki(ctx: RepoContext): void {
+	resolveWikiRepo(ctx: RepoContext): void {
 		if (!ctx.url) return
-		ctx.wikiGitUrl = new URL(`${ctx.url.toString()}.wiki.git`)
+		ctx.wikiRepoUrl = new URL(`${ctx.url.toString()}.wiki.git`)
 	},
 
-	resolveDeepwiki(ctx: RepoContext): void {
+	resolveWikiDeep(ctx: RepoContext): void {
 		if (!ctx.project || !ctx.org) return
-		ctx.deepwikiUrl = new URL(`https://deepwiki.com/${ctx.org}/${ctx.project}`)
+		ctx.wikiDeepUrl = new URL(`https://deepwiki.com/${ctx.org}/${ctx.project}`)
 	},
 }

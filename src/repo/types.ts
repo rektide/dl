@@ -8,8 +8,8 @@ export interface Source {
 export interface Repo {
 	name: string
 	resolve(url: URL, signal: AbortSignal): Promise<RepoContext | undefined>
-	resolveWiki?(ctx: RepoContext): void
-	resolveDeepwiki?(ctx: RepoContext): void
+	resolveWikiRepo?(ctx: RepoContext): void
+	resolveWikiDeep?(ctx: RepoContext): void
 }
 
 export interface RepoRegistry {
