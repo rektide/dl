@@ -28,6 +28,11 @@ import {
 	type RootsExtension,
 } from "../plugin/roots.ts"
 import {
+	createLogPlugin,
+	LOG_PLUGIN_ID,
+	type LogExtension,
+} from "../plugin/log.ts"
+import {
 	type LinkContext,
 } from "../repo/link.ts"
 
@@ -37,6 +42,7 @@ interface DlCommandContext extends LinkContext {
 		[REPO_PLUGIN_ID]?: RepoExtension
 		[GIT_PLUGIN_ID]?: GitExtension
 		[DEXPORT_PLUGIN_ID]?: DexportExtension
+		[LOG_PLUGIN_ID]?: LogExtension
 	}
 }
 
@@ -163,6 +169,7 @@ void (async () => {
 			name: DL_COMMAND_NAME,
 			plugins: [
 				c12({ name: "rekon" }),
+				createLogPlugin(),
 				createRootsPlugin(),
 				createRepoPlugin(),
 				createGitPlugin(),
