@@ -23,8 +23,13 @@ export interface LogOptions {
 
 export interface LogExtension {
 	log: (event: LogEvent) => void
+	info: (stage: LogStage, event: string, data?: Record<string, unknown>) => void
+	warn: (stage: LogStage, event: string, data?: Record<string, unknown>) => void
+	error: (stage: LogStage, event: string, data?: Record<string, unknown>) => void
 	getOutputStream: () => NodeJS.WritableStream
 	getErrorStream: () => NodeJS.WritableStream
+	getOutputStdout: () => NodeJS.WritableStream
+	getOutputStderr: () => NodeJS.WritableStream
 	formatEvent: (event: LogEvent) => string
 }
 
@@ -73,22 +78,28 @@ export function createLogPlugin() {
 			const values = core.values as LogOptions
 			const outputStream = resolveOutputStream(values)
 			const useJson = values.json ?? false
+			const formatter = useJson ? formatEventJson : formatEventText
+
+			const log = (event: LogEvent) => {
+				const stream = outputStream === "stderr" ? process.stderr : process.stdout
+				stream.write(formatter(event) + "\n")
+			}
+
+			const getOutputStdout = () =>
+				outputStream === "stderr" ? process.stderr : process.stdout
+
+			const getOutputStderr = () => process.stderr
 
 			return {
-				log: (event: LogEvent) => {
-					const stream = outputStream === "stderr" ? process.stderr : process.stdout
-					const formatted = useJson
-						? formatEventJson(event)
-						: formatEventText(event)
-					stream.write(formatted + "\n")
-				},
-
-				getOutputStream: () =>
-					outputStream === "stderr" ? process.stderr : process.stdout,
-
-				getErrorStream: () => process.stderr,
-
-				formatEvent: useJson ? formatEventJson : formatEventText,
+				log,
+				info: (stage, event, data = {}) => log({ level: "info", stage, event, data }),
+				warn: (stage, event, data = {}) => log({ level: "warn", stage, event, data }),
+				error: (stage, event, data = {}) => log({ level: "error", stage, event, data }),
+				getOutputStream: getOutputStdout,
+				getErrorStream: getOutputStderr,
+				getOutputStdout,
+				getOutputStderr,
+				formatEvent: formatter,
 			}
 		},
 	})

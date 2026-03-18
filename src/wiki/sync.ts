@@ -1,5 +1,5 @@
 import { join } from "node:path"
-import type { DestinationRoots, ProcessInputOptions } from "../dl/types.ts"
+import type { DlContext } from "../dl/types.ts"
 import type { RepoContext } from "../repo/context.ts"
 import { defaultDexportOps } from "../dexport/default.ts"
 import type { DexportOps } from "../dexport/types.ts"
@@ -9,16 +9,15 @@ import { syncGitWiki } from "./git.ts"
 
 export async function syncWiki(
 	resolved: RepoContext,
-	roots: DestinationRoots,
-	options: ProcessInputOptions,
+	ctx: DlContext,
 	gitOps: GitOps = defaultGitOps,
 	dexportOps: DexportOps = defaultDexportOps,
 ): Promise<void> {
-	const wikiDestination = join(roots.wikiRoot, resolved.namespacePath!)
-	console.log(`wiki: ${wikiDestination}`)
-	await dexportOps.sync(resolved, roots, options, wikiDestination)
+	const wikiDestination = join(ctx.roots.wikiRoot, resolved.namespacePath!)
+	ctx.log.info("sync", "wiki", { destination: wikiDestination })
+	await dexportOps.sync(resolved, ctx.roots, ctx.options, wikiDestination, ctx.log)
 
 	if (resolved.wikiGitUrl) {
-		await syncGitWiki(resolved, wikiDestination, gitOps)
+		await syncGitWiki(resolved, wikiDestination, gitOps, ctx.log)
 	}
 }

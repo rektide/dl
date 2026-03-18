@@ -47,6 +47,7 @@ interface DlCommandContext extends LinkContext {
 }
 
 async function run(ctx?: DlCommandContext) {
+	const logExtension = ctx?.extensions?.[LOG_PLUGIN_ID]
 	try {
 		const {
 			inputs,
@@ -63,6 +64,10 @@ async function run(ctx?: DlCommandContext) {
 				"usage: rekon dl [--watch] <repo-url|org/repo> [repo-url|org/repo ...]",
 			)
 			process.exit(1)
+		}
+
+		if (!logExtension) {
+			throw new Error("dl: log plugin extension is not available")
 		}
 
 		const rootsExtension = ctx?.extensions?.[ROOTS_PLUGIN_ID]
@@ -91,7 +96,7 @@ async function run(ctx?: DlCommandContext) {
 		}
 
 		if (watch && options.doArchlist) {
-			console.warn("--watch disables --archlist to avoid feedback loops")
+			logExtension.warn("sync", "archlist_disabled", { reason: "watch mode feedback loop" })
 			options.doArchlist = false
 		}
 
@@ -100,15 +105,17 @@ async function run(ctx?: DlCommandContext) {
 			repoExtension,
 			roots,
 			options,
+			logExtension,
 			gitExtension,
 			dexportExtension,
 		)
+
 		for (const input of inputs) {
 			hadError = (await processEntry(input)) || hadError
 		}
 
 		if (watch) {
-			hadError = (await watchArchlist(processEntry)) || hadError
+			hadError = (await watchArchlist(processEntry, logExtension)) || hadError
 		}
 
 		if (hadError) {
@@ -116,7 +123,11 @@ async function run(ctx?: DlCommandContext) {
 		}
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
-		console.error(message)
+		if (logExtension) {
+			logExtension.error("sync", "failed", { message })
+		} else {
+			console.error(`sync failed: ${message}`)
+		}
 		process.exit(1)
 	}
 }

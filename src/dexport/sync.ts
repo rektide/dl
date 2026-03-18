@@ -1,21 +1,25 @@
 import type { DexportOps } from "./types.ts"
+import type { LogExtension } from "../plugin/log.ts"
 import { resolveDexportPath } from "./path.ts"
 import { runDexport, runDexportDetached } from "./launch.ts"
 import { chooseDexportPlan } from "./policy.ts"
 
-export async function syncDexportWiki(
-	...args: Parameters<DexportOps["sync"]>
-): Promise<void> {
-	const [resolved, roots, options, wikiDestination] = args
+export const syncDexportWiki: DexportOps["sync"] = async (
+	resolved,
+	roots,
+	options,
+	wikiDestination,
+	log,
+) => {
 	const dexportPath = await resolveDexportPath()
 	if (!dexportPath) {
-		console.warn("dexport skipped: not found at ~/src/dexport/src/cli.ts")
+		log.warn("sync", "dexport_skipped", { reason: "not found at ~/src/dexport/src/cli.ts" })
 		return
 	}
 
 	const deepwikiUrl = resolved.deepwikiUrl?.toString()
 	if (!deepwikiUrl) {
-		console.warn("dexport skipped: no deepwiki URL for this repository")
+		log.warn("sync", "dexport_skipped", { reason: "no deepwiki URL for this repository" })
 		return
 	}
 
@@ -26,9 +30,7 @@ export async function syncDexportWiki(
 
 	if (plan === "skip-existing") {
 		if (!options.noLogCache) {
-			console.log(
-				`dexport: skipped because ${wikiDestination} already exists`,
-			)
+			log.info("sync", "dexport_skipped", { reason: "already exists", destination: wikiDestination })
 		}
 		return
 	}
@@ -36,19 +38,19 @@ export async function syncDexportWiki(
 	if (plan === "queue") {
 		try {
 			runDexportDetached(dexportPath, roots.wikiRoot, deepwikiUrl)
-			console.log(`dexport: queued ${deepwikiUrl}`)
+			log.info("sync", "dexport_queued", { url: deepwikiUrl })
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error)
-			console.warn(`dexport skipped: ${message}`)
+			log.warn("sync", "dexport_skipped", { message })
 		}
 		return
 	}
 
 	try {
-		console.log(`dexport: running ${deepwikiUrl}`)
+		log.info("sync", "dexport_running", { url: deepwikiUrl })
 		await runDexport(dexportPath, roots.wikiRoot, deepwikiUrl)
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
-		console.warn(`dexport skipped: ${message}`)
+		log.warn("sync", "dexport_skipped", { message })
 	}
 }

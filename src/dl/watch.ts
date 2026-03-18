@@ -1,6 +1,7 @@
 import { appendFile, open, stat, watch } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
+import type { LogExtension } from "../plugin/log.ts"
 
 function parseAppendedLines(chunk: string): { lines: string[]; remainder: string } {
 	const normalized = chunk.replace(/\r\n/g, "\n")
@@ -32,6 +33,7 @@ async function readAppendedText(
 
 export async function watchArchlist(
 	processEntry: (input: string) => Promise<boolean>,
+	log: LogExtension,
 ): Promise<boolean> {
 	const archlistPath = join(homedir(), "archlist")
 	await appendFile(archlistPath, "")
@@ -83,11 +85,11 @@ export async function watchArchlist(
 			.catch((error) => {
 				hadError = true
 				const message = error instanceof Error ? error.message : String(error)
-				console.error(message)
+				log.error("sync", "watch_failed", { message })
 			})
 	}
 
-	console.log(`watching: ${archlistPath}`)
+	log.info("sync", "watching", { path: archlistPath })
 	const abortController = new AbortController()
 
 	process.on("SIGINT", () => {

@@ -1,3 +1,5 @@
+import type { LogExtension } from "../plugin/log.ts"
+
 export interface ParsedArgs {
 	inputs: string[]
 	watch: boolean
@@ -19,4 +21,10 @@ export interface ProcessInputOptions {
 export interface DestinationRoots {
 	archiveRoot: string
 	wikiRoot: string
+}
+
+export interface DlContext {
+	roots: DestinationRoots
+	options: ProcessInputOptions
+	log: LogExtension
 }
