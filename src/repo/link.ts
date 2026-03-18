@@ -70,7 +70,7 @@ function createProjectEntry(namespacePath: string, sourcePath: string): ProjectE
 
 export async function resolveDestinationRoots(ctx?: LinkContext): Promise<{ archiveRoot: string, wikiRoot: string }> {
   const defaultArchiveRoot = join(homedir(), 'archive')
-  const defaultWikiRoot = join(homedir(), 'wiki')
+  const defaultWikiRoot = join(homedir(), 'github-wiki')
 
   const envArchiveRoot = configuredDirectory(process.env.ARCHIVE_DIR)
   const envWikiRoot = configuredDirectory(process.env.WIKI_DIR)
