@@ -6,9 +6,6 @@ import { defaultDexportOps } from "../dexport/default.ts"
 import type { DexportOps } from "../dexport/types.ts"
 import { defaultGitOps } from "../git/default.ts"
 import type { GitOps } from "../git/types.ts"
-import {
-	linkSpecificProject,
-} from "../repo/link.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { RepoExtension } from "../plugin/repo.ts"
 import { syncWiki } from "../wiki/sync.ts"
@@ -50,23 +47,6 @@ export async function processRepoContext(
 
 		if (ctx.options.doWiki) {
 			await syncWiki(resolved, ctx, gitOps, dexportOps)
-		}
-
-		if (ctx.options.doArchive && ctx.options.doWiki && resolved.url) {
-			const linkErrors = await linkSpecificProject({
-				archiveRoot: ctx.roots.archiveRoot,
-				wikiRoot: ctx.roots.wikiRoot,
-				pathname: resolved.url.pathname.replace(/^\//, ""),
-				onEvent: (event) => {
-					if (!event.status.startsWith("error")) {
-						return
-					}
-					ctx.log.error("link", event.status, event)
-				},
-			})
-			if (linkErrors) {
-				return true
-			}
 		}
 
 		return false

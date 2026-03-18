@@ -23,7 +23,7 @@
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint",
-    "typecheck": "tsgo",
+    "typecheck": "tsgo --noEmit",
     "test": "vitest",
     "build": "tsdown"
   },
