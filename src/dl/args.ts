@@ -17,6 +17,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
 	const hasArchiveFlag = tokens.includes("--archive")
 	const hasWikiFlag = tokens.includes("--wiki")
 	const hasArchlistFlag = tokens.includes("--archlist")
+	const expand = tokens.includes("--expand")
+	const dryRun = tokens.includes("--dry-run")
 
 	let doArchive = true
 	let doWiki = true
@@ -36,5 +38,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
 		doArchive,
 		doWiki,
 		doArchlist,
+		expand,
+		dryRun,
 	}
 }

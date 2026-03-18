@@ -22,6 +22,22 @@ export async function processRepoContext(
 	dexportOps: DexportOps = defaultDexportOps,
 ): Promise<boolean> {
 	try {
+		if (ctx.options.dryRun) {
+			ctx.log.info("dry-run", "would_sync", {
+				url: resolved.url?.toString(),
+				namespacePath: resolved.namespacePath,
+				doArchive: ctx.options.doArchive,
+				doWiki: ctx.options.doWiki,
+				archivePath: ctx.options.doArchive && resolved.namespacePath
+					? `${ctx.roots.archiveRoot}/${resolved.namespacePath}`
+					: undefined,
+				wikiPath: ctx.options.doWiki && resolved.namespacePath
+					? `${ctx.roots.wikiRoot}/${resolved.namespacePath}`
+					: undefined,
+			})
+			return false
+		}
+
 		if (ctx.options.doArchlist) {
 			const archlistPath = join(homedir(), "archlist")
 			await appendFile(archlistPath, `${resolved.url!.toString()}\n`)

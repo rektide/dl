@@ -46,7 +46,7 @@ interface DlCommandContext extends LinkContext {
 	}
 }
 
-async function run(ctx?: DlCommandContext) {
+	async function run(ctx?: DlCommandContext) {
 	const logExtension = ctx?.extensions?.[LOG_PLUGIN_ID]
 	try {
 		const {
@@ -57,6 +57,8 @@ async function run(ctx?: DlCommandContext) {
 			doArchive,
 			doWiki,
 			doArchlist,
+			expand,
+			dryRun,
 		} = parseArgs(process.argv.slice(2))
 
 		if (inputs.length === 0 && !watch) {
@@ -93,11 +95,28 @@ async function run(ctx?: DlCommandContext) {
 			doArchive,
 			doWiki,
 			doArchlist,
+			expand,
+			dryRun,
 		}
 
 		if (watch && options.doArchlist) {
 			logExtension.warn("sync", "archlist_disabled", { reason: "watch mode feedback loop" })
 			options.doArchlist = false
+		}
+
+		if (expand) {
+			for (const input of inputs) {
+				for await (const resolved of repoExtension.resolve(input)) {
+					logExtension.info("expand", "resolved", {
+						input,
+						url: resolved.url?.toString(),
+						namespacePath: resolved.namespacePath,
+						wikiGitUrl: resolved.wikiGitUrl?.toString(),
+						source: resolved.source,
+					})
+				}
+			}
+			return
 		}
 
 		let hadError = false
@@ -166,6 +185,16 @@ export default define({
 			type: "boolean",
 			default: false,
 			description: "Watch ~/archlist and process appended entries serially",
+		},
+		expand: {
+			type: "boolean",
+			default: false,
+			description: "Output resolved repo info without syncing",
+		},
+		"dry-run": {
+			type: "boolean",
+			default: false,
+			description: "Show what would be done without making changes",
 		},
 	},
 	run,

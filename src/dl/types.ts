@@ -6,6 +6,8 @@ export interface DlOptions {
 	doArchive: boolean
 	doWiki: boolean
 	doArchlist: boolean
+	expand: boolean
+	dryRun: boolean
 }
 
 export interface DlContext {
