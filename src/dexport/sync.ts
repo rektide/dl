@@ -13,7 +13,12 @@ export async function syncDexportWiki(
 		return
 	}
 
-	const deepwikiUrl = resolved.deepwikiUrl
+	const deepwikiUrl = resolved.deepwikiUrl?.toString()
+	if (!deepwikiUrl) {
+		console.warn("dexport skipped: no deepwiki URL for this repository")
+		return
+	}
+
 	const plan = await chooseDexportPlan(
 		wikiDestination,
 		options.consumeDexportOutput,

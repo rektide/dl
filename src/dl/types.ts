@@ -8,18 +8,6 @@ export interface ParsedArgs {
 	doArchlist: boolean
 }
 
-export interface RepoContext {
-	input: string
-	host: string
-	namespacePath: string
-	org: string
-	repo: string
-	cloneUrl: string
-	repoUrl: string
-	deepwikiUrl: string
-	wikiCloneUrl: string
-}
-
 export interface ProcessInputOptions {
 	consumeDexportOutput: boolean
 	noLogCache: boolean

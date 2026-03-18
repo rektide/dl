@@ -1,25 +1,51 @@
 import { plugin } from "gunshi/plugin"
-import {
-	parseInput,
-	resolveRepository,
-} from "../dl/repository.ts"
-import type { ParsedInput } from "../dl/provider.ts"
-import type { RepoContext } from "../dl/types.ts"
+import type { RepoContext } from "../repo/context.ts"
+import { expand, sshExpander, urlExpander, hostPathExpander, createShorthandExpander } from "../url/index.ts"
+import { createRegistry } from "../repo/registry.ts"
+import { verify, enrich } from "../repo/resolve.ts"
+import { githubProvider } from "../repo/provider/github.ts"
+import { gitlabProvider } from "../repo/provider/gitlab.ts"
+import { tangledProvider } from "../repo/provider/tangled.ts"
+import { genericProvider } from "../repo/provider/generic.ts"
+import { RESOLVE_TIMEOUT } from "../repo/util.ts"
 
 export const REPO_PLUGIN_ID = "rekon:repo" as const
 
 export interface RepoExtension {
-	parse: (input: string) => ParsedInput
-	resolve: (input: string) => Promise<RepoContext>
+	resolve: (input: string) => AsyncGenerator<RepoContext>
 }
 
-export function createRepoPlugin() {
+export function createRepoPlugin(options?: {
+	defaultHosts?: string[]
+}) {
 	return plugin({
 		id: REPO_PLUGIN_ID,
 		name: "Rekon Repository",
-		extension: (): RepoExtension => ({
-			parse: (input) => parseInput(input),
-			resolve: (input) => resolveRepository(input),
-		}),
+		extension: (): RepoExtension => {
+			const registry = createRegistry(genericProvider)
+			registry.register(githubProvider, ["github.com"])
+			registry.register(gitlabProvider, ["gitlab.com"])
+			registry.register(tangledProvider, ["tangled.org", "tangled.sh", "tangled.com"])
+
+			const expanders = [
+				sshExpander,
+				urlExpander,
+				hostPathExpander,
+				createShorthandExpander({
+					defaultHosts: options?.defaultHosts ?? ["github.com"],
+				}),
+			]
+
+			return {
+				async *resolve(input: string) {
+					const signal = AbortSignal.timeout(RESOLVE_TIMEOUT)
+					const candidates = expand(input, expanders)
+					for await (const ctx of verify(input, candidates, registry, signal)) {
+						enrich(ctx, registry)
+						yield ctx
+					}
+				},
+			}
+		},
 	})
 }

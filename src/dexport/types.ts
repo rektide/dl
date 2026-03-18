@@ -1,8 +1,8 @@
 import type {
 	DestinationRoots,
 	ProcessInputOptions,
-	RepoContext,
 } from "../dl/types.ts"
+import type { RepoContext } from "../repo/context.ts"
 
 export interface DexportOps {
 	sync: (

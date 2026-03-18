@@ -9,12 +9,12 @@ import type { GitOps } from "../git/types.ts"
 import {
 	linkSpecificProject,
 } from "../repo/link.ts"
+import type { RepoContext } from "../repo/context.ts"
 import type { RepoExtension } from "../plugin/repo.ts"
 import { syncWiki } from "../wiki/sync.ts"
 import type {
 	DestinationRoots,
 	ProcessInputOptions,
-	RepoContext,
 } from "./types.ts"
 
 export async function processRepoContext(
@@ -27,7 +27,7 @@ export async function processRepoContext(
 	try {
 		if (options.doArchlist) {
 			const archlistPath = join(homedir(), "archlist")
-			await appendFile(archlistPath, `${resolved.cloneUrl}\n`)
+			await appendFile(archlistPath, `${resolved.url!.toString()}\n`)
 		}
 
 		if (options.doArchive) {
@@ -42,7 +42,7 @@ export async function processRepoContext(
 			const linkErrors = await linkSpecificProject({
 				archiveRoot: roots.archiveRoot,
 				wikiRoot: roots.wikiRoot,
-				namespacePath: resolved.namespacePath,
+				namespacePath: resolved.namespacePath!,
 				onEvent: (event, useErrorStream = false) => {
 					if (!event.status.startsWith("error")) {
 						return
@@ -77,8 +77,11 @@ export function createProcessEntry(
 ): (input: string) => Promise<boolean> {
 	return async (input: string) => {
 		try {
-			const resolved = await repoExtension.resolve(input)
-			return await processRepoContext(resolved, roots, options, gitOps, dexportOps)
+			let hadError = false
+			for await (const resolved of repoExtension.resolve(input)) {
+				hadError = (await processRepoContext(resolved, roots, options, gitOps, dexportOps)) || hadError
+			}
+			return hadError
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error)
 			console.error(message)
