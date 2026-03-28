@@ -30,7 +30,7 @@ export class DefaultRepoContext implements RepoContext {
 	get org(): string | undefined {
 		if (!this.url) return undefined
 		const segments = this.url.pathname.split("/").filter(Boolean)
-		if (segments.length < 2) return undefined
+		if (segments.length < 2) return this.url.host
 		return segments
 			.slice(0, -1)
 			.map((s) => s.replace(/\.git$/, ""))

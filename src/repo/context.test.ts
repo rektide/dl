@@ -21,7 +21,14 @@ describe("DefaultRepoContext", () => {
 		expect(ctx.project).toBe("project")
 	})
 
-	test("returns undefined when url not set", () => {
+	test("uses host as org for single-segment paths", () => {
+		const ctx = new DefaultRepoContext()
+		ctx.url = new URL("https://git.ffmpeg.org/ffmpeg")
+		expect(ctx.project).toBe("ffmpeg")
+		expect(ctx.org).toBe("git.ffmpeg.org")
+	})
+
+  test("returns undefined when url not set", () => {
     const ctx = new DefaultRepoContext()
     expect(ctx.project).toBeUndefined()
     expect(ctx.org).toBeUndefined()
