@@ -25,6 +25,7 @@ export interface LogOptions {
 
 export interface LogExtension {
 	log: (event: LogEvent) => void
+	debug: (stage: LogStage, event: string, data?: Record<string, unknown>) => void
 	info: (stage: LogStage, event: string, data?: Record<string, unknown>) => void
 	warn: (stage: LogStage, event: string, data?: Record<string, unknown>) => void
 	error: (stage: LogStage, event: string, data?: Record<string, unknown>) => void
@@ -97,6 +98,7 @@ export function createLogPlugin() {
 
 			return {
 				log,
+				debug: (stage, event, data = {}) => log({ level: "debug", stage, event, data }),
 				info: (stage, event, data = {}) => log({ level: "info", stage, event, data }),
 				warn: (stage, event, data = {}) => log({ level: "warn", stage, event, data }),
 				error: (stage, event, data = {}) => log({ level: "error", stage, event, data }),
