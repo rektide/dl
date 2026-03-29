@@ -55,6 +55,7 @@ export async function watchArchlist(
 				if (!nextInput) {
 					continue
 				}
+				log.info("sync", "watch_entry", { input: nextInput })
 				hadError = (await processEntry(nextInput)) || hadError
 			}
 		} finally {
@@ -102,6 +103,7 @@ export async function watchArchlist(
 	try {
 		for await (const event of watch(archlistPath, { signal: abortController.signal })) {
 			if (event.eventType !== "change") {
+				log.debug("sync", "watch_event_ignored", { eventType: event.eventType })
 				continue
 			}
 			scheduleRead()
@@ -113,5 +115,6 @@ export async function watchArchlist(
 	}
 
 	await readChain
+	log.info("sync", "watch_stopped", { path: archlistPath })
 	return hadError
 }
