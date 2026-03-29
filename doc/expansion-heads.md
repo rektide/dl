@@ -8,13 +8,11 @@ The dl pipeline has a clean layered design:
 Input → expand() → verify() → enrich() → sync
 ```
 
-**Related tickets:**
-- `rekon-generic-provider-strategies` — Fallthrough verification strategies (HEAD → git ls-remote with early-cancel)
-- `rekon-redirect-handling` — Redirect resolution in the verify stage
-
 **`expand()`** runs all registered expanders against the input, collects every candidate URL they produce, and deduplicates by URL identity. Each expander returns an array of URLs — the interface is `expand(input: string): URL[]`.
 
 **`verify()`** iterates all candidates sequentially, attempts to resolve each via the provider registry, and yields only the ones that succeed. Failures are silently skipped with `if (!ctx) continue`.
+
+Verification is itself a fallthrough process — the provider for each candidate URL tries to confirm the repo exists. The current generic provider does a single HTTP HEAD request, which is unreliable for many forges. The planned improvement (ticket `rekon-generic-provider-strategies`) is a fallthrough verification strategy chain: try HEAD first (cheap), then GET for confirmable bytes, then `git ls-remote` (definitive). Redirect handling (ticket `rekon-redirect-handling`) is also needed here — many forges redirect to canonical URLs, and the pipeline currently discards those.
 
 This architecture is explicitly designed to **expand widely, then collapse down** to what actually resolves.
 
