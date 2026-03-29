@@ -38,6 +38,7 @@ export async function processRepoContext(
 
 		if (ctx.options.doArchlist) {
 			const archlistPath = join(homedir(), "archlist")
+			ctx.log.info("sync", "archlist", { url: resolved.url!.toString(), path: archlistPath })
 			await appendFile(archlistPath, `${resolved.url!.toString()}\n`)
 		}
 
