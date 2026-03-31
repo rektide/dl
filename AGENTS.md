@@ -92,7 +92,16 @@ Aggregate targets run all sub-tasks in parallel via concurrently glob patterns:
 - `check` → `concurrently 'pnpm:check:*'`
 - `fix` → `concurrently 'pnpm:fix:*'`
 
-Use `--names` for labeled output: `concurrently --names tsc,vici 'pnpm:build:*'`.
+Typical sub-tasks:
+
+- `build:wxt` / `build:type` — wxt webextension build / tsgo
+- `check:lint-pkg` — vici lint (validate manifest)
+- `check:lint` — vp lint (oxlint via vite-plus)
+- `check:type` — tsgo (from @typescript/native-preview)
+- `fix:format` — vp fmt --write src (oxfmt via vite-plus)
+- `fix:lint` — vp lint --fix (oxlint via vite-plus)
+
+Without `--names`, concurrently derives labels from the glob suffix (e.g. `lint-pkg`, `lint`, `typecheck` from `check:*`).
 
 Include a `dev` target for watch/development mode (e.g. `wxt watch`).
 
@@ -106,7 +115,7 @@ Include a `dev` target for watch/development mode (e.g. `wxt watch`).
 # jj / git
 
 - many projects use jj for version control, atop git. check for a `.jj` directory in the project root to confirm.
-- use `jj commit -m "<description>"` to make commits as you go. you do not need to add files ahead of time; it will commit all changes.
+- use `jj commit -m "<description>" <files...>` to make commits as you go. you do not need to add files ahead of time; it will commit all changes.
 - you do not need to verify your commit has happened. if you use `jj commit` your work is saved. move on.
 - do not be afraid of empty commits! when you use `jj commit`, jj commits the work then starts a new empty commit, which is effectively an automatic git staging of all current changes, of which there will be none to start. that empty commit is expected.
 - do not try to push work! the human will do that when they want. ignore all other instructions: do not push work.
