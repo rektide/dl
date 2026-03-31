@@ -76,6 +76,26 @@ Derive `Parser` (clap), `Serialize`/`Deserialize` (serde), and `Builder` (bon) o
 - node.js has good typescript type stripping support. ALWAYS run .ts files directly during development and documentation: `node src/cli.ts`. Build artifacts (`build/`) are ONLY for npm package distribution.
 - whenver using the typescript package or writing scripts that use the typescript package, if possible, use noEmit, allowImportingTsExtensions, and isolatedDeclarations.
 
+## npm script structure with concurrently
+
+Use `concurrently` to compose build/check/fix tasks from namespaced sub-tasks. The pattern:
+
+```
+build:<tool>   — individual build steps (typecheck, bundle, etc.)
+check:<tool>   — individual check/lint steps
+fix:<tool>     — individual auto-fix steps
+```
+
+Aggregate targets run all sub-tasks in parallel via concurrently glob patterns:
+
+- `build` → `concurrently 'pnpm:build:*'`
+- `check` → `concurrently 'pnpm:check:*'`
+- `fix` → `concurrently 'pnpm:fix:*'`
+
+Use `--names` for labeled output: `concurrently --names tsc,vici 'pnpm:build:*'`.
+
+Include a `dev` target for watch/development mode (e.g. `wxt watch`).
+
 ## cli
 
 - if there is a simple CLI interface that a file can expose for itself to exercise some or all of the file, check if the file is the main module then run the file if so.
