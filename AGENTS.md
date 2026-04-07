@@ -1,3 +1,7 @@
+# subagents
+
+- UNLESS DIRECTED BY USER ignore skills/etc that say to use a given model. we do not have access to most of these. just use whatever is currently running/default.
+
 # Experimenting
 
 # Documentation / reference materials
