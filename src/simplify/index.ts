@@ -19,12 +19,19 @@ export function simplify(name: string): string {
 }
 
 /** Result of an {@link ensureSymlink} call. */
-type SimplifyStatus =
+export type SimplifyStatus =
 	| "skip_same"
 	| "created"
 	| "already_linked"
 	| "conflict_symlink"
 	| "conflict_exists"
+
+export type SimplifySyncReport = {
+	readonly orgStatus: SimplifyStatus | "skipped"
+	readonly projectStatus: SimplifyStatus | "skipped"
+	readonly org: string | null
+	readonly project: string | null
+}
 
 /** Minimal logger interface accepted by {@link ensureSymlink}. */
 export interface SimplifyLog {
@@ -86,11 +93,25 @@ export async function ensureSymlink(
 export async function syncSimplify(
 	resolved: RepoContext,
 	ctx: DlContext,
-): Promise<void> {
-	if (!resolved.url) return
+): Promise<SimplifySyncReport> {
+	if (!resolved.url) {
+		return {
+			orgStatus: "skipped",
+			projectStatus: "skipped",
+			org: null,
+			project: null,
+		}
+	}
 
 	const segments = resolved.url.pathname.replace(/^\//, "").split("/")
-	if (segments.length < 2) return
+	if (segments.length < 2) {
+		return {
+			orgStatus: "skipped",
+			projectStatus: "skipped",
+			org: null,
+			project: null,
+		}
+	}
 
 	const org = segments[0]
 	const project = segments[1].replace(/\.git$/, "")
@@ -99,8 +120,15 @@ export async function syncSimplify(
 	const simplifiedProject = simplify(project)
 	const dryRun = ctx.options.dryRun
 
-	await ensureSymlink(ctx.roots.archiveRoot, org, simplifiedOrg, dryRun, ctx.log)
+	const orgStatus = await ensureSymlink(ctx.roots.archiveRoot, org, simplifiedOrg, dryRun, ctx.log)
 
 	const orgDir = join(ctx.roots.archiveRoot, org)
-	await ensureSymlink(orgDir, project, simplifiedProject, dryRun, ctx.log)
+	const projectStatus = await ensureSymlink(orgDir, project, simplifiedProject, dryRun, ctx.log)
+
+	return {
+		orgStatus,
+		projectStatus,
+		org,
+		project,
+	}
 }

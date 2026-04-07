@@ -27,6 +27,50 @@ When `rekon dl morrownr/USB-WIFI` targets a repo that already has checkout(s) on
 2. **dexport stale**: once `~/wiki/<org>/<repo>/` exists, dexport never re-runs — stale/missing content stays stale
 3. **cascading failure**: `processRepoContext` runs steps sequentially without try-catch per step; if archive throws, simplify and wiki never execute
 
+## First move: common lifecycle reporting path
+
+Before changing the state-machine flags, establish one reporting path that every step uses. That gives us a stable way to inspect transitions and state evidence while refactoring behavior.
+
+Implemented reporting path:
+
+- [`src/dl/lifecycle.ts`](/src/dl/lifecycle.ts): shared lifecycle reporter + normalized record shape.
+- [`src/dl/index.ts`](/src/dl/index.ts): per-step isolated execution and lifecycle record emission.
+- `rekon dl --report-lifecycle`: emits a per-repo `lifecycle_report` event with all step records.
+
+### Lifecycle record schema
+
+| Field | Meaning | Example |
+|-------|---------|---------|
+| `step` | Canonical step/sub-step id | `archive`, `archive-jj`, `wiki-dexport` |
+| `source` | Code path producing the record | `syncArchive -> git.cloneOrUpdate` |
+| `status` | Normalized outcome | `ok`, `skipped`, `failed` |
+| `transition` | Concrete state transition/action label | `cloned`, `updated`, `already_initialized`, `ran`, `off` |
+| `details` | Step-specific evidence payload | `{ destination, reason, message, plan }` |
+
+### Current transition signal producers (code-level)
+
+| Transition source | File | Signal values |
+|-------------------|------|---------------|
+| archive clone/update | [`src/git/clone.ts`](/src/git/clone.ts) | `cloned`, `updated` |
+| archive jj init | [`src/git/jj.ts`](/src/git/jj.ts) | `initialized`, `already_initialized` |
+| simplify link creation | [`src/simplify/index.ts`](/src/simplify/index.ts) | `created`, `already_linked`, `conflict_*`, `skip_same` |
+| dexport decision + run mode | [`src/dexport/policy.ts`](/src/dexport/policy.ts), [`src/dexport/sync.ts`](/src/dexport/sync.ts) | `skip-existing`, `queue`, `run` -> `skipped`, `queued`, `ran`, `failed` |
+| git wiki clone/update | [`src/wiki/git.ts`](/src/wiki/git.ts) | `cloned`, `updated`, `failed` |
+| pipeline step isolation | [`src/dl/index.ts`](/src/dl/index.ts) | `off`, `error`, `blocked`, `would-*` |
+
+### Report table shape by pipeline aspect
+
+| Aspect | Steps | Primary transitions |
+|--------|-------|---------------------|
+| archlist | `archlist` | `appended`, `off`, `would-append`, `error` |
+| archive checkout | `archive` | `cloned`, `updated`, `off`, `would-sync`, `error` |
+| archive jj | `archive-jj` | `initialized`, `already_initialized`, `off`, `would-ensure`, `blocked` |
+| simplify links | `simplify-org`, `simplify-repo` | `created`, `already_linked`, `conflict_*`, `skip_same`, `off`, `error` |
+| wiki/dexport | `wiki-dexport` | `skipped`, `queued`, `ran`, `failed`, `off`, `would-sync` |
+| wiki git | `wiki-git` | `cloned`, `updated`, `failed`, `not-applicable`, `off`, `would-sync` |
+
+This reporting layer gives us a single contract for "what happened" before introducing `off/skip/ensure/force` behavior changes.
+
 ## Proposal: `=state` parameter on each verb flag
 
 Replace boolean flags (`--archive`, `--wiki`, `--archlist`, `--simplify`) with enumerated state flags:
@@ -234,9 +278,10 @@ rekon dl --archive=force --wiki=force --simplify=force morrownr/USB-WIFI
 
 ## Implementation order
 
-1. Add `StepState` and `StepControl` types to `src/dl/types.ts`
-2. Update `args.ts` to parse `=state` syntax with backward-compatible bare flags
-3. Update `processRepoContext` with per-step try-catch + state guards
-4. Thread `StepControl` into `syncArchive`, `syncSimplify`, `syncWiki`, `chooseDexportPlan`
-5. Add force behavior (rm+clone/recreate) to each sync function
-6. Fix `chooseDexportPlan` to accept state parameter instead of only checking directory existence
+1. Add common lifecycle reporting path and normalized transitions table emission
+2. Add `StepState` and `StepControl` types to `src/dl/types.ts`
+3. Update `args.ts` to parse `=state` syntax with backward-compatible bare flags
+4. Update `processRepoContext` with per-step state guards (`off`/`skip`/`ensure`/`force`)
+5. Thread `StepControl` into `syncArchive`, `syncSimplify`, `syncWiki`, `chooseDexportPlan`
+6. Add force behavior (rm+clone/recreate) to each sync function
+7. Fix `chooseDexportPlan` to accept state parameter instead of only checking directory existence

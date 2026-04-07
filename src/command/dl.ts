@@ -51,6 +51,7 @@ interface DlCommandContext {
 			watch,
 			consumeDexportOutput,
 			noLogCache,
+			reportLifecycle,
 			doArchive,
 			doWiki,
 			doArchlist,
@@ -90,6 +91,7 @@ interface DlCommandContext {
 		const options: DlOptions = {
 			consumeDexportOutput,
 			noLogCache,
+			reportLifecycle,
 			doArchive,
 			doWiki,
 			doArchlist,
@@ -169,6 +171,11 @@ export default define({
 			type: "boolean",
 			default: false,
 			description: "Disable logging of cached file names",
+		},
+		"report-lifecycle": {
+			type: "boolean",
+			default: false,
+			description: "Emit structured lifecycle summary per resolved repository",
 		},
 		archive: {
 			type: "boolean",

@@ -2,6 +2,7 @@ import { access } from "node:fs/promises"
 import { join } from "node:path"
 import { x } from "tinyexec"
 import { listRemotes } from "./remote.ts"
+import type { JjInitStatus } from "./types.ts"
 
 async function exists(path: string): Promise<boolean> {
 	try {
@@ -24,9 +25,9 @@ async function trackMainBookmark(destination: string): Promise<void> {
 	}
 }
 
-export async function ensureJjInitialized(destination: string): Promise<void> {
+export async function ensureJjInitialized(destination: string): Promise<JjInitStatus> {
 	if (await exists(join(destination, ".jj"))) {
-		return
+		return "already_initialized"
 	}
 
 	await x("jj", ["git", "init"], {
@@ -34,4 +35,6 @@ export async function ensureJjInitialized(destination: string): Promise<void> {
 		nodeOptions: { cwd: destination, stdio: "inherit" },
 	})
 	await trackMainBookmark(destination)
+
+	return "initialized"
 }

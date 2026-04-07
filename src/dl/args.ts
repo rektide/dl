@@ -14,6 +14,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
 		tokens.includes("--consume-dexport-output") || tokens.includes("-c")
 	const watch = tokens.includes("--watch")
 	const noLogCache = tokens.includes("--no-log-cache")
+	const reportLifecycle = tokens.includes("--report-lifecycle") && !tokens.includes("--no-report-lifecycle")
 	const hasArchiveFlag = tokens.includes("--archive")
 	const hasWikiFlag = tokens.includes("--wiki")
 	const hasArchlistFlag = tokens.includes("--archlist")
@@ -38,6 +39,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
 		watch,
 		consumeDexportOutput,
 		noLogCache,
+		reportLifecycle,
 		doArchive,
 		doWiki,
 		doArchlist,

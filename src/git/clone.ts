@@ -2,6 +2,7 @@ import { access, mkdir } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { x } from "tinyexec"
 import { normalizeCloneUrl } from "./remote.ts"
+import type { GitCloneStatus } from "./types.ts"
 
 async function exists(path: string): Promise<boolean> {
 	try {
@@ -15,7 +16,7 @@ async function exists(path: string): Promise<boolean> {
 export async function cloneOrUpdate(
 	remoteUrl: string,
 	destination: string,
-): Promise<void> {
+): Promise<GitCloneStatus> {
 	const normalizedRemoteUrl = normalizeCloneUrl(remoteUrl)
 	const gitDir = join(destination, ".git")
 	if (await exists(gitDir)) {
@@ -23,7 +24,7 @@ export async function cloneOrUpdate(
 			throwOnError: true,
 			nodeOptions: { stdio: "inherit" },
 		})
-		return
+		return "updated"
 	}
 
 	if (await exists(destination)) {
@@ -37,4 +38,6 @@ export async function cloneOrUpdate(
 		throwOnError: true,
 		nodeOptions: { stdio: "inherit" },
 	})
+
+	return "cloned"
 }
