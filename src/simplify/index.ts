@@ -4,10 +4,21 @@ import type { LogExtension } from "../plugin/log.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { DlContext } from "../dl/types.ts"
 
+/**
+ * Lowercases and strips all non-alphanumeric characters from a name.
+ *
+ * @example
+ * ```ts
+ * simplify("Effect-TS")       // "effectts"
+ * simplify("duckdb_mooncake") // "duckdbmooncake"
+ * simplify("effect")          // "effect"
+ * ```
+ */
 export function simplify(name: string): string {
 	return name.toLowerCase().replace(/[^a-z0-9]/g, "")
 }
 
+/** Result of an {@link ensureSymlink} call. */
 type SimplifyStatus =
 	| "skip_same"
 	| "created"
@@ -15,11 +26,23 @@ type SimplifyStatus =
 	| "conflict_symlink"
 	| "conflict_exists"
 
+/** Minimal logger interface accepted by {@link ensureSymlink}. */
 export interface SimplifyLog {
 	info: (stage: string, event: string, data?: Record<string, unknown>) => void
 	warn: (stage: string, event: string, data?: Record<string, unknown>) => void
 }
 
+/**
+ * Create a symlink at `parentDir/simplified` pointing to `original`, if it
+ * doesn't already exist.
+ *
+ * Returns a {@link SimplifyStatus} describing what happened:
+ * - `skip_same` — simplified name equals original, nothing to do
+ * - `already_linked` — symlink already points to the correct target
+ * - `conflict_symlink` — symlink exists but points elsewhere (no-op, logged)
+ * - `conflict_exists` — non-symlink entry exists at path (no-op, logged)
+ * - `created` — symlink was created (or would be, in dry-run mode)
+ */
 export async function ensureSymlink(
 	parentDir: string,
 	original: string,
@@ -55,6 +78,11 @@ export async function ensureSymlink(
 	return "created"
 }
 
+/**
+ * Given a resolved repo context, create org-level and repo-level simplified
+ * symlinks under the archive root. Runs as a step in the dl pipeline after
+ * {@link syncArchive} so the real directory exists.
+ */
 export async function syncSimplify(
 	resolved: RepoContext,
 	ctx: DlContext,
