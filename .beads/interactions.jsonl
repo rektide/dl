@@ -1,0 +1,2 @@
+{"id":"int-d13b460f","kind":"field_change","created_at":"2026-04-07T06:24:59.492832098Z","actor":"rektide de la faye","issue_id":"rekon-ln-command","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Superseded by rekon resimplify command and simplify dl step"}}
+{"id":"int-f42335d8","kind":"field_change","created_at":"2026-04-07T06:25:00.397576988Z","actor":"rektide de la faye","issue_id":"rekon-symlink-transforms","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Implemented as simplify() in src/simplify/index.ts"}}
