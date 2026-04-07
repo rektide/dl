@@ -123,7 +123,34 @@ These would become redundant once the feature is active:
 
 They can be left in place (idempotent) or cleaned up manually.
 
+## Command: `rekon resimplify`
+
+Standalone command for backfilling/refreshing symlinks on existing entries.
+
+```
+rekon resimplify                     # process current working directory
+rekon resimplify ~/archive/Effect-TS # process given path(s)
+rekon resimplify ~/archive/Effect-TS ~/archive/Mooncake-Labs
+```
+
+### Behavior
+
+Given a path (defaults to `cwd`), figure out what it is relative to `archiveRoot`:
+
+- **If it's an org directory**: for each repo inside, create a repo-level symlink
+  if the simplified name differs. Also create the org-level symlink.
+- **If it's a repo directory**: create both the org-level symlink and the
+  repo-level symlink.
+- **If it's neither** (not under `archiveRoot`): log warning, skip.
+
+Respects `--dry-run`.
+
+### Implementation
+
+New command file `src/command/resimplify.ts`, reuses `simplify()` and the
+core symlink logic from `src/simplify/`. No repo resolution needed — this
+works purely on filesystem paths, not URLs.
+
 ## Open Questions
 
 1. **For repo-level symlinks, should the symlink live under the simplified org or the original org?** i.e. `~/archive/effectts/msedgeexplainers -> ../../MicrosoftEdge/MSEdgeExplainers` (through the org symlink) vs `~/archive/MicrosoftEdge/msedgeexplainers -> MSEdgeExplainers` (under original org).
-2. **Should we scan and backfill symlinks for all existing archive entries, or only create them going forward?** A separate `rekon simplify` command could handle the backfill.
