@@ -31,18 +31,53 @@ Examples:
 | `duckdb_mooncake` | `duckdbmooncake` |
 | `effect` | `effect` (no change) |
 
-## Placement in the `dl` Pipeline
+## Scope
+
+Archive only. `~/wiki/` symlinks are a possible follow-up.
+
+## Flag: same pattern as `--archlist`
+
+In `args.ts`, `doArchive`, `doWiki`, and `doArchlist` are all independent
+on-by-default booleans. When any are explicitly passed, only the flagged ones run.
+`doSimplify` follows the exact same pattern:
 
 ```
-dl/index.ts  processRepoContext()
-  |
-  +-- syncArchive()        // clone/update to ~/archive/<org>/<repo>
-  +-- syncSimplify()  <--  NEW: create simplified symlinks
-  +-- syncWiki()           // clone/update wiki
+// args.ts
+let doSimplify = true
+
+if (hasArchiveFlag || hasWikiFlag || hasArchlistFlag || hasSimplifyFlag) {
+    doArchive = hasArchiveFlag
+    doWiki = hasWikiFlag
+    doArchlist = hasArchlistFlag
+    doSimplify = hasSimplifyFlag
+}
 ```
 
-`syncSimplify` runs **after** `syncArchive` (so the real directory exists) and
-**before** `syncWiki` (so wiki paths also benefit from the symlinks in the org layer).
+Add to `DlOptions`: `doSimplify: boolean` (default `true`).
+Gunshi arg: `simplify: { type: "boolean", default: true }` — gives `--simplify` / `--no-simplify`.
+
+`dryRun` is respected: log what would be symlinked without creating anything.
+
+## Placement in `processRepoContext`
+
+Same shape as the existing steps — a guarded block:
+
+```typescript
+if (ctx.options.doSimplify) {
+    await syncSimplify(resolved, ctx)
+}
+```
+
+Runs after `syncArchive` (so the real directory exists). Order within
+`processRepoContext` mirrors the existing pattern:
+
+```
+processRepoContext()
+  if (doArchlist)   append to archlist
+  if (doArchive)    syncArchive()
+  if (doSimplify)   syncSimplify()   <-- here
+  if (doWiki)       syncWiki()
+```
 
 ## New Module: `src/simplify/`
 
@@ -79,22 +114,6 @@ This is idempotent: if the symlink already points to the right target, it's a no
 | Org symlink needed but repo name is already simple | Still create org symlink |
 | Same simplified name for two different orgs (collision) | First one wins, second logs warning |
 
-## Scope
-
-Archive only. `~/wiki/` symlinks are a possible follow-up.
-
-## Integration with `DlOptions`
-
-Add `doSimplify: boolean` to `DlOptions`, defaulting to `true`.
-
-CLI flag: `--no-simplify` to disable. Gunshi supports negated boolean flags, so
-registering the arg as `simplify: { type: "boolean", default: true }` automatically
-provides `--no-simplify`.
-
-Symlink creation only runs when both `doArchive` and `doSimplify` are true
-(symlinks live in the archive tree). The `dryRun` flag is respected: log what would
-be symlinked without creating anything.
-
 ## Existing Ad-Hoc Symlinks
 
 These would become redundant once the feature is active:
@@ -106,6 +125,5 @@ They can be left in place (idempotent) or cleaned up manually.
 
 ## Open Questions
 
-1. **Should `syncSimplify` be a separate step or folded into `syncArchive`?**
-2. **For repo-level symlinks, should the org symlink target be the original org dir or the simplified one?** (Currently proposed: original org dir, so `~/archive/effectts/MSEdgeExplainers` is not a thing — it would be `~/archive/effectts/msedgeexplainers -> ../../MicrosoftEdge/MSEdgeExplainers` using a relative path through the org symlink.)
-3. **Should we scan and backfill symlinks for all existing archive entries, or only create them going forward?** A separate `rekon simplify` command could handle the backfill.
+1. **For repo-level symlinks, should the symlink live under the simplified org or the original org?** i.e. `~/archive/effectts/msedgeexplainers -> ../../MicrosoftEdge/MSEdgeExplainers` (through the org symlink) vs `~/archive/MicrosoftEdge/msedgeexplainers -> MSEdgeExplainers` (under original org).
+2. **Should we scan and backfill symlinks for all existing archive entries, or only create them going forward?** A separate `rekon simplify` command could handle the backfill.
