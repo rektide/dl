@@ -5,6 +5,7 @@ import dlCommand from './src/command/dl.ts'
 import installCommandsCommand from './src/command/install-commands.ts'
 import interpolateCommand from './src/command/interpolate.ts'
 import projectFilesCommand from './src/command/project-files.ts'
+import resimplifyCommand from './src/command/resimplify.ts'
 import completion from '@gunshi/plugin-completion'
 import { c12 } from 'gunshi-c12'
 import { createDexportPlugin } from './src/plugin/dexport.ts'
@@ -30,7 +31,8 @@ await cli(process.argv.slice(2), mainCommand, {
 		dl: dlCommand,
 		'install-commands': installCommandsCommand,
 		interpolate: interpolateCommand,
-		'project-files': projectFilesCommand
+		'project-files': projectFilesCommand,
+		resimplify: resimplifyCommand,
 	},
 	plugins: [
 		completion(),

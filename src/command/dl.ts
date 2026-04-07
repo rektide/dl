@@ -54,6 +54,7 @@ interface DlCommandContext {
 			doArchive,
 			doWiki,
 			doArchlist,
+			doSimplify,
 			expand,
 			dryRun,
 		} = parseArgs(process.argv.slice(2))
@@ -92,6 +93,7 @@ interface DlCommandContext {
 			doArchive,
 			doWiki,
 			doArchlist,
+			doSimplify,
 			expand,
 			dryRun,
 		}
@@ -182,6 +184,11 @@ export default define({
 			type: "boolean",
 			default: false,
 			description: "Append resolved repository URLs to ~/archlist",
+		},
+		simplify: {
+			type: "boolean",
+			default: true,
+			description: "Create simplified symlinks for org/repo names (on by default, use --no-simplify to disable)",
 		},
 		watch: {
 			type: "boolean",

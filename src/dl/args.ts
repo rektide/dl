@@ -17,17 +17,20 @@ export function parseArgs(argv: string[]): ParsedArgs {
 	const hasArchiveFlag = tokens.includes("--archive")
 	const hasWikiFlag = tokens.includes("--wiki")
 	const hasArchlistFlag = tokens.includes("--archlist")
+	const hasSimplifyFlag = tokens.includes("--simplify")
 	const expand = tokens.includes("--expand")
 	const dryRun = tokens.includes("--dry-run")
 
 	let doArchive = true
 	let doWiki = true
 	let doArchlist = true
+	let doSimplify = true
 
-	if (hasArchiveFlag || hasWikiFlag || hasArchlistFlag) {
+	if (hasArchiveFlag || hasWikiFlag || hasArchlistFlag || hasSimplifyFlag) {
 		doArchive = hasArchiveFlag
 		doWiki = hasWikiFlag
 		doArchlist = hasArchlistFlag
+		doSimplify = hasSimplifyFlag
 	}
 
 	return {
@@ -38,6 +41,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
 		doArchive,
 		doWiki,
 		doArchlist,
+		doSimplify,
 		expand,
 		dryRun,
 	}

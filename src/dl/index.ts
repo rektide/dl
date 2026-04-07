@@ -8,6 +8,7 @@ import { defaultGitOps } from "../git/default.ts"
 import type { GitOps } from "../git/types.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { RepoExtension } from "../plugin/repo.ts"
+import { syncSimplify } from "../simplify/index.ts"
 import { syncWiki } from "../wiki/sync.ts"
 import type { DlOptions, DlContext } from "./types.ts"
 import type { LogExtension } from "../plugin/log.ts"
@@ -44,6 +45,10 @@ export async function processRepoContext(
 
 		if (ctx.options.doArchive) {
 			await syncArchive(resolved, ctx, gitOps)
+		}
+
+		if (ctx.options.doSimplify) {
+			await syncSimplify(resolved, ctx)
 		}
 
 		if (ctx.options.doWiki) {
