@@ -79,18 +79,21 @@ This is idempotent: if the symlink already points to the right target, it's a no
 | Org symlink needed but repo name is already simple | Still create org symlink |
 | Same simplified name for two different orgs (collision) | First one wins, second logs warning |
 
+## Scope
+
+Archive only. `~/wiki/` symlinks are a possible follow-up.
+
 ## Integration with `DlOptions`
 
-No new CLI flags needed. Symlink creation is always attempted when `doArchive` is true
-(the symlinks live in the archive tree). The `dryRun` flag is respected: log what would
+Add `doSimplify: boolean` to `DlOptions`, defaulting to `true`.
+
+CLI flag: `--no-simplify` to disable. Gunshi supports negated boolean flags, so
+registering the arg as `simplify: { type: "boolean", default: true }` automatically
+provides `--no-simplify`.
+
+Symlink creation only runs when both `doArchive` and `doSimplify` are true
+(symlinks live in the archive tree). The `dryRun` flag is respected: log what would
 be symlinked without creating anything.
-
-## What About `~/wiki/`?
-
-Same org-level simplification applies. After `syncWiki`, create
-`~/wiki/<simplifiedOrg> -> <org>` if needed. Repo-level wiki paths follow the same
-pattern. This can be a follow-up or done in the same pass by passing `wikiRoot` into
-`syncSimplify`.
 
 ## Existing Ad-Hoc Symlinks
 
@@ -103,7 +106,6 @@ They can be left in place (idempotent) or cleaned up manually.
 
 ## Open Questions
 
-1. **Should we also simplify inside `~/wiki/` in the initial implementation, or only `~/archive/`?**
-2. **Should `syncSimplify` be a separate step or folded into `syncArchive`?**
-3. **For repo-level symlinks, should the org symlink target be the original org dir or the simplified one?** (Currently proposed: original org dir, so `~/archive/effectts/MSEdgeExplainers` is not a thing — it would be `~/archive/effectts/msedgeexplainers -> ../../MicrosoftEdge/MSEdgeExplainers` using a relative path through the org symlink.)
-4. **Should we scan and backfill symlinks for all existing archive entries, or only create them going forward?** A separate `rekon simplify` command could handle the backfill.
+1. **Should `syncSimplify` be a separate step or folded into `syncArchive`?**
+2. **For repo-level symlinks, should the org symlink target be the original org dir or the simplified one?** (Currently proposed: original org dir, so `~/archive/effectts/MSEdgeExplainers` is not a thing — it would be `~/archive/effectts/msedgeexplainers -> ../../MicrosoftEdge/MSEdgeExplainers` using a relative path through the org symlink.)
+3. **Should we scan and backfill symlinks for all existing archive entries, or only create them going forward?** A separate `rekon simplify` command could handle the backfill.
