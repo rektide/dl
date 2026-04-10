@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { realpath } from "node:fs/promises"
 import { pathToFileURL } from "node:url"
-import { define, cli } from "gunshi"
+import { define, cli, type CommandContext } from "gunshi"
 import { c12 } from "gunshi-c12"
-import { parseArgs, DL_COMMAND_NAME } from "../dl/args.ts"
+import { DL_COMMAND_NAME } from "../dl/args.ts"
 import { createProcessEntry } from "../dl/index.ts"
 import type { DlOptions } from "../dl/types.ts"
 import { watchArchlist } from "../dl/watch.ts"
@@ -33,33 +33,79 @@ import {
 	type LogExtension,
 } from "../plugin/log.ts"
 
-interface DlCommandContext {
-	extensions?: {
-		[ROOTS_PLUGIN_ID]?: RootsExtension
-		[REPO_PLUGIN_ID]?: RepoExtension
-		[GIT_PLUGIN_ID]?: GitExtension
-		[DEXPORT_PLUGIN_ID]?: DexportExtension
-		[LOG_PLUGIN_ID]?: LogExtension
-	}
+const dlArgs = {
+	org: {
+		type: "string",
+		description: "Default org prefix; positional args are treated as repo names and org is prepended",
+	},
+	"consume-dexport-output": {
+		type: "boolean",
+		short: "c",
+		default: false,
+		description: "Run dexport detached and suppress its output",
+	},
+	"no-log-cache": {
+		type: "boolean",
+		default: false,
+		description: "Disable logging of cached file names",
+	},
+	"report-lifecycle": {
+		type: "boolean",
+		default: false,
+		description: "Emit structured lifecycle summary per resolved repository",
+	},
+	archive: {
+		type: "boolean",
+		default: false,
+		description: "Only update archive (disables wiki unless --wiki also set)",
+	},
+	wiki: {
+		type: "boolean",
+		default: false,
+		description: "Only update wiki (disables archive unless --archive also set)",
+	},
+	archlist: {
+		type: "boolean",
+		default: false,
+		description: "Append resolved repository URLs to ~/archlist",
+	},
+	simplify: {
+		type: "boolean",
+		default: true,
+		description: "Create simplified symlinks for org/repo names (on by default, use --no-simplify to disable)",
+	},
+	watch: {
+		type: "boolean",
+		default: false,
+		description: "Watch ~/archlist and process appended entries serially",
+	},
+	expand: {
+		type: "boolean",
+		default: false,
+		description: "Output resolved repo info without syncing",
+	},
+	"dry-run": {
+		type: "boolean",
+		default: false,
+		description: "Show what would be done without making changes",
+	},
+} as const
+
+type DlArgs = typeof dlArgs
+
+interface DlExtensions {
+	[ROOTS_PLUGIN_ID]: RootsExtension
+	[REPO_PLUGIN_ID]: RepoExtension
+	[GIT_PLUGIN_ID]: GitExtension
+	[DEXPORT_PLUGIN_ID]: DexportExtension
+	[LOG_PLUGIN_ID]: LogExtension
 }
 
-	async function run(ctx?: DlCommandContext) {
-	const logExtension = ctx?.extensions?.[LOG_PLUGIN_ID]
+async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions }>) {
+	const logExtension = ctx.extensions[LOG_PLUGIN_ID]
 	try {
-		const {
-			inputs: rawInputs,
-			org,
-			watch,
-			consumeDexportOutput,
-			noLogCache,
-			reportLifecycle,
-			doArchive,
-			doWiki,
-			doArchlist,
-			doSimplify,
-			expand,
-			dryRun,
-		} = parseArgs(process.argv.slice(2))
+		const { org, watch, expand } = ctx.values
+		const rawInputs = ctx.positionals
 
 		const inputs = org
 			? rawInputs.map((input) => `${org}/${input}`)
@@ -76,10 +122,10 @@ interface DlCommandContext {
 			throw new Error("dl: log plugin extension is not available")
 		}
 
-		const rootsExtension = ctx?.extensions?.[ROOTS_PLUGIN_ID]
-		const repoExtension = ctx?.extensions?.[REPO_PLUGIN_ID]
-		const gitExtension = ctx?.extensions?.[GIT_PLUGIN_ID]
-		const dexportExtension = ctx?.extensions?.[DEXPORT_PLUGIN_ID]
+		const rootsExtension = ctx.extensions[ROOTS_PLUGIN_ID]
+		const repoExtension = ctx.extensions[REPO_PLUGIN_ID]
+		const gitExtension = ctx.extensions[GIT_PLUGIN_ID]
+		const dexportExtension = ctx.extensions[DEXPORT_PLUGIN_ID]
 		if (!rootsExtension) {
 			throw new Error("dl: roots plugin extension is not available")
 		}
@@ -93,16 +139,20 @@ interface DlCommandContext {
 			throw new Error("dl: dexport plugin extension is not available")
 		}
 		const roots = await rootsExtension.resolveRoots()
+
+		const anyExplicit =
+			ctx.explicit.archive || ctx.explicit.wiki ||
+			ctx.explicit.archlist || ctx.explicit.simplify
 		const options: DlOptions = {
-			consumeDexportOutput,
-			noLogCache,
-			reportLifecycle,
-			doArchive,
-			doWiki,
-			doArchlist,
-			doSimplify,
+			consumeDexportOutput: ctx.values["consume-dexport-output"],
+			noLogCache: ctx.values["no-log-cache"],
+			reportLifecycle: ctx.values["report-lifecycle"],
+			doArchive: anyExplicit ? ctx.values.archive : true,
+			doWiki: anyExplicit ? ctx.values.wiki : true,
+			doArchlist: anyExplicit ? ctx.values.archlist : true,
+			doSimplify: anyExplicit ? ctx.values.simplify : true,
 			expand,
-			dryRun,
+			dryRun: ctx.values["dry-run"],
 		}
 
 		if (watch && options.doArchlist) {
@@ -165,63 +215,7 @@ interface DlCommandContext {
 export default define({
 	name: DL_COMMAND_NAME,
 	description: "Fetch repository checkout and wiki checkout",
-	args: {
-		org: {
-			type: "string",
-			description: "Default org prefix; positional args are treated as repo names and org is prepended",
-		},
-		"consume-dexport-output": {
-			type: "boolean",
-			short: "c",
-			default: false,
-			description: "Run dexport detached and suppress its output",
-		},
-		"no-log-cache": {
-			type: "boolean",
-			default: false,
-			description: "Disable logging of cached file names",
-		},
-		"report-lifecycle": {
-			type: "boolean",
-			default: false,
-			description: "Emit structured lifecycle summary per resolved repository",
-		},
-		archive: {
-			type: "boolean",
-			default: false,
-			description: "Only update archive (disables wiki unless --wiki also set)",
-		},
-		wiki: {
-			type: "boolean",
-			default: false,
-			description: "Only update wiki (disables archive unless --archive also set)",
-		},
-		archlist: {
-			type: "boolean",
-			default: false,
-			description: "Append resolved repository URLs to ~/archlist",
-		},
-		simplify: {
-			type: "boolean",
-			default: true,
-			description: "Create simplified symlinks for org/repo names (on by default, use --no-simplify to disable)",
-		},
-		watch: {
-			type: "boolean",
-			default: false,
-			description: "Watch ~/archlist and process appended entries serially",
-		},
-		expand: {
-			type: "boolean",
-			default: false,
-			description: "Output resolved repo info without syncing",
-		},
-		"dry-run": {
-			type: "boolean",
-			default: false,
-			description: "Show what would be done without making changes",
-		},
-	},
+	args: dlArgs,
 	run,
 })
 

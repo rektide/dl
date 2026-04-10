@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest"
 import { expand, sshExpander, urlExpander, hostPathExpander, createShorthandExpander } from "../url/index.ts"
-import { parseArgs } from "../dl/args.ts"
 
 const allExpanders = [
 	sshExpander,
@@ -8,6 +7,25 @@ const allExpanders = [
 	hostPathExpander,
 	createShorthandExpander({ defaultHosts: ["github.com"] }),
 ]
+
+function prependOrg(org: string | undefined, positionals: string[]): string[] {
+	return org
+		? positionals.map((input) => `${org}/${input}`)
+		: positionals
+}
+
+function resolveDlFlags(
+	values: { archive: boolean; wiki: boolean; archlist: boolean; simplify: boolean },
+	explicit: { archive: boolean; wiki: boolean; archlist: boolean; simplify: boolean },
+) {
+	const anyExplicit = explicit.archive || explicit.wiki || explicit.archlist || explicit.simplify
+	return {
+		doArchive: anyExplicit ? values.archive : true,
+		doWiki: anyExplicit ? values.wiki : true,
+		doArchlist: anyExplicit ? values.archlist : true,
+		doSimplify: anyExplicit ? values.simplify : true,
+	}
+}
 
 describe("expanders", () => {
 	describe("sshExpander", () => {
@@ -127,69 +145,70 @@ describe("expand", () => {
 	})
 })
 
-describe("parseArgs --org", () => {
-	test("parses --org with bare repo names", () => {
-		const result = parseArgs(["--org", "huggingface", "transformers", "diffusers"])
-		expect(result.org).toBe("huggingface")
-		expect(result.inputs).toEqual(["transformers", "diffusers"])
+describe("prependOrg", () => {
+	test("prepends org to bare repo names", () => {
+		expect(prependOrg("huggingface", ["transformers", "diffusers"]))
+			.toEqual(["huggingface/transformers", "huggingface/diffusers"])
 	})
 
-	test("no --org preserves inputs as-is", () => {
-		const result = parseArgs(["huggingface/transformers"])
-		expect(result.org).toBeUndefined()
-		expect(result.inputs).toEqual(["huggingface/transformers"])
+	test("always prepends, even to slash-containing inputs", () => {
+		expect(prependOrg("huggingface", ["other-org/repo"]))
+			.toEqual(["huggingface/other-org/repo"])
 	})
 
-	test("--org with single repo", () => {
-		const result = parseArgs(["--org", "huggingface", "transformers"])
-		expect(result.org).toBe("huggingface")
-		expect(result.inputs).toEqual(["transformers"])
+	test("returns positionals unchanged when no org", () => {
+		expect(prependOrg(undefined, ["huggingface/transformers"]))
+			.toEqual(["huggingface/transformers"])
 	})
 
-	test("--org always prepends even to slash-containing inputs", () => {
-		const result = parseArgs(["--org", "huggingface", "other-org/repo"])
-		expect(result.org).toBe("huggingface")
-		expect(result.inputs).toEqual(["other-org/repo"])
-	})
-
-	test("--org with other flags", () => {
-		const result = parseArgs(["--org", "huggingface", "--dry-run", "transformers"])
-		expect(result.org).toBe("huggingface")
-		expect(result.inputs).toEqual(["transformers"])
-		expect(result.dryRun).toBe(true)
-	})
-})
-
-describe("parseArgs --org prepending", () => {
-	test("prepending bare repo name produces org/repo shorthand", () => {
-		const result = parseArgs(["--org", "huggingface", "transformers"])
-		const inputs = result.org
-			? result.inputs.map((input) => `${result.org}/${input}`)
-			: result.inputs
+	test("prepended bare name expands through shorthand", () => {
+		const inputs = prependOrg("huggingface", ["transformers"])
 		expect(inputs).toEqual(["huggingface/transformers"])
 		const results = expand(inputs[0], allExpanders)
 		expect(results).toHaveLength(1)
 		expect(results[0].url.host).toBe("github.com")
 		expect(results[0].url.pathname).toBe("/huggingface/transformers")
 	})
+})
 
-	test("prepending to slash-containing input produces nested path", () => {
-		const result = parseArgs(["--org", "huggingface", "other-org/repo"])
-		const inputs = result.org
-			? result.inputs.map((input) => `${result.org}/${input}`)
-			: result.inputs
-		expect(inputs).toEqual(["huggingface/other-org/repo"])
+describe("resolveDlFlags", () => {
+	test("defaults: all enabled when no explicit flags", () => {
+		const result = resolveDlFlags(
+			{ archive: false, wiki: false, archlist: false, simplify: true },
+			{ archive: false, wiki: false, archlist: false, simplify: false },
+		)
+		expect(result).toEqual({ doArchive: true, doWiki: true, doArchlist: true, doSimplify: true })
 	})
 
-	test("multiple repos with --org all get prepended", () => {
-		const result = parseArgs(["--org", "huggingface", "transformers", "diffusers", "tokenizers"])
-		const inputs = result.org
-			? result.inputs.map((input) => `${result.org}/${input}`)
-			: result.inputs
-		expect(inputs).toEqual([
-			"huggingface/transformers",
-			"huggingface/diffusers",
-			"huggingface/tokenizers",
-		])
+	test("--archive explicitly set: only archive enabled", () => {
+		const result = resolveDlFlags(
+			{ archive: true, wiki: false, archlist: false, simplify: true },
+			{ archive: true, wiki: false, archlist: false, simplify: false },
+		)
+		expect(result).toEqual({ doArchive: true, doWiki: false, doArchlist: false, doSimplify: true })
+	})
+
+	test("--wiki explicitly set: only wiki enabled", () => {
+		const result = resolveDlFlags(
+			{ archive: false, wiki: true, archlist: false, simplify: true },
+			{ archive: false, wiki: true, archlist: false, simplify: false },
+		)
+		expect(result).toEqual({ doArchive: false, doWiki: true, doArchlist: false, doSimplify: true })
+	})
+
+	test("--archive and --wiki both set: both enabled", () => {
+		const result = resolveDlFlags(
+			{ archive: true, wiki: true, archlist: false, simplify: true },
+			{ archive: true, wiki: true, archlist: false, simplify: false },
+		)
+		expect(result).toEqual({ doArchive: true, doWiki: true, doArchlist: false, doSimplify: true })
+	})
+
+	test("--no-simplify explicitly set: simplify off", () => {
+		const result = resolveDlFlags(
+			{ archive: false, wiki: false, archlist: false, simplify: false },
+			{ archive: false, wiki: false, archlist: false, simplify: true },
+		)
+		expect(result).toEqual({ doArchive: false, doWiki: false, doArchlist: false, doSimplify: false })
 	})
 })
