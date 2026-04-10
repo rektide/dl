@@ -12,9 +12,10 @@
 # well known directories and files
 
 - **ALWAYS check `~/archive/<repo-org>/<repo-name>` FIRST for source code** before fetching from the web. This is the primary location for third-party project checkouts.
-- **ALWAYS check `~/wiki/<repo-org>/<repo-name>` FIRST for documentation/wiki** before fetching from the web.
+- `~/archive/doc` (and it's `~/src/doc` symlink) is a jj repo where markdown notes are often kept for broad topics. `doc/` inside of projects is for project material.
+- `~/wiki/<repo-org>/<repo-name>` has machine generated but pretty good wiki that elaborates the architecture & use of projects, if available
 - `~/src/<repo-name>` or `~/src/<repo-name>-<workspace-name>` has 1st party checkouts for projects by the author.
-- read a `/llms.txt` from each project in the archive. it might not exist, that's fine.
+- read a `/llms.txt` from each project in the archive. it might not exist, that's fine. never mind this rarely exists, sad.
 - `~/ff` is future-fuze, our collection of kubernetes related resources
 - `/opt` and `/srv` for general software installs, and for instances of software / services
 - if you want to checkout source, get the repo and wiki for it via `~/src/rekon/src/command/dl.ts <url>`
