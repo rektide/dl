@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { realpath } from "node:fs/promises"
 import { pathToFileURL } from "node:url"
-import { define, cli, type CommandContext } from "gunshi"
+import { define, cli, type CommandContext, type ArgValues } from "gunshi"
 import { c12 } from "gunshi-c12"
 import { DL_COMMAND_NAME } from "../dl/args.ts"
 import { resolveDlFlags } from "../dl/flags.ts"
@@ -117,9 +117,27 @@ function requireExtensions(extensions: DlExtensions) {
 	return { log, roots, repo, git, dexport }
 }
 
+function buildDlOptions(
+	values: ArgValues<DlArgs>,
+	explicit: { archive: boolean; wiki: boolean; archlist: boolean; simplify: boolean },
+): DlOptions {
+	const flags = resolveDlFlags(
+		{ archive: values.archive, wiki: values.wiki, archlist: values.archlist, simplify: values.simplify },
+		explicit,
+	)
+	return {
+		consumeDexportOutput: values["consume-dexport-output"],
+		noLogCache: values["no-log-cache"],
+		reportLifecycle: values["report-lifecycle"],
+		...flags,
+		expand: values.expand,
+		dryRun: values["dry-run"],
+	}
+}
+
 async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions }>) {
 	try {
-		const { org, watch, expand } = ctx.values
+		const { org, watch } = ctx.values
 		const inputs = prependOrg(org, ctx.positionals)
 
 		if (inputs.length === 0 && !watch) {
@@ -131,26 +149,14 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 
 		const { log: logExtension, roots: rootsExtension, repo: repoExtension, git: gitExtension, dexport: dexportExtension } = requireExtensions(ctx.extensions)
 		const roots = await rootsExtension.resolveRoots()
-
-		const flags = resolveDlFlags(
-			{ archive: ctx.values.archive, wiki: ctx.values.wiki, archlist: ctx.values.archlist, simplify: ctx.values.simplify },
-			{ archive: ctx.explicit.archive, wiki: ctx.explicit.wiki, archlist: ctx.explicit.archlist, simplify: ctx.explicit.simplify },
-		)
-		const options: DlOptions = {
-			consumeDexportOutput: ctx.values["consume-dexport-output"],
-			noLogCache: ctx.values["no-log-cache"],
-			reportLifecycle: ctx.values["report-lifecycle"],
-			...flags,
-			expand,
-			dryRun: ctx.values["dry-run"],
-		}
+		const options = buildDlOptions(ctx.values, ctx.explicit)
 
 		if (watch && options.doArchlist) {
 			logExtension.warn("sync", "archlist_disabled", { reason: "watch mode feedback loop" })
 			options.doArchlist = false
 		}
 
-		if (expand) {
+		if (options.expand) {
 			for (const input of inputs) {
 				let found = false
 				for await (const resolved of repoExtension.resolve(input)) {
