@@ -9,28 +9,24 @@ import { createProcessEntry } from "../dl/index.ts"
 import type { DlOptions } from "../dl/types.ts"
 import { watchArchlist } from "../dl/watch.ts"
 import { prependOrg } from "./prepend-org.ts"
+import { createDlPlugins } from "../plugin/index.ts"
 import {
-	createDexportPlugin,
 	DEXPORT_PLUGIN_ID,
 	type DexportExtension,
 } from "../plugin/dexport.ts"
 import {
-	createGitPlugin,
 	GIT_PLUGIN_ID,
 	type GitExtension,
 } from "../plugin/git.ts"
 import {
-	createRepoPlugin,
 	REPO_PLUGIN_ID,
 	type RepoExtension,
 } from "../plugin/repo.ts"
 import {
-	createRootsPlugin,
 	ROOTS_PLUGIN_ID,
 	type RootsExtension,
 } from "../plugin/roots.ts"
 import {
-	createLogPlugin,
 	LOG_PLUGIN_ID,
 	type LogExtension,
 } from "../plugin/log.ts"
@@ -223,14 +219,7 @@ void (async () => {
 		const module = await import("./dl.ts")
 		await cli(process.argv.slice(2), module.default, {
 			name: DL_COMMAND_NAME,
-			plugins: [
-				c12({ name: "rekon" }),
-				createLogPlugin(),
-				createRootsPlugin(),
-				createRepoPlugin(),
-				createGitPlugin(),
-				createDexportPlugin(),
-			],
+			plugins: createDlPlugins(),
 		})
 	}
 })()
