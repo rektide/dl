@@ -4,9 +4,11 @@ import { pathToFileURL } from "node:url"
 import { define, cli, type CommandContext } from "gunshi"
 import { c12 } from "gunshi-c12"
 import { DL_COMMAND_NAME } from "../dl/args.ts"
+import { resolveDlFlags } from "../dl/flags.ts"
 import { createProcessEntry } from "../dl/index.ts"
 import type { DlOptions } from "../dl/types.ts"
 import { watchArchlist } from "../dl/watch.ts"
+import { prependOrg } from "./prepend-org.ts"
 import {
 	createDexportPlugin,
 	DEXPORT_PLUGIN_ID,
@@ -105,11 +107,7 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 	const logExtension = ctx.extensions[LOG_PLUGIN_ID]
 	try {
 		const { org, watch, expand } = ctx.values
-		const rawInputs = ctx.positionals
-
-		const inputs = org
-			? rawInputs.map((input) => `${org}/${input}`)
-			: rawInputs
+		const inputs = prependOrg(org, ctx.positionals)
 
 		if (inputs.length === 0 && !watch) {
 			console.error(
@@ -140,17 +138,15 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		}
 		const roots = await rootsExtension.resolveRoots()
 
-		const anyExplicit =
-			ctx.explicit.archive || ctx.explicit.wiki ||
-			ctx.explicit.archlist || ctx.explicit.simplify
+		const flags = resolveDlFlags(
+			{ archive: ctx.values.archive, wiki: ctx.values.wiki, archlist: ctx.values.archlist, simplify: ctx.values.simplify },
+			{ archive: ctx.explicit.archive, wiki: ctx.explicit.wiki, archlist: ctx.explicit.archlist, simplify: ctx.explicit.simplify },
+		)
 		const options: DlOptions = {
 			consumeDexportOutput: ctx.values["consume-dexport-output"],
 			noLogCache: ctx.values["no-log-cache"],
 			reportLifecycle: ctx.values["report-lifecycle"],
-			doArchive: anyExplicit ? ctx.values.archive : true,
-			doWiki: anyExplicit ? ctx.values.wiki : true,
-			doArchlist: anyExplicit ? ctx.values.archlist : true,
-			doSimplify: anyExplicit ? ctx.values.simplify : true,
+			...flags,
 			expand,
 			dryRun: ctx.values["dry-run"],
 		}
