@@ -334,6 +334,57 @@ Decision reference: from observed resource state + configured step state, what h
 6. **Report completeness**: every step must emit exactly one terminal lifecycle status (`ok`/`skipped`/`failed`/`needs-attention`).
 7. **Check purity**: `check` must never mutate filesystem state. It only emits lifecycle records with `status: needs-attention` or `status: ok`.
 
+## Acceptance: configurable summary report
+
+After all repos in a `rekon dl` invocation have been processed, emit a summary report aggregating the lifecycle records collected during the run.
+
+### Requirements
+
+1. **Configurable scope**: which step categories appear in the summary is controlled by a `--report` flag (or config file key). By default only archive checkout outcome is shown.
+2. **Default report**: `--report=archive` — one line per repo showing archive status (cloned / updated / fetched / preserved / failed).
+3. **Available report scopes**:
+
+| `--report` value | Summary includes |
+|------------------|-----------------|
+| `archive` | Archive checkout outcome only (default) |
+| `wiki` | Wiki/dexport + git-wiki outcome only |
+| `simplify` | Symlink creation/conflict status |
+| `archlist` | Archlist append/skip status |
+| `all` | Every step for every repo |
+
+Multiple scopes can be combined: `--report=archive,wiki`.
+
+4. **Per-repo rollup**: for each repo, emit one summary line per enabled scope. If a repo had any failures, mark it in the rollup regardless of scope.
+5. **Exit code**: exit 1 if any step across any repo failed, even if that step's scope is not in the report.
+6. **Structured output**: the lifecycle records are the source of truth. The summary is a presentation layer over them, not a separate data path. This means `--report=all --dry-run` produces a check-style summary from would-be records.
+
+### Example output
+
+```
+$ rekon dl morrownr/USB-WIFI Effect-TS/effect
+[morrownr/USB-WIFI]   archive: updated ✓
+[Effect-TS/effect]    archive: cloned ✓
+
+$ rekon dl --report=archive,wiki morrownr/USB-WIFI Effect-TS/effect
+[morrownr/USB-WIFI]   archive: updated ✓  wiki: dexport ran, git-wiki updated ✓
+[Effect-TS/effect]    archive: cloned ✓   wiki: dexport queued, git-wiki cloned ✓
+
+$ rekon dl --report=all morrownr/USB-WIFI
+[morrownr/USB-WIFI]   archive: updated ✓  jj: already_initialized  simplify: already_linked  archlist: already_present  wiki: skipped
+```
+
+### Config file support
+
+In `rekon` config (via `c12`/gunshi-c12), allow persistent report preferences:
+
+```json
+{
+  "report": ["archive", "wiki"]
+}
+```
+
+CLI `--report` overrides config. If neither is set, default is `archive` only.
+
 ## Implementation order
 
 1. Define and implement common lifecycle reporting path — new module `src/dl/lifecycle.ts` with normalized record emission
