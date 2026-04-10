@@ -5,11 +5,21 @@ export const DL_COMMAND_NAME = "dl"
 interface ParsedArgs extends DlOptions {
 	inputs: string[]
 	watch: boolean
+	org?: string
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
 	const tokens = argv[0] === DL_COMMAND_NAME ? argv.slice(1) : argv
-	const inputs = tokens.filter((token) => !token.startsWith("-"))
+	let org: string | undefined
+	const filtered: string[] = []
+	for (let i = 0; i < tokens.length; i++) {
+		if (tokens[i] === "--org") {
+			org = tokens[++i]
+		} else {
+			filtered.push(tokens[i])
+		}
+	}
+	const inputs = filtered.filter((token) => !token.startsWith("-"))
 	const consumeDexportOutput =
 		tokens.includes("--consume-dexport-output") || tokens.includes("-c")
 	const watch = tokens.includes("--watch")
@@ -37,6 +47,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
 	return {
 		inputs,
 		watch,
+		org,
 		consumeDexportOutput,
 		noLogCache,
 		reportLifecycle,

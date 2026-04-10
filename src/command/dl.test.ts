@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest"
 import { expand, sshExpander, urlExpander, hostPathExpander, createShorthandExpander } from "../url/index.ts"
+import { parseArgs } from "../dl/args.ts"
 
 const allExpanders = [
 	sshExpander,
@@ -123,5 +124,72 @@ describe("expand", () => {
 		expect(results.length).toBeGreaterThanOrEqual(1)
 		expect(results[0].url.host).toBe("gitlab.com")
 		expect(results[0].url.pathname).toBe("/group/subgroup/project")
+	})
+})
+
+describe("parseArgs --org", () => {
+	test("parses --org with bare repo names", () => {
+		const result = parseArgs(["--org", "huggingface", "transformers", "diffusers"])
+		expect(result.org).toBe("huggingface")
+		expect(result.inputs).toEqual(["transformers", "diffusers"])
+	})
+
+	test("no --org preserves inputs as-is", () => {
+		const result = parseArgs(["huggingface/transformers"])
+		expect(result.org).toBeUndefined()
+		expect(result.inputs).toEqual(["huggingface/transformers"])
+	})
+
+	test("--org with single repo", () => {
+		const result = parseArgs(["--org", "huggingface", "transformers"])
+		expect(result.org).toBe("huggingface")
+		expect(result.inputs).toEqual(["transformers"])
+	})
+
+	test("--org always prepends even to slash-containing inputs", () => {
+		const result = parseArgs(["--org", "huggingface", "other-org/repo"])
+		expect(result.org).toBe("huggingface")
+		expect(result.inputs).toEqual(["other-org/repo"])
+	})
+
+	test("--org with other flags", () => {
+		const result = parseArgs(["--org", "huggingface", "--dry-run", "transformers"])
+		expect(result.org).toBe("huggingface")
+		expect(result.inputs).toEqual(["transformers"])
+		expect(result.dryRun).toBe(true)
+	})
+})
+
+describe("parseArgs --org prepending", () => {
+	test("prepending bare repo name produces org/repo shorthand", () => {
+		const result = parseArgs(["--org", "huggingface", "transformers"])
+		const inputs = result.org
+			? result.inputs.map((input) => `${result.org}/${input}`)
+			: result.inputs
+		expect(inputs).toEqual(["huggingface/transformers"])
+		const results = expand(inputs[0], allExpanders)
+		expect(results).toHaveLength(1)
+		expect(results[0].url.host).toBe("github.com")
+		expect(results[0].url.pathname).toBe("/huggingface/transformers")
+	})
+
+	test("prepending to slash-containing input produces nested path", () => {
+		const result = parseArgs(["--org", "huggingface", "other-org/repo"])
+		const inputs = result.org
+			? result.inputs.map((input) => `${result.org}/${input}`)
+			: result.inputs
+		expect(inputs).toEqual(["huggingface/other-org/repo"])
+	})
+
+	test("multiple repos with --org all get prepended", () => {
+		const result = parseArgs(["--org", "huggingface", "transformers", "diffusers", "tokenizers"])
+		const inputs = result.org
+			? result.inputs.map((input) => `${result.org}/${input}`)
+			: result.inputs
+		expect(inputs).toEqual([
+			"huggingface/transformers",
+			"huggingface/diffusers",
+			"huggingface/tokenizers",
+		])
 	})
 })

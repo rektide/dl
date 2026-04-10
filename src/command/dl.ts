@@ -47,7 +47,8 @@ interface DlCommandContext {
 	const logExtension = ctx?.extensions?.[LOG_PLUGIN_ID]
 	try {
 		const {
-			inputs,
+			inputs: rawInputs,
+			org,
 			watch,
 			consumeDexportOutput,
 			noLogCache,
@@ -60,9 +61,13 @@ interface DlCommandContext {
 			dryRun,
 		} = parseArgs(process.argv.slice(2))
 
+		const inputs = org
+			? rawInputs.map((input) => `${org}/${input}`)
+			: rawInputs
+
 		if (inputs.length === 0 && !watch) {
 			console.error(
-				"usage: rekon dl [--watch] <repo-url|org/repo> [repo-url|org/repo ...]",
+				"usage: rekon dl [--watch] [--org <org>] <repo-url|org/repo> [repo-url|org/repo ...]",
 			)
 			process.exit(1)
 		}
@@ -161,6 +166,10 @@ export default define({
 	name: DL_COMMAND_NAME,
 	description: "Fetch repository checkout and wiki checkout",
 	args: {
+		org: {
+			type: "string",
+			description: "Default org prefix; positional args are treated as repo names and org is prepended",
+		},
 		"consume-dexport-output": {
 			type: "boolean",
 			short: "c",
