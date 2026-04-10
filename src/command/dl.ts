@@ -103,8 +103,21 @@ interface DlExtensions {
 	[LOG_PLUGIN_ID]: LogExtension
 }
 
+function requireExtensions(extensions: DlExtensions) {
+	const log = extensions[LOG_PLUGIN_ID]
+	const roots = extensions[ROOTS_PLUGIN_ID]
+	const repo = extensions[REPO_PLUGIN_ID]
+	const git = extensions[GIT_PLUGIN_ID]
+	const dexport = extensions[DEXPORT_PLUGIN_ID]
+	if (!log) throw new Error("dl: log plugin extension is not available")
+	if (!roots) throw new Error("dl: roots plugin extension is not available")
+	if (!repo) throw new Error("dl: repo plugin extension is not available")
+	if (!git) throw new Error("dl: git plugin extension is not available")
+	if (!dexport) throw new Error("dl: dexport plugin extension is not available")
+	return { log, roots, repo, git, dexport }
+}
+
 async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions }>) {
-	const logExtension = ctx.extensions[LOG_PLUGIN_ID]
 	try {
 		const { org, watch, expand } = ctx.values
 		const inputs = prependOrg(org, ctx.positionals)
@@ -116,26 +129,7 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 			process.exit(1)
 		}
 
-		if (!logExtension) {
-			throw new Error("dl: log plugin extension is not available")
-		}
-
-		const rootsExtension = ctx.extensions[ROOTS_PLUGIN_ID]
-		const repoExtension = ctx.extensions[REPO_PLUGIN_ID]
-		const gitExtension = ctx.extensions[GIT_PLUGIN_ID]
-		const dexportExtension = ctx.extensions[DEXPORT_PLUGIN_ID]
-		if (!rootsExtension) {
-			throw new Error("dl: roots plugin extension is not available")
-		}
-		if (!repoExtension) {
-			throw new Error("dl: repo plugin extension is not available")
-		}
-		if (!gitExtension) {
-			throw new Error("dl: git plugin extension is not available")
-		}
-		if (!dexportExtension) {
-			throw new Error("dl: dexport plugin extension is not available")
-		}
+		const { log: logExtension, roots: rootsExtension, repo: repoExtension, git: gitExtension, dexport: dexportExtension } = requireExtensions(ctx.extensions)
 		const roots = await rootsExtension.resolveRoots()
 
 		const flags = resolveDlFlags(
@@ -199,8 +193,9 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		}
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
-		if (logExtension) {
-			logExtension.error("sync", "failed", { message })
+		const log = ctx.extensions[LOG_PLUGIN_ID]
+		if (log) {
+			log.error("sync", "failed", { message })
 		} else {
 			console.error(`sync failed: ${message}`)
 		}
