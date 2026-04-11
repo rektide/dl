@@ -214,13 +214,13 @@ const dlCommand = define({
 
 export default dlCommand
 
-void (async () => {
-	const mainPath = await realpath(process.argv[1])
-	const mainUrl = pathToFileURL(mainPath).href
-	if (import.meta.url === mainUrl) {
-		await cli(process.argv.slice(2), dlCommand, {
-			name: DL_COMMAND_NAME,
-			plugins: createDlPlugins(),
-		})
-	}
-})()
+function main() {
+	cli(process.argv.slice(2), dlCommand, {
+		name: DL_COMMAND_NAME,
+		plugins: createDlPlugins(),
+	})
+}
+
+realpath(process.argv[1]).then((mainPath) => {
+	if (pathToFileURL(mainPath).href === import.meta.url) main()
+})
