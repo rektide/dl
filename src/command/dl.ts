@@ -205,19 +205,20 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 	}
 }
 
-export default define({
+const dlCommand = define({
 	name: DL_COMMAND_NAME,
 	description: "Fetch repository checkout and wiki checkout",
 	args: dlArgs,
 	run,
 })
 
+export default dlCommand
+
 void (async () => {
 	const mainPath = await realpath(process.argv[1])
 	const mainUrl = pathToFileURL(mainPath).href
 	if (import.meta.url === mainUrl) {
-		const module = await import("./dl.ts")
-		await cli(process.argv.slice(2), module.default, {
+		await cli(process.argv.slice(2), dlCommand, {
 			name: DL_COMMAND_NAME,
 			plugins: createDlPlugins(),
 		})
