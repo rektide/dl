@@ -7,6 +7,7 @@ import { githubProvider } from "../repo/provider/github.ts"
 import { gitlabProvider } from "../repo/provider/gitlab.ts"
 import { tangledProvider } from "../repo/provider/tangled.ts"
 import { cratesIoProvider } from "../repo/provider/crates-io.ts"
+import { docsRsProvider } from "../repo/provider/docs-rs.ts"
 import { genericProvider } from "../repo/provider/generic.ts"
 import { RESOLVE_TIMEOUT } from "../repo/util.ts"
 
@@ -28,6 +29,7 @@ export function createRepoPlugin(options?: {
 			registry.register(gitlabProvider, ["gitlab.com"])
 			registry.register(tangledProvider, ["tangled.org", "tangled.sh", "tangled.com"])
 			registry.register(cratesIoProvider, ["crates.io"])
+			registry.register(docsRsProvider, ["docs.rs"])
 
 			const expanders = [
 				sshExpander,
