@@ -28,4 +28,14 @@ describe("npmxDevProvider", () => {
 		)
 		expect(ctx).toBeUndefined()
 	})
+
+	test("resolves scoped package URL", async () => {
+		const ctx = await npmxDevProvider.resolve(
+			new URL("https://npmx.dev/package/@mariozechner/pi-agent-core"),
+			AbortSignal.timeout(10000),
+		)
+		expect(ctx).toBeDefined()
+		expect(ctx!.url).toBeDefined()
+		expect(ctx!.url!.host).toBe("github.com")
+	})
 })

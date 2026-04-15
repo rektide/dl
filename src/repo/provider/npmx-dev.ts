@@ -9,8 +9,14 @@ export const npmxDevProvider: Repo = {
 		const segments = url.pathname.split("/").filter(Boolean)
 		if (segments[0] !== "package" || segments.length < 2) return undefined
 
-		const packageName = segments[1]
-		const response = await fetch(`https://registry.npmjs.org/${packageName}/latest`, {
+		let packageName: string
+		if (segments[1]?.startsWith("@")) {
+			if (segments.length < 3) return undefined
+			packageName = `${segments[1]}/${segments[2]}`
+		} else {
+			packageName = segments[1]
+		}
+		const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(packageName)}/latest`, {
 			method: "GET",
 			headers: { "user-agent": "rekon-dl" },
 			signal,
