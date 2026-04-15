@@ -7,6 +7,7 @@ import { DL_COMMAND_NAME } from "../dl/args.ts"
 import { resolveDlFlags } from "../dl/flags.ts"
 import { createProcessEntry } from "../dl/index.ts"
 import type { DlOptions } from "../dl/types.ts"
+import { watchClipboard } from "../dl/clipboard.ts"
 import { watchArchlist } from "../dl/watch.ts"
 import { prependOrg } from "./prepend-org.ts"
 import { createDlPlugins } from "../plugin/index.ts"
@@ -77,6 +78,11 @@ const dlArgs = {
 		default: false,
 		description: "Watch ~/archlist and process appended entries serially",
 	},
+	clipboard: {
+		type: "boolean",
+		default: false,
+		description: "Watch system clipboard for URLs and process them serially",
+	},
 	expand: {
 		type: "boolean",
 		default: false,
@@ -133,12 +139,12 @@ function buildDlOptions(
 
 async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions }>) {
 	try {
-		const { org, watch } = ctx.values
+		const { org, watch, clipboard } = ctx.values
 		const inputs = prependOrg(org, ctx.positionals)
 
-		if (inputs.length === 0 && !watch) {
+		if (inputs.length === 0 && !watch && !clipboard) {
 			console.error(
-				"usage: rekon dl [--watch] [--org <org>] <repo-url|org/repo> [repo-url|org/repo ...]",
+				"usage: rekon dl [--watch] [--clipboard] [--org <org>] <repo-url|org/repo> [repo-url|org/repo ...]",
 			)
 			process.exit(1)
 		}
@@ -188,6 +194,10 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 
 		if (watch) {
 			hadError = (await watchArchlist(processEntry, logExtension)) || hadError
+		}
+
+		if (clipboard) {
+			hadError = (await watchClipboard(processEntry, logExtension)) || hadError
 		}
 
 		if (hadError) {
