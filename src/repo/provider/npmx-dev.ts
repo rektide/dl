@@ -3,7 +3,7 @@ import type { RepoContext } from "../context.ts"
 import type { Repo } from "../types.ts"
 
 export const npmxDevProvider: Repo = {
-	name: "npmx-dev",
+	name: "npm-registry",
 
 	async resolve(url: URL, signal: AbortSignal): Promise<RepoContext | undefined> {
 		const segments = url.pathname.split("/").filter(Boolean)

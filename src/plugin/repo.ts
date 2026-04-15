@@ -30,7 +30,7 @@ export function createRepoPlugin(options?: {
 			registry.register(tangledProvider, ["tangled.org", "tangled.sh", "tangled.com"])
 			registry.register(cratesIoProvider, ["crates.io"])
 			registry.register(docsRsProvider, ["docs.rs"])
-			registry.register(npmxDevProvider, ["npmx.dev"])
+			registry.register(npmxDevProvider, ["npmx.dev", "npmjs.com"])
 
 			const expanders = [
 				sshExpander,

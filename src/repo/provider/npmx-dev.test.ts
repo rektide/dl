@@ -38,4 +38,14 @@ describe("npmxDevProvider", () => {
 		expect(ctx!.url).toBeDefined()
 		expect(ctx!.url!.host).toBe("github.com")
 	})
+
+	test("resolves www.npmjs.com/package/{name} URL", async () => {
+		const ctx = await npmxDevProvider.resolve(
+			new URL("https://www.npmjs.com/package/@crosscopy/clipboard"),
+			AbortSignal.timeout(10000),
+		)
+		expect(ctx).toBeDefined()
+		expect(ctx!.url).toBeDefined()
+		expect(ctx!.url!.host).toBe("github.com")
+	})
 })
