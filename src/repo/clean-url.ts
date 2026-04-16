@@ -51,51 +51,22 @@ export function stripRepoPathExtras(url: URL): URL {
 	const segments = url.pathname.split("/").filter(Boolean)
 	if (segments.length < 2) return url
 
+	const EXTRAS = new Set([
+		"tree", "blob", "raw", "blame", "commits", "commit",
+		"issues", "pull", "releases", "tags", "actions", "wiki",
+		"archive", "uploads", "packages", "container", "settings",
+		"notifications", "fork", "compare", "milestone", "projects",
+		"security", "pulse", "graphs", "network", "stargazers", "watchers",
+		"merge_requests", "pipelines", "jobs", "artifacts",
+		"container_registry",
+	])
+
 	const extrasIndex = segments.findIndex(
-		(s) =>
-			s === "tree" ||
-			s === "blob" ||
-			s === "raw" ||
-			s === "blame" ||
-			s === "commits" ||
-			s === "commit" ||
-			s === "issues" ||
-			s === "pull" ||
-			s === "releases" ||
-			s === "tags" ||
-			s === "actions" ||
-			s === "wiki" ||
-			s === "archive" ||
-			s === "uploads" ||
-			s === "packages" ||
-			s === "container" ||
-			s === "settings" ||
-			s === "notifications" ||
-			s === "fork" ||
-			s === "compare" ||
-			s === "milestone" ||
-			s === "projects" ||
-			s === "security" ||
-			s === "pulse" ||
-			s === "graphs" ||
-			s === "network" ||
-			s === "stargazers" ||
-			s === "watchers" ||
-			s === "-/blob" ||
-			s === "-/tree" ||
-			s === "-/raw" ||
-			s === "-/blame" ||
-			s === "-/commits" ||
-			s === "-/commit" ||
-			s === "-/issues" ||
-			s === "-/merge_requests" ||
-			s === "-/pipelines" ||
-			s === "-/jobs" ||
-			s === "-/artifacts" ||
-			s === "-/packages" ||
-			s === "-/container_registry" ||
-			s === "-/settings" ||
-			s === "-/wiki",
+		(s, i) => {
+			if (EXTRAS.has(s)) return true
+			if (s === "-" && i + 1 < segments.length && EXTRAS.has(segments[i + 1]!)) return true
+			return false
+		},
 	)
 
 	if (extrasIndex < 2) return url
