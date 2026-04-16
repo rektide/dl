@@ -2,7 +2,6 @@
 import { realpath } from "node:fs/promises"
 import { pathToFileURL } from "node:url"
 import { define, cli, type CommandContext, type ArgValues } from "gunshi"
-import { c12 } from "gunshi-c12"
 import { DL_COMMAND_NAME } from "../dl/args.ts"
 import { resolveDlFlags } from "../dl/flags.ts"
 import { createProcessEntry } from "../dl/index.ts"
@@ -13,26 +12,8 @@ import { watchClipboard } from "../dl/clipboard.ts"
 import { watchArchlist } from "../dl/watch.ts"
 import { prependOrg } from "./prepend-org.ts"
 import { createDlPlugins } from "../plugin/index.ts"
-import {
-	DEXPORT_PLUGIN_ID,
-	type DexportExtension,
-} from "../plugin/dexport.ts"
-import {
-	GIT_PLUGIN_ID,
-	type GitExtension,
-} from "../plugin/git.ts"
-import {
-	REPO_PLUGIN_ID,
-	type RepoExtension,
-} from "../plugin/repo.ts"
-import {
-	ROOTS_PLUGIN_ID,
-	type RootsExtension,
-} from "../plugin/roots.ts"
-import {
-	LOG_PLUGIN_ID,
-	type LogExtension,
-} from "../plugin/log.ts"
+import { requireExtensions, type DlExtensions } from "./dl-shared.ts"
+import archlistSubcommand from "./dl-archlist.ts"
 
 const ARCHLIST_ACTION: ActionDef = {
 	name: "archlist",
@@ -116,28 +97,6 @@ const dlArgs = {
 
 type DlArgs = typeof dlArgs
 
-interface DlExtensions {
-	[ROOTS_PLUGIN_ID]: RootsExtension
-	[REPO_PLUGIN_ID]: RepoExtension
-	[GIT_PLUGIN_ID]: GitExtension
-	[DEXPORT_PLUGIN_ID]: DexportExtension
-	[LOG_PLUGIN_ID]: LogExtension
-}
-
-function requireExtensions(extensions: DlExtensions) {
-	const log = extensions[LOG_PLUGIN_ID]
-	const roots = extensions[ROOTS_PLUGIN_ID]
-	const repo = extensions[REPO_PLUGIN_ID]
-	const git = extensions[GIT_PLUGIN_ID]
-	const dexport = extensions[DEXPORT_PLUGIN_ID]
-	if (!log) throw new Error("dl: log plugin extension is not available")
-	if (!roots) throw new Error("dl: roots plugin extension is not available")
-	if (!repo) throw new Error("dl: repo plugin extension is not available")
-	if (!git) throw new Error("dl: git plugin extension is not available")
-	if (!dexport) throw new Error("dl: dexport plugin extension is not available")
-	return { log, roots, repo, git, dexport }
-}
-
 function buildDlOptions(
 	values: ArgValues<DlArgs>,
 	explicit: Record<string, boolean>,
@@ -193,21 +152,21 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 
 		if (ctx.values.noop) return
 
-		const { log: logExtension, roots: rootsExtension, repo: repoExtension, git: gitExtension, dexport: dexportExtension } = requireExtensions(ctx.extensions)
-		const roots = await rootsExtension.resolveRoots()
+		const ext = requireExtensions(ctx.extensions)
+		const roots = await ext.roots.resolveRoots()
 		const options = buildDlOptions(ctx.values, ctx.explicit)
 
 		if (watch && options.archlistState !== OFF) {
-			logExtension.warn("sync", "archlist_disabled", { reason: "watch mode feedback loop" })
+			ext.log.warn("sync", "archlist_disabled", { reason: "watch mode feedback loop" })
 			options.archlistState = OFF
 		}
 
 		if (ctx.values.candidates) {
 			for (const input of inputs) {
 				let found = false
-				for await (const candidate of repoExtension.candidates(input)) {
+				for await (const candidate of ext.repo.candidates(input)) {
 					found = true
-					logExtension.info("candidates", "expanded", {
+					ext.log.info("candidates", "expanded", {
 						input,
 						url: candidate.url?.toString(),
 						org: candidate.org,
@@ -217,7 +176,7 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 					})
 				}
 				if (!found) {
-					logExtension.warn("candidates", "no_match", { input })
+					ext.log.warn("candidates", "no_match", { input })
 				}
 			}
 			return
@@ -226,9 +185,9 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		if (options.expand) {
 			for (const input of inputs) {
 				let found = false
-				for await (const resolved of repoExtension.resolve(input)) {
+				for await (const resolved of ext.repo.resolve(input)) {
 					found = true
-					logExtension.info("expand", "resolved", {
+					ext.log.info("expand", "resolved", {
 						input,
 						url: resolved.url?.toString(),
 						pathname: resolved.url?.pathname,
@@ -237,7 +196,7 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 					})
 				}
 				if (!found) {
-					logExtension.warn("expand", "no_match", { input })
+					ext.log.warn("expand", "no_match", { input })
 				}
 			}
 			return
@@ -245,12 +204,12 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 
 		let hadError = false
 		const processEntry = createProcessEntry(
-			repoExtension,
+			ext.repo,
 			roots,
 			options,
-			logExtension,
-			gitExtension,
-			dexportExtension,
+			ext.log,
+			ext.git,
+			ext.dexport,
 		)
 
 		for (const input of inputs) {
@@ -258,11 +217,11 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		}
 
 		if (watch) {
-			hadError = (await watchArchlist(processEntry, logExtension)) || hadError
+			hadError = (await watchArchlist(processEntry, ext.log)) || hadError
 		}
 
 		if (clipboard) {
-			hadError = (await watchClipboard(processEntry, logExtension)) || hadError
+			hadError = (await watchClipboard(processEntry, ext.log)) || hadError
 		}
 
 		if (hadError) {
@@ -270,12 +229,7 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		}
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
-		const log = ctx.extensions[LOG_PLUGIN_ID]
-		if (log) {
-			log.error("sync", "failed", { message })
-		} else {
-			console.error(`sync failed: ${message}`)
-		}
+		console.error(`sync failed: ${message}`)
 		process.exit(1)
 	}
 }
@@ -294,6 +248,10 @@ function main() {
 	cli(argv, dlCommand, {
 		name: DL_COMMAND_NAME,
 		plugins: createDlPlugins(),
+		subCommands: {
+			archlist: archlistSubcommand,
+		},
+		fallbackToEntry: true,
 	})
 }
 

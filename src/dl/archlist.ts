@@ -1,9 +1,12 @@
 import { appendFile, readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import type { StepState } from "./actions.ts"
+import { OFF, ENSURE, type StepState } from "./actions.ts"
 import type { LifecycleReporter } from "./lifecycle.ts"
 import type { LogExtension } from "../plugin/log.ts"
+import type { RepoContext } from "../repo/context.ts"
+import type { DlContext } from "./types.ts"
+import type { ActionHandler, ActionResult } from "./pipeline.ts"
 
 export type ArchlistDecision =
 	| { action: "append" }
@@ -15,9 +18,9 @@ export function decideArchlist(
 	url: string,
 	fileContent: string | null,
 ): ArchlistDecision {
-	if (archlistState === "off") return { action: "skip" }
+	if (archlistState === OFF) return { action: "skip" }
 
-	if (archlistState === "ensure") {
+	if (archlistState === ENSURE) {
 		if (fileContent !== null) {
 			const lines = fileContent.split("\n")
 			if (lines.includes(url)) {
@@ -29,27 +32,22 @@ export function decideArchlist(
 	return { action: "append" }
 }
 
-export type ArchlistResult = {
-	readonly transition: string
-	readonly hadError: boolean
-}
-
 export async function syncArchlist(
 	url: string,
 	archlistState: StepState,
 	lifecycle: LifecycleReporter,
 	log: LogExtension,
 	archlistPath?: string,
-): Promise<ArchlistResult> {
+): Promise<ActionResult> {
 	const resolvedPath = archlistPath ?? join(homedir(), "archlist")
 
-	if (archlistState === "off") {
+	if (archlistState === OFF) {
 		lifecycle.skipped({
 			step: "archlist",
 			source: "syncArchlist",
 			transition: "off",
 		})
-		return { transition: "off", hadError: false }
+		return { hadError: false }
 	}
 
 	log.info("sync", "archlist", { url, path: resolvedPath, state: archlistState })
@@ -58,7 +56,6 @@ export async function syncArchlist(
 	try {
 		fileContent = await readFile(resolvedPath, "utf-8")
 	} catch {
-		// file doesn't exist yet
 	}
 
 	const decision = decideArchlist(archlistState, url, fileContent)
@@ -69,7 +66,7 @@ export async function syncArchlist(
 			source: "syncArchlist",
 			transition: "off",
 		})
-		return { transition: "off", hadError: false }
+		return { hadError: false }
 	}
 
 	if (decision.action === "already_present") {
@@ -79,7 +76,7 @@ export async function syncArchlist(
 			transition: "already_present",
 			details: { path: resolvedPath },
 		})
-		return { transition: "already_present", hadError: false }
+		return { hadError: false }
 	}
 
 	try {
@@ -90,7 +87,7 @@ export async function syncArchlist(
 			transition: "appended",
 			details: { path: resolvedPath },
 		})
-		return { transition: "appended", hadError: false }
+		return { hadError: false }
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
 		log.error("sync", "archlist_failed", { message })
@@ -100,6 +97,18 @@ export async function syncArchlist(
 			transition: "error",
 			details: { message },
 		})
-		return { transition: "error", hadError: true }
+		return { hadError: true }
 	}
+}
+
+export const archlistHandler: ActionHandler = {
+	id: "archlist",
+	run: async (resolved: RepoContext, ctx: DlContext, lifecycle: LifecycleReporter): Promise<ActionResult> => {
+		return syncArchlist(
+			resolved.url!.toString(),
+			ctx.options.archlistState,
+			lifecycle,
+			ctx.log,
+		)
+	},
 }
