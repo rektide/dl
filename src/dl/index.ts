@@ -1,4 +1,4 @@
-import { appendFile } from "node:fs/promises"
+import { appendFile, readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { syncArchive } from "../archive/sync.ts"
@@ -39,11 +39,11 @@ export async function processRepoContext(
 					: undefined,
 			})
 
-			if (ctx.options.doArchlist) {
+			if (ctx.options.archlistState !== "off") {
 				lifecycle.ok({
 					step: "archlist",
 					source: "processRepoContext",
-					transition: "would-append",
+					transition: ctx.options.archlistState === "ensure" ? "would-append-if-absent" : "would-append",
 				})
 			} else {
 				lifecycle.skipped({
@@ -125,17 +125,41 @@ export async function processRepoContext(
 				})
 			}
 		} else {
-			if (ctx.options.doArchlist) {
+			if (ctx.options.archlistState !== "off") {
 				const archlistPath = join(homedir(), "archlist")
-				ctx.log.info("sync", "archlist", { url: resolved.url!.toString(), path: archlistPath })
+				const url = resolved.url!.toString()
+				ctx.log.info("sync", "archlist", { url, path: archlistPath, state: ctx.options.archlistState })
 				try {
-					await appendFile(archlistPath, `${resolved.url!.toString()}\n`)
-					lifecycle.ok({
-						step: "archlist",
-						source: "processRepoContext -> appendFile",
-						transition: "appended",
-						details: { path: archlistPath },
-					})
+					if (ctx.options.archlistState === "ensure") {
+						let content = ""
+						try {
+							content = await readFile(archlistPath, "utf-8")
+						} catch {}
+						if (content.split("\n").includes(url)) {
+							lifecycle.ok({
+								step: "archlist",
+								source: "processRepoContext -> readFile",
+								transition: "already_present",
+								details: { path: archlistPath },
+							})
+						} else {
+							await appendFile(archlistPath, `${url}\n`)
+							lifecycle.ok({
+								step: "archlist",
+								source: "processRepoContext -> appendFile",
+								transition: "appended",
+								details: { path: archlistPath },
+							})
+						}
+					} else {
+						await appendFile(archlistPath, `${url}\n`)
+						lifecycle.ok({
+							step: "archlist",
+							source: "processRepoContext -> appendFile",
+							transition: "appended",
+							details: { path: archlistPath },
+						})
+					}
 				} catch (error) {
 					hadError = true
 					const message = error instanceof Error ? error.message : String(error)

@@ -7,6 +7,8 @@ import { DL_COMMAND_NAME } from "../dl/args.ts"
 import { resolveDlFlags } from "../dl/flags.ts"
 import { createProcessEntry } from "../dl/index.ts"
 import type { DlOptions } from "../dl/types.ts"
+import type { ActionDef, StepState } from "../dl/actions.ts"
+import { buildGunshiArgs, preprocessArgv, resolveActions } from "../dl/actions.ts"
 import { watchClipboard } from "../dl/clipboard.ts"
 import { watchArchlist } from "../dl/watch.ts"
 import { prependOrg } from "./prepend-org.ts"
@@ -32,6 +34,16 @@ import {
 	type LogExtension,
 } from "../plugin/log.ts"
 
+const ARCHLIST_ACTION: ActionDef = {
+	name: "archlist",
+	states: ["force", "ensure", "off"],
+	defaultState: "force",
+}
+
+const ACTIONS: readonly ActionDef[] = [ARCHLIST_ACTION]
+
+const actionArgs = buildGunshiArgs(ACTIONS)
+
 const dlArgs = {
 	org: {
 		type: "string",
@@ -53,6 +65,7 @@ const dlArgs = {
 		default: false,
 		description: "Emit structured lifecycle summary per resolved repository",
 	},
+	...actionArgs,
 	archive: {
 		type: "boolean",
 		default: false,
@@ -62,11 +75,6 @@ const dlArgs = {
 		type: "boolean",
 		default: false,
 		description: "Only update wiki (disables archive unless --archive also set)",
-	},
-	archlist: {
-		type: "boolean",
-		default: false,
-		description: "Append resolved repository URLs to ~/archlist",
 	},
 	symlink: {
 		type: "boolean",
@@ -132,19 +140,42 @@ function requireExtensions(extensions: DlExtensions) {
 
 function buildDlOptions(
 	values: ArgValues<DlArgs>,
-	explicit: { archive: boolean; wiki: boolean; archlist: boolean; symlink: boolean },
+	explicit: Record<string, boolean>,
 ): DlOptions {
-	const flags = resolveDlFlags(
-		{ archive: values.archive, wiki: values.wiki, archlist: values.archlist, symlink: values.symlink },
-		explicit,
+	const actionResult = resolveActions(ACTIONS, values, explicit)
+
+	const oldFlags = resolveDlFlags(
+		{ archive: !!values.archive, wiki: !!values.wiki, symlink: !!values.symlink },
+		{ archive: !!explicit.archive, wiki: !!explicit.wiki, symlink: !!explicit.symlink },
 	)
+
+	const anyExplicit = oldFlags.anyExplicit || actionResult.anyExplicit
+
+	let doArchive = oldFlags.doArchive
+	let doWiki = oldFlags.doWiki
+	let doSymlink = oldFlags.doSymlink
+
+	if (actionResult.anyExplicit && !oldFlags.anyExplicit) {
+		if (!explicit.archive) doArchive = false
+		if (!explicit.wiki) doWiki = false
+		if (!explicit.symlink) doSymlink = !!values.symlink
+	}
+
+	let archlistState = actionResult.states.archlist
+	if (anyExplicit && !actionResult.explicit.archlist) {
+		archlistState = "off"
+	}
+
 	return {
-		consumeDexportOutput: values["consume-dexport-output"],
-		noLogCache: values["no-log-cache"],
-		reportLifecycle: values["report-lifecycle"],
-		...flags,
-		expand: values.expand,
-		dryRun: values["dry-run"],
+		consumeDexportOutput: !!values["consume-dexport-output"],
+		noLogCache: !!values["no-log-cache"],
+		reportLifecycle: !!values["report-lifecycle"],
+		doArchive,
+		doWiki,
+		archlistState,
+		doSymlink,
+		expand: !!values.expand,
+		dryRun: !!values["dry-run"],
 	}
 }
 
@@ -166,9 +197,9 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		const roots = await rootsExtension.resolveRoots()
 		const options = buildDlOptions(ctx.values, ctx.explicit)
 
-		if (watch && options.doArchlist) {
+		if (watch && options.archlistState !== "off") {
 			logExtension.warn("sync", "archlist_disabled", { reason: "watch mode feedback loop" })
-			options.doArchlist = false
+			options.archlistState = "off"
 		}
 
 		if (ctx.values.candidates) {
@@ -259,7 +290,8 @@ const dlCommand = define({
 export default dlCommand
 
 function main() {
-	cli(process.argv.slice(2), dlCommand, {
+	const argv = preprocessArgv(process.argv.slice(2), ACTIONS)
+	cli(argv, dlCommand, {
 		name: DL_COMMAND_NAME,
 		plugins: createDlPlugins(),
 	})

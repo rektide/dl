@@ -1,4 +1,5 @@
 import type { LogExtension } from "../plugin/log.ts"
+import type { StepState } from "./actions.ts"
 
 export interface DlOptions {
 	consumeDexportOutput: boolean
@@ -6,7 +7,7 @@ export interface DlOptions {
 	reportLifecycle: boolean
 	doArchive: boolean
 	doWiki: boolean
-	doArchlist: boolean
+	archlistState: StepState
 	doSymlink: boolean
 	expand: boolean
 	dryRun: boolean

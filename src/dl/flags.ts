@@ -1,12 +1,12 @@
 export function resolveDlFlags(
-	values: { archive: boolean; wiki: boolean; archlist: boolean; symlink: boolean },
-	explicit: { archive: boolean; wiki: boolean; archlist: boolean; symlink: boolean },
+	values: { archive: boolean; wiki: boolean; symlink: boolean },
+	explicit: { archive: boolean; wiki: boolean; symlink: boolean },
 ) {
-	const anyExplicit = explicit.archive || explicit.wiki || explicit.archlist || explicit.symlink
+	const anyExplicit = explicit.archive || explicit.wiki || explicit.symlink
 	return {
+		anyExplicit,
 		doArchive: anyExplicit ? values.archive : true,
 		doWiki: anyExplicit ? values.wiki : true,
-		doArchlist: anyExplicit ? values.archlist : true,
 		doSymlink: anyExplicit ? values.symlink : true,
 	}
 }
