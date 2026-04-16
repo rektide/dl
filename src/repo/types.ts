@@ -7,8 +7,9 @@ export interface Source {
 export interface Repo {
 	name: string
 	hosts: string[]
-	candidates(input: string): RepoContext[]
-	verify(ctx: RepoContext, signal: AbortSignal): Promise<RepoContext | undefined>
+	toUrlString(ctx: RepoContext): string | undefined
+	candidates(input: string): AsyncGenerator<RepoContext>
+	verify(ctx: RepoContext, signal: AbortSignal): AsyncGenerator<RepoContext>
 	resolveWikiRepo?(ctx: RepoContext): void
 	resolveWikiDeep?(ctx: RepoContext): void
 }

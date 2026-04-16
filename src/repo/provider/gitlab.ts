@@ -7,54 +7,76 @@ export const gitlabProvider: Repo = {
 	name: "gitlab",
 	hosts: ["gitlab.com"],
 
-	candidates(input: string): RepoContext[] {
+	toUrlString(ctx: RepoContext): string | undefined {
+		if (!ctx.org || !ctx.project) return undefined
+		return `https://gitlab.com/${ctx.org}/${ctx.project}`
+	},
+
+	async *candidates(input: string): AsyncGenerator<RepoContext> {
 		const { trimmed, path, segments } = normalizeInput(input)
-		const results: RepoContext[] = []
 
 		if (isSsh(trimmed)) {
 			const parsed = parseSsh(trimmed)
 			if (parsed && parsed.host === "gitlab.com") {
-				const ctx = new DefaultRepoContext()
-				ctx.url = new URL(`https://gitlab.com/${parsed.path}`)
-				ctx.source.provider = "gitlab"
-				results.push(ctx)
+				const parts = parsed.path.split("/").filter(Boolean)
+				if (parts.length >= 2) {
+					const ctx = new DefaultRepoContext()
+					ctx.org = parts.slice(0, -1).join("/")
+					ctx.project = parts.at(-1)
+					ctx.host = "gitlab.com"
+					ctx.url = new URL(this.toUrlString(ctx)!)
+					ctx.source.provider = "gitlab"
+					yield ctx
+				}
 			}
-			return results
+			return
 		}
 
 		if (isUrl(trimmed)) {
 			const parsed = parseUrl(trimmed)
-			if (parsed && parsed.host === "gitlab.com" && segments.length >= 2) {
-				const ctx = new DefaultRepoContext()
-				ctx.url = parsed
-				ctx.source.provider = "gitlab"
-				results.push(ctx)
+			if (parsed && parsed.host === "gitlab.com") {
+				const urlSegments = parsed.pathname.split("/").filter(Boolean)
+				if (urlSegments.length >= 2) {
+					const ctx = new DefaultRepoContext()
+					ctx.org = urlSegments.slice(0, -1).join("/")
+					ctx.project = urlSegments.at(-1)
+					ctx.host = "gitlab.com"
+					ctx.url = new URL(this.toUrlString(ctx)!)
+					ctx.source.provider = "gitlab"
+					yield ctx
+				}
 			}
-			return results
+			return
 		}
 
 		if (segments.length >= 2 && segments[0] === "gitlab.com") {
+			const rest = segments.slice(1)
 			const ctx = new DefaultRepoContext()
-			ctx.url = new URL(`https://gitlab.com/${segments.slice(1).join("/")}`)
+			ctx.org = rest.slice(0, -1).join("/")
+			ctx.project = rest.at(-1)
+			ctx.host = "gitlab.com"
+			ctx.url = new URL(this.toUrlString(ctx)!)
 			ctx.source.provider = "gitlab"
-			results.push(ctx)
-			return results
+			yield ctx
+			return
 		}
 
 		if (segments.length >= 2 && !segments[0]!.includes(".")) {
 			const ctx = new DefaultRepoContext()
-			ctx.url = new URL(`https://gitlab.com/${path}`)
+			ctx.org = segments.slice(0, -1).join("/")
+			ctx.project = segments.at(-1)
+			ctx.host = "gitlab.com"
+			ctx.url = new URL(this.toUrlString(ctx)!)
 			ctx.source.provider = "gitlab"
-			results.push(ctx)
+			yield ctx
 		}
-
-		return results
 	},
 
-	async verify(ctx: RepoContext, signal: AbortSignal): Promise<RepoContext | undefined> {
-		if (!ctx.url) return undefined
-		const segments = ctx.url.pathname.split("/").filter(Boolean)
-		if (segments.length < 2) return undefined
+	async *verify(ctx: RepoContext, signal: AbortSignal): AsyncGenerator<RepoContext> {
+		if (!ctx.org || !ctx.project) return
+
+		const fullPath = `${ctx.org}/${ctx.project}`
+		const segments = fullPath.split("/")
 
 		for (let length = segments.length; length >= 2; length--) {
 			const candidate = segments.slice(0, length).join("/")
@@ -74,13 +96,16 @@ export const gitlabProvider: Repo = {
 				path_with_namespace?: string
 			}
 			const resolvedPath = body.path_with_namespace ?? candidate
+			const parts = resolvedPath.split("/")
 
-			ctx.url = new URL(`https://gitlab.com/${resolvedPath}`)
+			ctx.org = parts.slice(0, -1).join("/")
+			ctx.project = parts.at(-1)
+			ctx.host = "gitlab.com"
+			ctx.url = new URL(this.toUrlString(ctx)!)
 			ctx.verified = true
-			return ctx
+			yield ctx
+			return
 		}
-
-		return undefined
 	},
 
 	resolveWikiRepo(ctx: RepoContext): void {

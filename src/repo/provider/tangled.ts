@@ -7,57 +7,63 @@ export const tangledProvider: Repo = {
 	name: "tangled",
 	hosts: ["tangled.org"],
 
-	candidates(input: string): RepoContext[] {
-		const { trimmed, path, segments } = normalizeInput(input)
-		const results: RepoContext[] = []
+	toUrlString(ctx: RepoContext): string | undefined {
+		if (!ctx.org || !ctx.project) return undefined
+		return `https://tangled.org/${ctx.org}/${ctx.project}`
+	},
 
-		if (isSsh(trimmed)) return results
+	async *candidates(input: string): AsyncGenerator<RepoContext> {
+		const { trimmed, path, segments } = normalizeInput(input)
+
+		if (isSsh(trimmed)) return
 
 		if (isUrl(trimmed)) {
 			const parsed = parseUrl(trimmed)
 			if (parsed && parsed.host === "tangled.org" && segments.length >= 2) {
 				const ctx = new DefaultRepoContext()
-				ctx.url = new URL(`https://tangled.org/${segments.slice(0, 2).join("/")}`)
+				ctx.org = segments[0]
+				ctx.project = segments[1]
+				ctx.host = "tangled.org"
+				ctx.url = new URL(this.toUrlString(ctx)!)
 				ctx.source.provider = "tangled"
-				results.push(ctx)
+				yield ctx
 			}
-			return results
+			return
 		}
 
 		if (segments.length >= 2 && segments[0] === "tangled.org") {
 			const ctx = new DefaultRepoContext()
-			ctx.url = new URL(`https://tangled.org/${segments.slice(1, 3).join("/")}`)
+			ctx.org = segments[1]
+			ctx.project = segments[2]
+			ctx.host = "tangled.org"
+			ctx.url = new URL(this.toUrlString(ctx)!)
 			ctx.source.provider = "tangled"
-			results.push(ctx)
-			return results
+			yield ctx
+			return
 		}
 
 		if (segments.length >= 2) {
 			const ctx = new DefaultRepoContext()
-			ctx.url = new URL(`https://tangled.org/${path}`)
+			ctx.org = segments[0]
+			ctx.project = segments[1]
+			ctx.host = "tangled.org"
+			ctx.url = new URL(this.toUrlString(ctx)!)
 			ctx.source.provider = "tangled"
-			results.push(ctx)
+			yield ctx
 		}
-
-		return results
 	},
 
-	async verify(ctx: RepoContext, signal: AbortSignal): Promise<RepoContext | undefined> {
-		if (!ctx.url) return undefined
-		const segments = ctx.url.pathname.split("/").filter(Boolean)
-		if (segments.length < 2) return undefined
+	async *verify(ctx: RepoContext, signal: AbortSignal): AsyncGenerator<RepoContext> {
+		if (!ctx.org || !ctx.project) return
 
-		const repoPath = segments.slice(0, 2).join("/")
-
-		const response = await fetch(`https://tangled.org/${repoPath}`, {
+		const response = await fetch(`https://tangled.org/${ctx.org}/${ctx.project}`, {
 			method: "GET",
 			signal,
 		}).catch(() => null)
 
-		if (!response || !response.ok) return undefined
+		if (!response || !response.ok) return
 
-		ctx.url = new URL(`https://tangled.org/${repoPath}`)
 		ctx.verified = true
-		return ctx
+		yield ctx
 	},
 }

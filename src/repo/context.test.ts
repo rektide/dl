@@ -2,40 +2,25 @@ import { describe, expect, test } from "vitest"
 import { DefaultRepoContext } from "./context.ts"
 
 describe("DefaultRepoContext", () => {
-	test("project is extension-less basename", () => {
+	test("org and project are plain fields set by provider", () => {
 		const ctx = new DefaultRepoContext()
-		ctx.url = new URL("https://github.com/huggingface/transformers.git")
-		expect(ctx.project).toBe("transformers")
-	})
-
-	test("org is path before project", () => {
-		const ctx = new DefaultRepoContext()
-		ctx.url = new URL("https://github.com/huggingface/transformers")
+		ctx.org = "huggingface"
+		ctx.project = "transformers"
+		ctx.host = "github.com"
 		expect(ctx.org).toBe("huggingface")
+		expect(ctx.project).toBe("transformers")
+		expect(ctx.host).toBe("github.com")
 	})
 
-	test("handles nested org paths", () => {
+	test("defaults verified to false", () => {
 		const ctx = new DefaultRepoContext()
-		ctx.url = new URL("https://gitlab.com/group/subgroup/project")
-		expect(ctx.org).toBe("group/subgroup")
-		expect(ctx.project).toBe("project")
+		expect(ctx.verified).toBe(false)
 	})
 
-	test("uses host as org for single-segment paths", () => {
+	test("defaults org, project, host to undefined", () => {
 		const ctx = new DefaultRepoContext()
-		ctx.url = new URL("https://git.ffmpeg.org/ffmpeg")
-		expect(ctx.project).toBe("ffmpeg")
-		expect(ctx.org).toBe("git.ffmpeg.org")
+		expect(ctx.org).toBeUndefined()
+		expect(ctx.project).toBeUndefined()
+		expect(ctx.host).toBeUndefined()
 	})
-
-  test("returns undefined when url not set", () => {
-    const ctx = new DefaultRepoContext()
-    expect(ctx.project).toBeUndefined()
-    expect(ctx.org).toBeUndefined()
-  })
-
-  test("defaults verified to false", () => {
-    const ctx = new DefaultRepoContext()
-    expect(ctx.verified).toBe(false)
-  })
 })

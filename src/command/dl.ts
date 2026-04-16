@@ -173,17 +173,20 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 
 		if (ctx.values.candidates) {
 			for (const input of inputs) {
-				const candidates = repoExtension.candidates(input)
-				if (candidates.length === 0) {
-					logExtension.warn("candidates", "no_match", { input })
-				}
-				for (const candidate of candidates) {
+				let found = false
+				for await (const candidate of repoExtension.candidates(input)) {
+					found = true
 					logExtension.info("candidates", "expanded", {
 						input,
 						url: candidate.url?.toString(),
+						org: candidate.org,
+						project: candidate.project,
 						provider: candidate.source.provider,
 						verified: candidate.verified,
 					})
+				}
+				if (!found) {
+					logExtension.warn("candidates", "no_match", { input })
 				}
 			}
 			return

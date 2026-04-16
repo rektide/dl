@@ -7,69 +7,83 @@ export const githubProvider: Repo = {
 	name: "github",
 	hosts: ["github.com"],
 
-	candidates(input: string): RepoContext[] {
+	toUrlString(ctx: RepoContext): string | undefined {
+		if (!ctx.org || !ctx.project) return undefined
+		return `https://github.com/${ctx.org}/${ctx.project}`
+	},
+
+	async *candidates(input: string): AsyncGenerator<RepoContext> {
 		const { trimmed, path, segments } = normalizeInput(input)
-		const results: RepoContext[] = []
 
 		if (isSsh(trimmed)) {
 			const parsed = parseSsh(trimmed)
 			if (parsed && parsed.host === "github.com") {
-				const ctx = new DefaultRepoContext()
-				ctx.url = new URL(`https://github.com/${parsed.path}`)
-				ctx.source.provider = "github"
-				results.push(ctx)
+				const parts = parsed.path.split("/").filter(Boolean)
+				if (parts.length >= 2) {
+					const ctx = new DefaultRepoContext()
+					ctx.org = parts.slice(0, -1).join("/")
+					ctx.project = parts.at(-1)
+					ctx.host = "github.com"
+					ctx.url = new URL(this.toUrlString(ctx)!)
+					ctx.source.provider = "github"
+					yield ctx
+				}
 			}
-			return results
+			return
 		}
 
 		if (isUrl(trimmed)) {
 			const parsed = parseUrl(trimmed)
-			if (parsed && parsed.host === "github.com" && segments.length >= 2) {
-				const ctx = new DefaultRepoContext()
-				ctx.url = new URL(`https://github.com/${segments.slice(0, 2).join("/")}`)
-				ctx.source.provider = "github"
-				results.push(ctx)
+			if (parsed && parsed.host === "github.com") {
+				const urlSegments = parsed.pathname.split("/").filter(Boolean)
+				if (urlSegments.length >= 2) {
+					const ctx = new DefaultRepoContext()
+					ctx.org = urlSegments[0]
+					ctx.project = urlSegments[1]
+					ctx.host = "github.com"
+					ctx.url = new URL(this.toUrlString(ctx)!)
+					ctx.source.provider = "github"
+					yield ctx
+				}
 			}
-			return results
+			return
 		}
 
 		if (segments.length >= 2 && segments[0] === "github.com") {
 			const ctx = new DefaultRepoContext()
-			ctx.url = new URL(`https://github.com/${segments.slice(1, 3).join("/")}`)
+			ctx.org = segments[1]
+			ctx.project = segments[2]
+			ctx.host = "github.com"
+			ctx.url = new URL(this.toUrlString(ctx)!)
 			ctx.source.provider = "github"
-			results.push(ctx)
-			return results
+			yield ctx
+			return
 		}
 
 		if (segments.length >= 2 && !segments[0]!.includes(".")) {
 			const ctx = new DefaultRepoContext()
-			ctx.url = new URL(`https://github.com/${path}`)
+			ctx.org = segments[0]
+			ctx.project = segments[1]
+			ctx.host = "github.com"
+			ctx.url = new URL(this.toUrlString(ctx)!)
 			ctx.source.provider = "github"
-			results.push(ctx)
+			yield ctx
 		}
-
-		return results
 	},
 
-	async verify(ctx: RepoContext, signal: AbortSignal): Promise<RepoContext | undefined> {
-		if (!ctx.url) return undefined
-		const segments = ctx.url.pathname.split("/").filter(Boolean)
-		if (segments.length < 2) return undefined
+	async *verify(ctx: RepoContext, signal: AbortSignal): AsyncGenerator<RepoContext> {
+		if (!ctx.org || !ctx.project) return
 
-		const owner = segments[0]
-		const repo = segments[1]
-
-		const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+		const response = await fetch(`https://api.github.com/repos/${ctx.org}/${ctx.project}`, {
 			method: "GET",
 			headers: { "user-agent": "rekon-dl" },
 			signal,
 		}).catch(() => null)
 
-		if (!response || !response.ok) return undefined
+		if (!response || !response.ok) return
 
-		ctx.url = new URL(`https://github.com/${owner}/${repo}`)
 		ctx.verified = true
-		return ctx
+		yield ctx
 	},
 
 	resolveWikiRepo(ctx: RepoContext): void {
