@@ -130,11 +130,54 @@ These expand the immediate next items already identified.
   - `--no-archive` => `off`
 - Fail fast on invalid state values.
 
+Recommended `StepState` set for A1:
+
+- `off` - never run the step.
+- `skip` - run only when target is missing.
+- `ensure` - reconcile/update target to current desired state.
+- `force` - recreate target from scratch.
+
+What `ensure` updates, by step:
+
+- `archlist`: add URL only when missing (idempotent append behavior).
+- `archive`: clone if missing, otherwise pull, then ensure `.jj` exists.
+- `simplify`: create missing links, keep correct links, warn on conflicts.
+- `wiki-dexport`: run dexport refresh even when wiki directory exists.
+- `wiki-git`: if `wikiRepoUrl` exists, attempt clone/pull; if URL absent, skip.
+
+For git wiki specifically (often unavailable and that's acceptable), A1 should also define best-effort behavior in `StepControl` rather than burying it in ad-hoc conditionals.
+
+Suggested `StepControl` shape:
+
+```ts
+type StepState = "off" | "skip" | "ensure" | "force"
+type FailureMode = "hard" | "soft"
+
+type StepControl = {
+  state: StepState
+  onFailure: FailureMode
+}
+```
+
+Suggested defaults:
+
+- `archive` / `archive-jj`: `onFailure: "hard"`
+- `wiki-dexport`: `onFailure: "soft"` (records failure, does not fail full repo by default)
+- `wiki-git`: `onFailure: "soft"` ("try it" behavior for repos without usable wiki remotes)
+
 ### A2. Policy extraction from `processRepoContext`
 
 - Add `ExecutionState` planner module (pure decision logic).
 - Make `processRepoContext` consume planner output.
 - Keep side-effect code in sync modules (`archive`, `wiki`, `simplify`) and keep policy logic out of side-effect modules.
+
+Yes: this is specifically about replacing the current many-`if` orchestration style with a planned transition pass. Instead of "if this then call that" in-line, we compute:
+
+1. facts (known/unknown)
+2. decisions (`run`/`skip`/`defer`)
+3. execution order (serial or parallel ready-set)
+
+Then execution simply follows the plan, and lifecycle reporting describes plan-vs-result consistently.
 
 ### A3. Dexport plan semantics by explicit wiki state
 
