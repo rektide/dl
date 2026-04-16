@@ -14,6 +14,7 @@ import { RESOLVE_TIMEOUT } from "../repo/util.ts"
 export const REPO_PLUGIN_ID = "rekon:repo" as const
 
 export interface RepoExtension {
+	candidates: (input: string) => { url: URL; expander: string }[]
 	resolve: (input: string) => AsyncGenerator<RepoContext>
 }
 
@@ -27,7 +28,7 @@ export function createRepoPlugin(options?: {
 			const registry = createRegistry(genericProvider)
 			registry.register(githubProvider, ["github.com"])
 			registry.register(gitlabProvider, ["gitlab.com"])
-			registry.register(tangledProvider, ["tangled.org", "tangled.sh", "tangled.com"])
+			registry.register(tangledProvider, ["tangled.org"])
 			registry.register(cratesIoProvider, ["crates.io"])
 			registry.register(docsRsProvider, ["docs.rs"])
 			registry.register(npmxDevProvider, ["npmx.dev", "npmjs.com"])
@@ -41,8 +42,11 @@ export function createRepoPlugin(options?: {
 				}),
 			]
 
-			return {
-				async *resolve(input: string) {
+		return {
+			candidates(input: string) {
+				return expand(input, expanders)
+			},
+			async *resolve(input: string) {
 					const signal = AbortSignal.timeout(RESOLVE_TIMEOUT)
 					const candidates = expand(input, expanders)
 					for await (const ctx of verify(input, candidates, registry, signal)) {

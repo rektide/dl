@@ -17,7 +17,7 @@ export const tangledProvider: Repo = {
 		}).catch(() => null)
 
 		if (!response) return undefined
-		if (response.status >= 400 && response.status !== 405) return undefined
+		if (!response.ok) return undefined
 
 		const ctx = new DefaultRepoContext()
 		ctx.url = new URL(`https://${url.host}/${repoPath}`)
