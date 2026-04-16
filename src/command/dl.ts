@@ -182,6 +182,7 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 						input,
 						url: candidate.url.toString(),
 						expander: candidate.expander,
+						provider: candidate.provider,
 					})
 				}
 			}

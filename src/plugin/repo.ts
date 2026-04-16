@@ -13,8 +13,14 @@ import { RESOLVE_TIMEOUT } from "../repo/util.ts"
 
 export const REPO_PLUGIN_ID = "rekon:repo" as const
 
+export interface CandidateInfo {
+	url: URL
+	expander: string
+	provider: string
+}
+
 export interface RepoExtension {
-	candidates: (input: string) => { url: URL; expander: string }[]
+	candidates: (input: string) => CandidateInfo[]
 	resolve: (input: string) => AsyncGenerator<RepoContext>
 }
 
@@ -43,8 +49,12 @@ export function createRepoPlugin(options?: {
 			]
 
 		return {
-			candidates(input: string) {
-				return expand(input, expanders)
+			candidates(input: string): CandidateInfo[] {
+				return expand(input, expanders).map((c) => ({
+					url: c.url,
+					expander: c.expander,
+					provider: registry.lookup(c.url.host).name,
+				}))
 			},
 			async *resolve(input: string) {
 					const signal = AbortSignal.timeout(RESOLVE_TIMEOUT)
