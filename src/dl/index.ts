@@ -1,6 +1,3 @@
-import { appendFile, readFile } from "node:fs/promises"
-import { homedir } from "node:os"
-import { join } from "node:path"
 import { syncArchive } from "../archive/sync.ts"
 import { defaultDexportOps } from "../dexport/default.ts"
 import type { DexportOps } from "../dexport/types.ts"
@@ -13,6 +10,8 @@ import { syncWiki } from "../wiki/sync.ts"
 import type { DlOptions, DlContext } from "./types.ts"
 import type { LogExtension } from "../plugin/log.ts"
 import { createLifecycleReporter } from "./lifecycle.ts"
+import { OFF, ENSURE, type StepState } from "./actions.ts"
+import { syncArchlist } from "./archlist.ts"
 
 export async function processRepoContext(
 	resolved: RepoContext,
@@ -39,11 +38,11 @@ export async function processRepoContext(
 					: undefined,
 			})
 
-			if (ctx.options.archlistState !== "off") {
+			if (ctx.options.archlistState !== OFF) {
 				lifecycle.ok({
 					step: "archlist",
 					source: "processRepoContext",
-					transition: ctx.options.archlistState === "ensure" ? "would-append-if-absent" : "would-append",
+					transition: ctx.options.archlistState === ENSURE ? "would-append-if-absent" : "would-append",
 				})
 			} else {
 				lifecycle.skipped({
@@ -125,59 +124,13 @@ export async function processRepoContext(
 				})
 			}
 		} else {
-			if (ctx.options.archlistState !== "off") {
-				const archlistPath = join(homedir(), "archlist")
-				const url = resolved.url!.toString()
-				ctx.log.info("sync", "archlist", { url, path: archlistPath, state: ctx.options.archlistState })
-				try {
-					if (ctx.options.archlistState === "ensure") {
-						let content = ""
-						try {
-							content = await readFile(archlistPath, "utf-8")
-						} catch {}
-						if (content.split("\n").includes(url)) {
-							lifecycle.ok({
-								step: "archlist",
-								source: "processRepoContext -> readFile",
-								transition: "already_present",
-								details: { path: archlistPath },
-							})
-						} else {
-							await appendFile(archlistPath, `${url}\n`)
-							lifecycle.ok({
-								step: "archlist",
-								source: "processRepoContext -> appendFile",
-								transition: "appended",
-								details: { path: archlistPath },
-							})
-						}
-					} else {
-						await appendFile(archlistPath, `${url}\n`)
-						lifecycle.ok({
-							step: "archlist",
-							source: "processRepoContext -> appendFile",
-							transition: "appended",
-							details: { path: archlistPath },
-						})
-					}
-				} catch (error) {
-					hadError = true
-					const message = error instanceof Error ? error.message : String(error)
-					ctx.log.error("sync", "archlist_failed", { message })
-					lifecycle.failed({
-						step: "archlist",
-						source: "processRepoContext -> appendFile",
-						transition: "error",
-						details: { message },
-					})
-				}
-			} else {
-				lifecycle.skipped({
-					step: "archlist",
-					source: "processRepoContext",
-					transition: "off",
-				})
-			}
+			const archlistResult = await syncArchlist(
+				resolved.url!.toString(),
+				ctx.options.archlistState,
+				lifecycle,
+				ctx.log,
+			)
+			if (archlistResult.hadError) hadError = true
 
 			if (ctx.options.doArchive) {
 				try {

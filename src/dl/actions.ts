@@ -1,4 +1,21 @@
-export type StepState = "force" | "ensure" | "skip" | "off"
+declare const stepStateBrand: unique symbol
+
+export type StepState = string & { readonly [stepStateBrand]: void }
+
+export const FORCE = state("force")
+export const ENSURE = state("ensure")
+export const SKIP = state("skip")
+export const CHECK = state("check")
+export const FETCH = state("fetch")
+export const OFF = state("off")
+
+export function state(s: string): StepState {
+	return s as StepState
+}
+
+export function isStepState(value: string, action: ActionDef): value is StepState {
+	return action.states.includes(value as StepState)
+}
 
 export interface ActionDef {
 	name: string
@@ -37,12 +54,12 @@ export function buildGunshiArgs(actions: readonly ActionDef[]): Record<string, {
 			description: `Disable ${action.name}`,
 		}
 
-		for (const state of action.states) {
-			if (state === "off") continue
-			args[`${action.name}-${state}`] = {
+		for (const s of action.states) {
+			if (s === OFF) continue
+			args[`${action.name}-${s}`] = {
 				type: "boolean",
 				default: false,
-				description: `${action.name}: ${state}`,
+				description: `${action.name}: ${s}`,
 			}
 		}
 	}
@@ -63,38 +80,38 @@ export function resolveActions(
 	values: Record<string, unknown>,
 	explicitFlags: Record<string, boolean>,
 ): ResolvedActions {
-	const states: Record<string, StepState> = {}
+	const resolved: Record<string, StepState> = {}
 	const wasExplicit: Record<string, boolean> = {}
 
 	for (const action of actions) {
-		let state: StepState | undefined
+		let found: StepState | undefined
 		let isExplicit = false
 
 		const strVal = values[action.name]
 		if (typeof strVal === "string" && strVal !== "") {
-			if ((action.states as readonly string[]).includes(strVal)) {
-				state = strVal as StepState
+			if (isStepState(strVal, action)) {
+				found = strVal
 				isExplicit = true
 			}
 		}
 
 		for (const s of action.states) {
-			if (s === "off") continue
+			if (s === OFF) continue
 			if (values[`${action.name}-${s}`] === true) {
-				state = s
+				found = s
 				isExplicit = true
 			}
 		}
 
 		if (values[`no-${action.name}`] === true) {
-			state = "off"
+			found = OFF
 			isExplicit = true
 		}
 
 		if (explicitFlags[action.name] || explicitFlags[`no-${action.name}`]) {
 			isExplicit = true
-			if (state === undefined) {
-				state = action.defaultState
+			if (found === undefined) {
+				found = action.defaultState
 			}
 		}
 
@@ -104,7 +121,7 @@ export function resolveActions(
 			}
 		}
 
-		states[action.name] = state ?? action.defaultState
+		resolved[action.name] = found ?? action.defaultState
 		wasExplicit[action.name] = isExplicit
 	}
 
@@ -113,10 +130,10 @@ export function resolveActions(
 	if (anyExplicit) {
 		for (const action of actions) {
 			if (!wasExplicit[action.name]) {
-				states[action.name] = "off"
+				resolved[action.name] = OFF
 			}
 		}
 	}
 
-	return { anyExplicit, states, explicit: wasExplicit }
+	return { anyExplicit, states: resolved, explicit: wasExplicit }
 }

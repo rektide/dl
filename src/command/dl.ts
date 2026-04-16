@@ -7,8 +7,8 @@ import { DL_COMMAND_NAME } from "../dl/args.ts"
 import { resolveDlFlags } from "../dl/flags.ts"
 import { createProcessEntry } from "../dl/index.ts"
 import type { DlOptions } from "../dl/types.ts"
-import type { ActionDef, StepState } from "../dl/actions.ts"
-import { buildGunshiArgs, preprocessArgv, resolveActions } from "../dl/actions.ts"
+import type { ActionDef } from "../dl/actions.ts"
+import { FORCE, ENSURE, OFF, buildGunshiArgs, preprocessArgv, resolveActions } from "../dl/actions.ts"
 import { watchClipboard } from "../dl/clipboard.ts"
 import { watchArchlist } from "../dl/watch.ts"
 import { prependOrg } from "./prepend-org.ts"
@@ -36,8 +36,8 @@ import {
 
 const ARCHLIST_ACTION: ActionDef = {
 	name: "archlist",
-	states: ["force", "ensure", "off"],
-	defaultState: "force",
+	states: [FORCE, ENSURE, OFF],
+	defaultState: FORCE,
 }
 
 const ACTIONS: readonly ActionDef[] = [ARCHLIST_ACTION]
@@ -163,7 +163,7 @@ function buildDlOptions(
 
 	let archlistState = actionResult.states.archlist
 	if (anyExplicit && !actionResult.explicit.archlist) {
-		archlistState = "off"
+		archlistState = OFF
 	}
 
 	return {
@@ -197,9 +197,9 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		const roots = await rootsExtension.resolveRoots()
 		const options = buildDlOptions(ctx.values, ctx.explicit)
 
-		if (watch && options.archlistState !== "off") {
+		if (watch && options.archlistState !== OFF) {
 			logExtension.warn("sync", "archlist_disabled", { reason: "watch mode feedback loop" })
-			options.archlistState = "off"
+			options.archlistState = OFF
 		}
 
 		if (ctx.values.candidates) {

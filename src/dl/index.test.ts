@@ -3,6 +3,7 @@ import { processRepoContext } from "./index.ts"
 import type { DlContext, DlOptions } from "./types.ts"
 import type { DexportOps } from "../dexport/types.ts"
 import type { GitOps } from "../git/types.ts"
+import { OFF } from "./actions.ts"
 import type { LogEvent, LogExtension } from "../plugin/log.ts"
 import type { RepoContext } from "../repo/context.ts"
 
@@ -34,7 +35,7 @@ function createOptions(overrides?: Partial<DlOptions>): DlOptions {
 		reportLifecycle: true,
 		doArchive: true,
 		doWiki: false,
-		archlistState: "off",
+		archlistState: OFF,
 		doSymlink: false,
 		expand: false,
 		dryRun: false,
