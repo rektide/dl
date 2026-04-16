@@ -70,6 +70,7 @@ const dlArgs = {
 	},
 	symlink: {
 		type: "boolean",
+		short: "l",
 		default: true,
 		description: "Create simplified symlinks for org/repo names (on by default, use --no-symlink to disable)",
 	},
@@ -87,6 +88,16 @@ const dlArgs = {
 		type: "boolean",
 		default: false,
 		description: "Output resolved repo info without syncing",
+	},
+	candidates: {
+		type: "boolean",
+		default: false,
+		description: "Print expanded candidate URLs before verification (no network calls)",
+	},
+	noop: {
+		type: "boolean",
+		default: false,
+		description: "Do nothing — exit immediately without resolving or syncing",
 	},
 	"dry-run": {
 		type: "boolean",
@@ -149,6 +160,8 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 			process.exit(1)
 		}
 
+		if (ctx.values.noop) return
+
 		const { log: logExtension, roots: rootsExtension, repo: repoExtension, git: gitExtension, dexport: dexportExtension } = requireExtensions(ctx.extensions)
 		const roots = await rootsExtension.resolveRoots()
 		const options = buildDlOptions(ctx.values, ctx.explicit)
@@ -156,6 +169,23 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		if (watch && options.doArchlist) {
 			logExtension.warn("sync", "archlist_disabled", { reason: "watch mode feedback loop" })
 			options.doArchlist = false
+		}
+
+		if (ctx.values.candidates) {
+			for (const input of inputs) {
+				const candidates = repoExtension.candidates(input)
+				if (candidates.length === 0) {
+					logExtension.warn("candidates", "no_match", { input })
+				}
+				for (const candidate of candidates) {
+					logExtension.info("candidates", "expanded", {
+						input,
+						url: candidate.url.toString(),
+						expander: candidate.expander,
+					})
+				}
+			}
+			return
 		}
 
 		if (options.expand) {
