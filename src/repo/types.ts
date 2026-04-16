@@ -11,7 +11,6 @@ export interface Repo {
 	candidates(input: string): AsyncGenerator<RepoContext>
 	verify(ctx: RepoContext, signal: AbortSignal): AsyncGenerator<RepoContext>
 	resolveWikiRepo?(ctx: RepoContext): void
-	resolveWikiDeep?(ctx: RepoContext): void
 }
 
 export interface RepoRegistry {

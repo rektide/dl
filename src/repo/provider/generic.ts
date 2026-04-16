@@ -4,6 +4,10 @@ import type { Repo } from "../types.ts"
 import { normalizeInput, isUrl, isSsh, looksLikeHost, parseSsh, parseUrl } from "../parse.ts"
 import { urlExists } from "../util.ts"
 
+/**
+ * Generic catch-all provider — no host binding, verifies by probing URLs.
+ * Used as the fallback when no host-specific provider matches.
+ */
 export const genericProvider: Repo = {
 	name: "generic",
 	hosts: [],
@@ -14,7 +18,7 @@ export const genericProvider: Repo = {
 	},
 
 	async *candidates(input: string): AsyncGenerator<RepoContext> {
-		const { trimmed, path, segments } = normalizeInput(input)
+		const { trimmed, segments } = normalizeInput(input)
 
 		if (isSsh(trimmed)) {
 			const parsed = parseSsh(trimmed)
@@ -36,7 +40,9 @@ export const genericProvider: Repo = {
 		if (isUrl(trimmed)) {
 			const parsed = parseUrl(trimmed)
 			if (parsed) {
-				const urlSegments = parsed.pathname.split("/").filter(Boolean)
+				const urlSegments = parsed.pathname
+					.split("/")
+					.filter(Boolean)
 				if (urlSegments.length >= 2) {
 					const ctx = new DefaultRepoContext()
 					ctx.host = parsed.host
@@ -50,7 +56,10 @@ export const genericProvider: Repo = {
 			return
 		}
 
-		if (segments.length >= 2 && looksLikeHost(segments[0]!)) {
+		if (
+			segments.length >= 2 &&
+			looksLikeHost(segments[0]!)
+		) {
 			const rest = segments.slice(1)
 			const ctx = new DefaultRepoContext()
 			ctx.host = segments[0]
@@ -62,7 +71,10 @@ export const genericProvider: Repo = {
 		}
 	},
 
-	async *verify(ctx: RepoContext, signal: AbortSignal): AsyncGenerator<RepoContext> {
+	async *verify(
+		ctx: RepoContext,
+		signal: AbortSignal,
+	): AsyncGenerator<RepoContext> {
 		if (!ctx.url) return
 
 		const segments = ctx.url.pathname.split("/").filter(Boolean)

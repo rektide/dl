@@ -41,6 +41,5 @@ export async function* verifyCandidates(
 export function enrich(ctx: RepoContext, registry: RepoRegistry): void {
 	if (!ctx.url) return
 	const repo = registry.lookup(ctx.url.host)
-	repo.resolveWikiDeep?.(ctx)
 	repo.resolveWikiRepo?.(ctx)
 }

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest"
-import { cratesIoProvider, docsRsProvider } from "./crates-io.ts"
+import { cratesIoProvider } from "./crates-io.ts"
+import { docsRsProvider } from "./docs-rs.ts"
 
 async function collectCandidates(provider: typeof cratesIoProvider, input: string, timeout = 10000): Promise<string[]> {
 	const urls: string[] = []
