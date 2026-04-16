@@ -1,10 +1,18 @@
 import { describe, expect, test } from "vitest"
+import { DefaultRepoContext } from "../context.ts"
 import { npmxDevProvider } from "./npmx-dev.ts"
+
+function makeCtx(url: string): DefaultRepoContext {
+	const ctx = new DefaultRepoContext()
+	ctx.url = new URL(url)
+	ctx.source = { provider: "npm-registry" }
+	return ctx
+}
 
 describe("npmxDevProvider", () => {
 	test("resolves npmx.dev unscoped package to github repo", async () => {
-		const ctx = await npmxDevProvider.resolve(
-			new URL("https://npmx.dev/package/lightningcss"),
+		const ctx = await npmxDevProvider.verify(
+			makeCtx("https://npmx.dev/package/lightningcss"),
 			AbortSignal.timeout(10000),
 		)
 		expect(ctx).toBeDefined()
@@ -14,8 +22,8 @@ describe("npmxDevProvider", () => {
 	})
 
 	test("resolves www.npmjs.com scoped package to github repo", async () => {
-		const ctx = await npmxDevProvider.resolve(
-			new URL("https://www.npmjs.com/package/@crosscopy/clipboard"),
+		const ctx = await npmxDevProvider.verify(
+			makeCtx("https://www.npmjs.com/package/@crosscopy/clipboard"),
 			AbortSignal.timeout(10000),
 		)
 		expect(ctx).toBeDefined()
@@ -25,8 +33,8 @@ describe("npmxDevProvider", () => {
 	})
 
 	test("resolves scoped package that resolves to monorepo", async () => {
-		const ctx = await npmxDevProvider.resolve(
-			new URL("https://npmx.dev/package/@mariozechner/pi-agent-core"),
+		const ctx = await npmxDevProvider.verify(
+			makeCtx("https://npmx.dev/package/@mariozechner/pi-agent-core"),
 			AbortSignal.timeout(10000),
 		)
 		expect(ctx).toBeDefined()
@@ -36,16 +44,16 @@ describe("npmxDevProvider", () => {
 	})
 
 	test("returns undefined for non-package paths", async () => {
-		const ctx = await npmxDevProvider.resolve(
-			new URL("https://npmx.dev/search?q=test"),
+		const ctx = await npmxDevProvider.verify(
+			makeCtx("https://npmx.dev/search?q=test"),
 			AbortSignal.timeout(5000),
 		)
 		expect(ctx).toBeUndefined()
 	})
 
 	test("returns undefined for missing package name", async () => {
-		const ctx = await npmxDevProvider.resolve(
-			new URL("https://npmx.dev/package/"),
+		const ctx = await npmxDevProvider.verify(
+			makeCtx("https://npmx.dev/package/"),
 			AbortSignal.timeout(5000),
 		)
 		expect(ctx).toBeUndefined()

@@ -1,27 +1,61 @@
 import { DefaultRepoContext } from "../context.ts"
 import type { RepoContext } from "../context.ts"
 import type { Repo } from "../types.ts"
+import { normalizeInput, isUrl, isSsh, looksLikeHost, parseSsh, parseUrl } from "../parse.ts"
 import { urlExists } from "../util.ts"
 
-// TODO: The generic provider uses a simple HEAD request which is loose —
-// a 200 doesn't prove this is a git repository. Future improvements:
-// - Try `git ls-remote` to confirm it's actually a git endpoint
-// - Check for /.git/ or forge-specific markers
-// - Look for common forge response headers
 export const genericProvider: Repo = {
 	name: "generic",
+	hosts: [],
 
-	async resolve(url: URL, signal: AbortSignal): Promise<RepoContext | undefined> {
-		const segments = url.pathname.split("/").filter(Boolean)
+	candidates(input: string): RepoContext[] {
+		const { trimmed, path, segments } = normalizeInput(input)
+		const results: RepoContext[] = []
+
+		if (isSsh(trimmed)) {
+			const parsed = parseSsh(trimmed)
+			if (parsed) {
+				const ctx = new DefaultRepoContext()
+				ctx.url = new URL(`https://${parsed.host}/${parsed.path}`)
+				ctx.source.provider = "generic"
+				results.push(ctx)
+			}
+			return results
+		}
+
+		if (isUrl(trimmed)) {
+			const parsed = parseUrl(trimmed)
+			if (parsed && segments.length >= 2) {
+				const ctx = new DefaultRepoContext()
+				ctx.url = parsed
+				ctx.source.provider = "generic"
+				results.push(ctx)
+			}
+			return results
+		}
+
+		if (segments.length >= 2 && looksLikeHost(segments[0]!)) {
+			const ctx = new DefaultRepoContext()
+			ctx.url = new URL(`https://${path}`)
+			ctx.source.provider = "generic"
+			results.push(ctx)
+		}
+
+		return results
+	},
+
+	async verify(ctx: RepoContext, signal: AbortSignal): Promise<RepoContext | undefined> {
+		if (!ctx.url) return undefined
+		const segments = ctx.url.pathname.split("/").filter(Boolean)
 
 		for (let length = segments.length; length >= 1; length--) {
 			const candidate = segments.slice(0, length).join("/")
-			const candidateUrl = `https://${url.host}/${candidate}`
+			const candidateUrl = `https://${ctx.url.host}/${candidate}`
 			const exists = await urlExists(candidateUrl, signal)
 			if (!exists) continue
 
-			const ctx = new DefaultRepoContext()
 			ctx.url = new URL(candidateUrl)
+			ctx.verified = true
 			return ctx
 		}
 

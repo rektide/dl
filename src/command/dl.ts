@@ -180,9 +180,9 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 				for (const candidate of candidates) {
 					logExtension.info("candidates", "expanded", {
 						input,
-						url: candidate.url.toString(),
-						expander: candidate.expander,
-						provider: candidate.provider,
+						url: candidate.url?.toString(),
+						provider: candidate.source.provider,
+						verified: candidate.verified,
 					})
 				}
 			}

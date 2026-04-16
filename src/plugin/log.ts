@@ -3,7 +3,7 @@ import { plugin } from "gunshi/plugin"
 export const LOG_PLUGIN_ID = "rekon:log" as const
 
 export type LogLevel = "debug" | "info" | "warn" | "error"
-export type LogStage = "dry-run" | "expand" | "verify" | "enrich" | "sync" | "link"
+export type LogStage = "candidates" | "dry-run" | "expand" | "verify" | "enrich" | "sync" | "link"
 
 export interface LogEvent {
 	level: LogLevel

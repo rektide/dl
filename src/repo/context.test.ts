@@ -32,5 +32,10 @@ describe("DefaultRepoContext", () => {
     const ctx = new DefaultRepoContext()
     expect(ctx.project).toBeUndefined()
     expect(ctx.org).toBeUndefined()
-})
+  })
+
+  test("defaults verified to false", () => {
+    const ctx = new DefaultRepoContext()
+    expect(ctx.verified).toBe(false)
+  })
 })

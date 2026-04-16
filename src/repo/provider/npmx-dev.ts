@@ -1,22 +1,69 @@
 import { DefaultRepoContext } from "../context.ts"
 import type { RepoContext } from "../context.ts"
 import type { Repo } from "../types.ts"
+import { normalizeInput, isUrl, parseUrl } from "../parse.ts"
+
+function parsePackagePath(pathname: string): string | undefined {
+	const segments = pathname.split("/").filter(Boolean)
+	if (segments[0] !== "package" || segments.length < 2) return undefined
+
+	if (segments[1]?.startsWith("@")) {
+		if (segments.length < 3) return undefined
+		return `${segments[1]}/${segments[2]}`
+	}
+
+	return segments[1]
+}
 
 export const npmxDevProvider: Repo = {
 	name: "npm-registry",
+	hosts: ["npmx.dev", "npmjs.com"],
 
-	async resolve(url: URL, signal: AbortSignal): Promise<RepoContext | undefined> {
-		const segments = url.pathname.split("/").filter(Boolean)
-		if (segments[0] !== "package" || segments.length < 2) return undefined
+	candidates(input: string): RepoContext[] {
+		const { trimmed, segments } = normalizeInput(input)
+		const results: RepoContext[] = []
 
-		let packageName: string
-		if (segments[1]?.startsWith("@")) {
-			if (segments.length < 3) return undefined
-			packageName = `${segments[1]}/${segments[2]}`
-		} else {
-			packageName = segments[1]
+		if (isUrl(trimmed)) {
+			const parsed = parseUrl(trimmed)
+			if (parsed && (parsed.host === "npmx.dev" || parsed.host === "www.npmjs.com" || parsed.host === "npmjs.com")) {
+				const pkg = parsePackagePath(parsed.pathname)
+				if (pkg) {
+					const ctx = new DefaultRepoContext()
+					ctx.url = new URL(`https://npmx.dev/package/${pkg}`)
+					ctx.source.provider = "npm-registry"
+					results.push(ctx)
+				}
+			}
+			return results
 		}
-		const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(packageName)}/latest`, {
+
+		if (segments.length >= 2 && (segments[0] === "npmx.dev" || segments[0] === "npmjs.com")) {
+			const rest = segments.slice(1)
+			if (rest[0] === "package" && rest.length >= 2) {
+				const ctx = new DefaultRepoContext()
+				ctx.url = new URL(`https://npmx.dev/package/${rest.slice(1).join("/")}`)
+				ctx.source.provider = "npm-registry"
+				results.push(ctx)
+			}
+			return results
+		}
+
+		if (segments.length === 1 && !segments[0]!.includes("/") && !segments[0]!.includes(".")) {
+			const ctx = new DefaultRepoContext()
+			ctx.url = new URL(`https://npmx.dev/package/${segments[0]}`)
+			ctx.source.provider = "npm-registry"
+			results.push(ctx)
+		}
+
+		return results
+	},
+
+	async verify(ctx: RepoContext, signal: AbortSignal): Promise<RepoContext | undefined> {
+		if (!ctx.url) return undefined
+		const pkg = parsePackagePath(ctx.url.pathname)
+		if (!pkg) return undefined
+
+		const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(pkg)}/latest`, {
 			method: "GET",
 			headers: { "user-agent": "rekon-dl" },
 			signal,
@@ -38,8 +85,8 @@ export const npmxDevProvider: Repo = {
 			const resolved = new URL(cleaned)
 			if (resolved.protocol !== "https:" && resolved.protocol !== "http:") return undefined
 
-			const ctx = new DefaultRepoContext()
 			ctx.url = new URL(`https://${resolved.host}${resolved.pathname.replace(/\.git$/, "")}`)
+			ctx.verified = true
 			return ctx
 		} catch {
 			return undefined

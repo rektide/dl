@@ -2,21 +2,18 @@ import type { Repo, RepoRegistry } from "./types.ts"
 
 export function createRegistry(generic: Repo): RepoRegistry {
 	const byHost = new Map<string, Repo>()
+	const providers: Repo[] = []
 
 	return {
 		byHost,
+		providers,
 		generic,
 
-		register(provider: Repo, hosts?: string[]): void {
-			if (hosts) {
-				for (const host of hosts) {
-					byHost.set(host, provider)
-				}
+		register(provider: Repo): void {
+			providers.push(provider)
+			for (const host of provider.hosts) {
+				byHost.set(host, provider)
 			}
-		},
-
-		knownHosts(): string[] {
-			return Array.from(byHost.keys())
 		},
 
 		lookup(host: string): Repo {

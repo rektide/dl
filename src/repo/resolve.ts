@@ -2,23 +2,43 @@ import type { RepoContext } from "./context.ts"
 import type { RepoRegistry } from "./types.ts"
 import { RESOLVE_TIMEOUT } from "./util.ts"
 
+export function collectCandidates(
+	input: string,
+	registry: RepoRegistry,
+): RepoContext[] {
+	const seen = new Set<string>()
+	const candidates: RepoContext[] = []
+
+	for (const provider of registry.providers) {
+		for (const ctx of provider.candidates(input)) {
+			if (!ctx.url) continue
+			const key = ctx.url.toString()
+			if (seen.has(key)) continue
+			seen.add(key)
+			ctx.input = input
+			ctx.inputUrl = ctx.url
+			candidates.push(ctx)
+		}
+	}
+
+	return candidates
+}
+
 export async function* verify(
 	input: string,
-	candidates: { url: URL; expander: string }[],
 	registry: RepoRegistry,
 	signal?: AbortSignal,
 ): AsyncGenerator<RepoContext> {
 	const resolveSignal = signal ?? AbortSignal.timeout(RESOLVE_TIMEOUT)
-	for (const candidate of candidates) {
-		const repo = registry.lookup(candidate.url.host)
-		const ctx = await repo.resolve(candidate.url, resolveSignal)
-		if (!ctx) continue
+	const candidates = collectCandidates(input, registry)
 
-		ctx.input = input
-		ctx.inputUrl = candidate.url
-		ctx.source.expander = candidate.expander
-		ctx.source.provider = repo.name
-		yield ctx
+	for (const ctx of candidates) {
+		const repo = registry.lookup(ctx.url!.host)
+		const verified = await repo.verify(ctx, resolveSignal)
+		if (!verified) continue
+
+		verified.source.provider = repo.name
+		yield verified
 	}
 }
 

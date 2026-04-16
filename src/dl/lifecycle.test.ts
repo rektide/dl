@@ -5,8 +5,9 @@ import type { RepoContext } from "../repo/context.ts"
 function createResolved(url: string): RepoContext {
 	return {
 		input: url,
-		source: { expander: "url", provider: "github" },
+		source: { provider: "github" },
 		url: new URL(url),
+		verified: true,
 		project: "repo",
 		org: "org",
 	}
@@ -53,7 +54,8 @@ describe("createLifecycleReporter", () => {
 	test("stores null repo URL when unresolved", () => {
 		const reporter = createLifecycleReporter({
 			input: "org/repo",
-			source: { expander: "shorthand" },
+			source: { provider: undefined },
+			verified: false,
 			project: undefined,
 			org: undefined,
 		})

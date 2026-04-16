@@ -45,8 +45,9 @@ function createOptions(overrides?: Partial<DlOptions>): DlOptions {
 function createResolved(): RepoContext {
 	return {
 		input: "org/repo",
-		source: { expander: "shorthand", provider: "github" },
+		source: { provider: "github" },
 		url: new URL("https://github.com/org/repo"),
+		verified: true,
 		wikiDeepUrl: new URL("https://deepwiki.com/org/repo"),
 		wikiRepoUrl: new URL("https://github.com/org/repo.wiki.git"),
 		project: "repo",

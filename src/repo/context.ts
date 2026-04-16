@@ -4,19 +4,21 @@ export interface RepoContext {
 	input?: string
 	inputUrl?: URL
 	url?: URL
+	verified: boolean
 	source: Source
 
 	wikiDeepUrl?: URL
 	wikiRepoUrl?: URL
 
 	readonly project: string | undefined
-    readonly org: string | undefined
+	readonly org: string | undefined
 }
 
 export class DefaultRepoContext implements RepoContext {
 	input?: string
 	inputUrl?: URL
 	url?: URL
+	verified = false
 	source: Source = {}
 	wikiDeepUrl?: URL
 	wikiRepoUrl?: URL
