@@ -1,34 +1,14 @@
 import { define, type CommandContext } from "gunshi"
-import { DL_COMMAND_NAME } from "../dl/args.ts"
-import { OFF, FORCE, ENSURE, type StepState, state } from "../dl/actions.ts"
+import { OFF, FORCE, ENSURE, state, type StepState } from "../dl/actions.ts"
 import { archlistHandler } from "../dl/archlist.ts"
 import { runPipeline } from "../dl/pipeline.ts"
 import type { DlOptions } from "../dl/types.ts"
-import { requireExtensions, resolveDlSetup, type DlExtensions } from "./dl-shared.ts"
+import { resolveDlSetup } from "./dl-shared.ts"
+import { globalArgs } from "./dl-global-args.ts"
 import { prependOrg } from "./prepend-org.ts"
 
 const args = {
-	"consume-dexport-output": {
-		type: "boolean",
-		short: "c",
-		default: false,
-		description: "Run dexport detached and suppress its output",
-	},
-	"no-log-cache": {
-		type: "boolean",
-		default: false,
-		description: "Disable logging of cached file names",
-	},
-	"report-lifecycle": {
-		type: "boolean",
-		default: false,
-		description: "Emit structured lifecycle summary per resolved repository",
-	},
-	"dry-run": {
-		type: "boolean",
-		default: false,
-		description: "Show what would be done without making changes",
-	},
+	...globalArgs,
 	state: {
 		type: "string",
 		default: "force",
@@ -36,13 +16,13 @@ const args = {
 	},
 } as const
 
+const VALID_STATES = new Set<string>([FORCE, ENSURE, OFF])
+
 function resolveState(value: string): StepState {
-	const s = state(value)
-	if (s !== FORCE && s !== ENSURE && s !== OFF) return FORCE
-	return s
+	return VALID_STATES.has(value) ? state(value) : FORCE
 }
 
-async function run(ctx: CommandContext<{ args: typeof args; extensions: DlExtensions }>) {
+async function run(ctx: CommandContext<{ args: typeof args }>) {
 	const inputs = prependOrg(undefined as any, ctx.positionals)
 	if (inputs.length === 0) {
 		console.error("usage: rekon dl archlist [--state=force|ensure|off] <repo-url|org/repo> [...]")
@@ -62,7 +42,7 @@ async function run(ctx: CommandContext<{ args: typeof args; extensions: DlExtens
 		dryRun: !!ctx.values["dry-run"],
 	}
 
-	const setup = await resolveDlSetup(ctx, options)
+	const setup = await resolveDlSetup(ctx.extensions as Record<string, unknown>, options)
 	let hadError = false
 
 	for (const input of inputs) {

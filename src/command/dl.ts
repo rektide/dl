@@ -12,7 +12,9 @@ import { watchClipboard } from "../dl/clipboard.ts"
 import { watchArchlist } from "../dl/watch.ts"
 import { prependOrg } from "./prepend-org.ts"
 import { createDlPlugins } from "../plugin/index.ts"
-import { requireExtensions, type DlExtensions } from "./dl-shared.ts"
+import { requireExtensions } from "./dl-shared.ts"
+import { globalArgs } from "./dl-global-args.ts"
+import { sharedArgs } from "./dl-shared-args.ts"
 import archlistSubcommand from "./dl-archlist.ts"
 
 const ARCHLIST_ACTION: ActionDef = {
@@ -26,26 +28,8 @@ const ACTIONS: readonly ActionDef[] = [ARCHLIST_ACTION]
 const actionArgs = buildGunshiArgs(ACTIONS)
 
 const dlArgs = {
-	org: {
-		type: "string",
-		description: "Default org prefix; positional args are treated as repo names and org is prepended",
-	},
-	"consume-dexport-output": {
-		type: "boolean",
-		short: "c",
-		default: false,
-		description: "Run dexport detached and suppress its output",
-	},
-	"no-log-cache": {
-		type: "boolean",
-		default: false,
-		description: "Disable logging of cached file names",
-	},
-	"report-lifecycle": {
-		type: "boolean",
-		default: false,
-		description: "Emit structured lifecycle summary per resolved repository",
-	},
+	...globalArgs,
+	...sharedArgs,
 	...actionArgs,
 	archive: {
 		type: "boolean",
@@ -87,11 +71,6 @@ const dlArgs = {
 		type: "boolean",
 		default: false,
 		description: "Do nothing — exit immediately without resolving or syncing",
-	},
-	"dry-run": {
-		type: "boolean",
-		default: false,
-		description: "Show what would be done without making changes",
 	},
 } as const
 
@@ -138,7 +117,7 @@ function buildDlOptions(
 	}
 }
 
-async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions }>) {
+async function run(ctx: CommandContext<{ args: DlArgs }>) {
 	try {
 		const { org, watch, clipboard } = ctx.values
 		const inputs = prependOrg(org, ctx.positionals)
@@ -152,7 +131,7 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 
 		if (ctx.values.noop) return
 
-		const ext = requireExtensions(ctx.extensions)
+		const ext = requireExtensions(ctx.extensions as Record<string, unknown>)
 		const roots = await ext.roots.resolveRoots()
 		const options = buildDlOptions(ctx.values, ctx.explicit)
 

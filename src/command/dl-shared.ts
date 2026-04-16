@@ -1,6 +1,4 @@
-import type { CommandContext } from "gunshi"
 import type { DlOptions } from "../dl/types.ts"
-import { OFF, type StepState } from "../dl/actions.ts"
 import {
 	DEXPORT_PLUGIN_ID,
 	type DexportExtension,
@@ -22,13 +20,12 @@ import {
 	type RootsExtension,
 } from "../plugin/roots.ts"
 
-export type DlExtensions = {
+export interface DlExtensions {
 	[ROOTS_PLUGIN_ID]: RootsExtension
 	[REPO_PLUGIN_ID]: RepoExtension
 	[GIT_PLUGIN_ID]: GitExtension
 	[DEXPORT_PLUGIN_ID]: DexportExtension
 	[LOG_PLUGIN_ID]: LogExtension
-	[key: string]: unknown
 }
 
 export interface DlRunCtx {
@@ -40,12 +37,12 @@ export interface DlRunCtx {
 	options: DlOptions
 }
 
-export function requireExtensions(extensions: DlExtensions) {
-	const log = extensions[LOG_PLUGIN_ID]
-	const roots = extensions[ROOTS_PLUGIN_ID]
-	const repo = extensions[REPO_PLUGIN_ID]
-	const git = extensions[GIT_PLUGIN_ID]
-	const dexport = extensions[DEXPORT_PLUGIN_ID]
+export function requireExtensions(extensions: Record<string, unknown>) {
+	const log = extensions[LOG_PLUGIN_ID] as LogExtension | undefined
+	const roots = extensions[ROOTS_PLUGIN_ID] as RootsExtension | undefined
+	const repo = extensions[REPO_PLUGIN_ID] as RepoExtension | undefined
+	const git = extensions[GIT_PLUGIN_ID] as GitExtension | undefined
+	const dexport = extensions[DEXPORT_PLUGIN_ID] as DexportExtension | undefined
 	if (!log) throw new Error("dl: log plugin extension is not available")
 	if (!roots) throw new Error("dl: roots plugin extension is not available")
 	if (!repo) throw new Error("dl: repo plugin extension is not available")
@@ -55,10 +52,10 @@ export function requireExtensions(extensions: DlExtensions) {
 }
 
 export async function resolveDlSetup(
-	ctx: CommandContext<{ extensions: DlExtensions }>,
+	extensions: Record<string, unknown>,
 	options: DlOptions,
 ): Promise<DlRunCtx> {
-	const ext = requireExtensions(ctx.extensions)
+	const ext = requireExtensions(extensions)
 	const roots = await ext.roots.resolveRoots()
 	return { log: ext.log, roots, repo: ext.repo, git: ext.git, dexport: ext.dexport, options }
 }
