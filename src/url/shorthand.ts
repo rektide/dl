@@ -18,9 +18,6 @@ export function createShorthandExpander(options: ShorthandExpanderOptions): Expa
 
 			if (!normalized.includes("/")) return []
 
-			const firstSegment = normalized.split("/")[0] ?? ""
-			if (firstSegment.includes(".") || firstSegment === "localhost") return []
-
 			const path = normalized.replace(/\.git$/, "")
 
 			const urls: URL[] = []

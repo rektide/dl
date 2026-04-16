@@ -17,5 +17,6 @@ export interface RepoRegistry {
 	generic: Repo
 
 	register(provider: Repo, hosts?: string[]): void
+	knownHosts(): string[]
 	lookup(host: string): Repo
 }

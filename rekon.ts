@@ -5,7 +5,7 @@ import dlCommand from './src/command/dl.ts'
 import installCommandsCommand from './src/command/install-commands.ts'
 import interpolateCommand from './src/command/interpolate.ts'
 import projectFilesCommand from './src/command/project-files.ts'
-import resimplifyCommand from './src/command/resimplify.ts'
+import lnCommand from './src/command/ln.ts'
 import completion from '@gunshi/plugin-completion'
 import { createDlPlugins } from './src/plugin/index.ts'
 
@@ -28,7 +28,7 @@ await cli(process.argv.slice(2), mainCommand, {
 		'install-commands': installCommandsCommand,
 		interpolate: interpolateCommand,
 		'project-files': projectFilesCommand,
-		resimplify: resimplifyCommand,
+		ln: lnCommand,
 	},
 	plugins: [
 		completion(),

@@ -35,7 +35,7 @@ function createOptions(overrides?: Partial<DlOptions>): DlOptions {
 		doArchive: true,
 		doWiki: false,
 		doArchlist: false,
-		doSimplify: false,
+		doSymlink: false,
 		expand: false,
 		dryRun: false,
 		...overrides,

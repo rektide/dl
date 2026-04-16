@@ -68,10 +68,10 @@ const dlArgs = {
 		default: false,
 		description: "Append resolved repository URLs to ~/archlist",
 	},
-	simplify: {
+	symlink: {
 		type: "boolean",
 		default: true,
-		description: "Create simplified symlinks for org/repo names (on by default, use --no-simplify to disable)",
+		description: "Create simplified symlinks for org/repo names (on by default, use --no-symlink to disable)",
 	},
 	watch: {
 		type: "boolean",
@@ -121,10 +121,10 @@ function requireExtensions(extensions: DlExtensions) {
 
 function buildDlOptions(
 	values: ArgValues<DlArgs>,
-	explicit: { archive: boolean; wiki: boolean; archlist: boolean; simplify: boolean },
+	explicit: { archive: boolean; wiki: boolean; archlist: boolean; symlink: boolean },
 ): DlOptions {
 	const flags = resolveDlFlags(
-		{ archive: values.archive, wiki: values.wiki, archlist: values.archlist, simplify: values.simplify },
+		{ archive: values.archive, wiki: values.wiki, archlist: values.archlist, symlink: values.symlink },
 		explicit,
 	)
 	return {

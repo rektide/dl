@@ -77,25 +77,25 @@ export async function processRepoContext(
 				})
 			}
 
-			if (ctx.options.doSimplify) {
+			if (ctx.options.doSymlink) {
 				lifecycle.ok({
-					step: "simplify-org",
+					step: "symlink-org",
 					source: "processRepoContext",
 					transition: "would-ensure",
 				})
 				lifecycle.ok({
-					step: "simplify-repo",
+					step: "symlink-repo",
 					source: "processRepoContext",
 					transition: "would-ensure",
 				})
 			} else {
 				lifecycle.skipped({
-					step: "simplify-org",
+					step: "symlink-org",
 					source: "processRepoContext",
 					transition: "off",
 				})
 				lifecycle.skipped({
-					step: "simplify-repo",
+					step: "symlink-repo",
 					source: "processRepoContext",
 					transition: "off",
 				})
@@ -200,18 +200,18 @@ export async function processRepoContext(
 				})
 			}
 
-			if (ctx.options.doSimplify) {
+			if (ctx.options.doSymlink) {
 				try {
 					const simplifyReport = await syncSimplify(resolved, ctx)
 					if (simplifyReport.orgStatus === "skipped") {
 						lifecycle.skipped({
-							step: "simplify-org",
+							step: "symlink-org",
 							source: "syncSimplify",
 							transition: simplifyReport.orgStatus,
 						})
 					} else {
 						lifecycle.ok({
-							step: "simplify-org",
+							step: "symlink-org",
 							source: "syncSimplify -> ensureSymlink",
 							transition: simplifyReport.orgStatus,
 							details: { org: simplifyReport.org },
@@ -220,13 +220,13 @@ export async function processRepoContext(
 
 					if (simplifyReport.projectStatus === "skipped") {
 						lifecycle.skipped({
-							step: "simplify-repo",
+							step: "symlink-repo",
 							source: "syncSimplify",
 							transition: simplifyReport.projectStatus,
 						})
 					} else {
 						lifecycle.ok({
-							step: "simplify-repo",
+							step: "symlink-repo",
 							source: "syncSimplify -> ensureSymlink",
 							transition: simplifyReport.projectStatus,
 							details: { org: simplifyReport.org, project: simplifyReport.project },
@@ -237,13 +237,13 @@ export async function processRepoContext(
 					const message = error instanceof Error ? error.message : String(error)
 					ctx.log.error("sync", "simplify_failed", { message })
 					lifecycle.failed({
-						step: "simplify-org",
+						step: "symlink-org",
 						source: "syncSimplify",
 						transition: "error",
 						details: { message },
 					})
 					lifecycle.failed({
-						step: "simplify-repo",
+						step: "symlink-repo",
 						source: "syncSimplify",
 						transition: "error",
 						details: { message },
@@ -251,12 +251,12 @@ export async function processRepoContext(
 				}
 			} else {
 				lifecycle.skipped({
-					step: "simplify-org",
+					step: "symlink-org",
 					source: "processRepoContext",
 					transition: "off",
 				})
 				lifecycle.skipped({
-					step: "simplify-repo",
+					step: "symlink-repo",
 					source: "processRepoContext",
 					transition: "off",
 				})

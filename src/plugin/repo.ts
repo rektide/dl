@@ -37,7 +37,7 @@ export function createRepoPlugin(options?: {
 				urlExpander,
 				hostPathExpander,
 				createShorthandExpander({
-					defaultHosts: options?.defaultHosts ?? ["github.com"],
+					defaultHosts: options?.defaultHosts ?? registry.knownHosts(),
 				}),
 			]
 

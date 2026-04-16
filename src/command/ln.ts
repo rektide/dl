@@ -58,7 +58,7 @@ async function simplifyPath(
 }
 
 export default define({
-	name: "resimplify",
+	name: "ln",
 	description: "Create simplified symlinks for archive org/repo paths",
 	args: {
 		"dry-run": {
@@ -88,7 +88,7 @@ void (async () => {
 	const mainPath = await realpath(process.argv[1])
 	const mainUrl = pathToFileURL(mainPath).href
 	if (import.meta.url === mainUrl) {
-		const module = await import("./resimplify.ts")
-		await cli(process.argv.slice(2), module.default, { name: "resimplify" })
+		const module = await import("./ln.ts")
+		await cli(process.argv.slice(2), module.default, { name: "ln" })
 	}
 })()

@@ -74,9 +74,14 @@ describe("shorthandExpander", () => {
 		expect(results[1].host).toBe("gitlab.com")
 	})
 
-	test("ignores host-path input", () => {
-		const expander = createShorthandExpander({ defaultHosts: ["github.com"] })
-		expect(expander.expand("github.com/org/repo")).toHaveLength(0)
+	test("produces candidates for dotted first segment", () => {
+		const expander = createShorthandExpander({ defaultHosts: ["github.com", "tangled.org"] })
+		const results = expander.expand("ajbird.net/atmoco-vods")
+		expect(results).toHaveLength(2)
+		expect(results[0].host).toBe("github.com")
+		expect(results[0].pathname).toBe("/ajbird.net/atmoco-vods")
+		expect(results[1].host).toBe("tangled.org")
+		expect(results[1].pathname).toBe("/ajbird.net/atmoco-vods")
 	})
 
 	test("strips leading slashes", () => {

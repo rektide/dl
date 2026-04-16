@@ -15,6 +15,10 @@ export function createRegistry(generic: Repo): RepoRegistry {
 			}
 		},
 
+		knownHosts(): string[] {
+			return Array.from(byHost.keys())
+		},
+
 		lookup(host: string): Repo {
 			const exact = byHost.get(host)
 			if (exact) return exact
