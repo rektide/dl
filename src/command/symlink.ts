@@ -21,7 +21,7 @@ const args = {
 	},
 } as const
 
-export default define({
+export default define<{ extensions: DlExtensions }>({
 	name: "symlink",
 	description: "Create simplified symlinks for org/repo names",
 	args,
@@ -36,7 +36,7 @@ export default define({
 			symlinkState: resolveActionState(SYMLINK_ACTION_SPEC, ctx.values.state ?? SYMLINK_ACTION_SPEC.defaultState),
 			anycase: !!ctx.values.anycase,
 		}
-		const hadError = await runEntries(ctx.extensions as DlExtensions, options, inputs)
+		const hadError = await runEntries(ctx.extensions, options, inputs)
 		if (hadError) process.exit(1)
 	},
 })

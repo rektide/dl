@@ -20,7 +20,7 @@ export function buildBaseOptions(values: Record<string, unknown>): DlOptions {
 }
 
 export async function runEntries(
-	extensions: DlExtensions | Record<string, unknown>,
+	extensions: DlExtensions,
 	options: DlOptions,
 	inputs: readonly string[],
 ): Promise<boolean> {

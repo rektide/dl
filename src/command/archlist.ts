@@ -16,7 +16,7 @@ const args = {
 	},
 } as const
 
-export default define({
+export default define<{ extensions: DlExtensions }>({
 	name: "archlist",
 	description: "Append resolved repository URLs to ~/archlist",
 	args,
@@ -30,7 +30,7 @@ export default define({
 			...buildBaseOptions(ctx.values as Record<string, unknown>),
 			archlistState: resolveActionState(ARCHLIST_ACTION_SPEC, ctx.values.state ?? ARCHLIST_ACTION_SPEC.defaultState),
 		}
-		const hadError = await runEntries(ctx.extensions as DlExtensions, options, inputs)
+		const hadError = await runEntries(ctx.extensions, options, inputs)
 		if (hadError) process.exit(1)
 	},
 })

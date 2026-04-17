@@ -24,7 +24,7 @@ import {
 	type RootsExtension,
 } from "../plugin/roots.ts"
 
-export interface DlExtensions {
+export interface DlExtensions extends Record<string, unknown> {
 	[DL_ACTIONS_PLUGIN_ID]: DlActionsExtension
 	[ROOTS_PLUGIN_ID]: RootsExtension
 	[REPO_PLUGIN_ID]: RepoExtension
@@ -43,14 +43,13 @@ export interface DlRunCtx {
 	options: DlOptions
 }
 
-export function requireExtensions(extensions: DlExtensions | Record<string, unknown>) {
-	const ext = extensions as Record<string, unknown>
-	const actions = ext[DL_ACTIONS_PLUGIN_ID] as DlActionsExtension | undefined
-	const log = ext[LOG_PLUGIN_ID] as LogExtension | undefined
-	const roots = ext[ROOTS_PLUGIN_ID] as RootsExtension | undefined
-	const repo = ext[REPO_PLUGIN_ID] as RepoExtension | undefined
-	const git = ext[GIT_PLUGIN_ID] as GitExtension | undefined
-	const dexport = ext[DEXPORT_PLUGIN_ID] as DexportExtension | undefined
+export function requireExtensions(extensions: DlExtensions) {
+	const actions = extensions[DL_ACTIONS_PLUGIN_ID]
+	const log = extensions[LOG_PLUGIN_ID]
+	const roots = extensions[ROOTS_PLUGIN_ID]
+	const repo = extensions[REPO_PLUGIN_ID]
+	const git = extensions[GIT_PLUGIN_ID]
+	const dexport = extensions[DEXPORT_PLUGIN_ID]
 	if (!actions) throw new Error("dl: actions plugin extension is not available")
 	if (!log) throw new Error("dl: log plugin extension is not available")
 	if (!roots) throw new Error("dl: roots plugin extension is not available")
@@ -61,7 +60,7 @@ export function requireExtensions(extensions: DlExtensions | Record<string, unkn
 }
 
 export async function resolveDlSetup(
-	extensions: DlExtensions | Record<string, unknown>,
+	extensions: DlExtensions,
 	options: DlOptions,
 ): Promise<DlRunCtx> {
 	const ext = requireExtensions(extensions)
