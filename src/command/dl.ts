@@ -79,6 +79,11 @@ const dlArgs = {
 		default: false,
 		description: "Do nothing — exit immediately without resolving or syncing",
 	},
+	anycase: {
+		type: "boolean",
+		default: false,
+		description: "Also create symlinks for pure case differences (e.g. Rust→rust)",
+	},
 } as const
 
 type DlArgs = typeof dlArgs
@@ -125,6 +130,7 @@ function buildDlOptions(
 		archlistState,
 		doSymlink,
 		symlinkState,
+		anycase: !!values.anycase,
 		expand: !!values.expand,
 		dryRun: !!values["dry-run"],
 	}

@@ -2,7 +2,7 @@ import { mkdir, rm, lstat, readlink } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { describe, expect, test, beforeEach, afterEach } from "vitest"
-import { simplify, ensureSymlink } from "./index.ts"
+import { simplify, ensureSymlink, needsSymlink } from "./index.ts"
 
 describe("simplify", () => {
 	test("lowercases", () => {
@@ -82,5 +82,27 @@ describe("ensureSymlink", () => {
 		await mkdir(join(testDir, "effectts"))
 		const result = await ensureSymlink(testDir, "Effect-TS", "effectts", false, noopLog)
 		expect(result).toBe("conflict_exists")
+	})
+})
+
+describe("needsSymlink", () => {
+	test("false when simplified equals original", () => {
+		expect(needsSymlink("effect", "effect", false)).toBe(false)
+	})
+
+	test("false when only case differs and anycase is false", () => {
+		expect(needsSymlink("Rust", "rust", false)).toBe(false)
+	})
+
+	test("true when only case differs and anycase is true", () => {
+		expect(needsSymlink("Rust", "rust", true)).toBe(true)
+	})
+
+	test("true when punctuation was stripped", () => {
+		expect(needsSymlink("Effect-TS", "effectts", false)).toBe(true)
+	})
+
+	test("true when punctuation was stripped even without anycase", () => {
+		expect(needsSymlink("duckdb_mooncake", "duckdbmooncake", false)).toBe(true)
 	})
 })

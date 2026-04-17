@@ -50,14 +50,21 @@ export interface SimplifyLog {
  * - `conflict_exists` — non-symlink entry exists at path (no-op, logged)
  * - `created` — symlink was created (or would be, in dry-run mode)
  */
+export function needsSymlink(original: string, simplified: string, anycase: boolean): boolean {
+	if (simplified === original) return false
+	if (!anycase && original.toLowerCase() === simplified) return false
+	return true
+}
+
 export async function ensureSymlink(
 	parentDir: string,
 	original: string,
 	simplified: string,
 	dryRun: boolean,
 	log: SimplifyLog | LogExtension,
+	anycase = false,
 ): Promise<SimplifyStatus> {
-	if (simplified === original) return "skip_same"
+	if (!needsSymlink(original, simplified, anycase)) return "skip_same"
 
 	const linkPath = join(parentDir, simplified)
 
@@ -119,11 +126,12 @@ export async function syncSimplify(
 	const simplifiedOrg = simplify(org)
 	const simplifiedProject = simplify(project)
 	const dryRun = ctx.options.dryRun
+	const anycase = ctx.options.anycase ?? false
 
-	const orgStatus = await ensureSymlink(ctx.roots.archiveRoot, org, simplifiedOrg, dryRun, ctx.log)
+	const orgStatus = await ensureSymlink(ctx.roots.archiveRoot, org, simplifiedOrg, dryRun, ctx.log, anycase)
 
 	const orgDir = join(ctx.roots.archiveRoot, org)
-	const projectStatus = await ensureSymlink(orgDir, project, simplifiedProject, dryRun, ctx.log)
+	const projectStatus = await ensureSymlink(orgDir, project, simplifiedProject, dryRun, ctx.log, anycase)
 
 	return {
 		orgStatus,

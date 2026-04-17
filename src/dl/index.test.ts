@@ -38,6 +38,7 @@ function createOptions(overrides?: Partial<DlOptions>): DlOptions {
 		archlistState: OFF,
 		doSymlink: false,
 		symlinkState: OFF,
+		anycase: false,
 		expand: false,
 		dryRun: false,
 		...overrides,

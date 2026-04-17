@@ -39,6 +39,7 @@ async function run(ctx: CommandContext<{ args: typeof args }>) {
 		archlistState,
 		doSymlink: false,
 		symlinkState: OFF,
+		anycase: false,
 		expand: false,
 		dryRun: !!ctx.values["dry-run"],
 	}

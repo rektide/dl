@@ -14,6 +14,11 @@ const args = {
 		default: "ensure",
 		description: "Symlink state (ensure|off)",
 	},
+	anycase: {
+		type: "boolean",
+		default: false,
+		description: "Also create symlinks for pure case differences (e.g. Rust→rust)",
+	},
 } as const
 
 const VALID_STATES = new Set<string>([ENSURE, OFF])
@@ -39,6 +44,7 @@ async function run(ctx: CommandContext<{ args: typeof args }>) {
 		archlistState: OFF,
 		doSymlink: true,
 		symlinkState,
+		anycase: !!ctx.values.anycase,
 		expand: false,
 		dryRun: !!ctx.values["dry-run"],
 	}
