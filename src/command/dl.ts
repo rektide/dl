@@ -16,6 +16,7 @@ import { requireExtensions } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"
 import { sharedArgs } from "../arg/shared.ts"
 import archlistSubcommand from "./archlist.ts"
+import symlinkSubcommand from "./symlink.ts"
 
 const ARCHLIST_ACTION: ActionDef = {
 	name: "archlist",
@@ -23,7 +24,13 @@ const ARCHLIST_ACTION: ActionDef = {
 	defaultState: FORCE,
 }
 
-const ACTIONS: readonly ActionDef[] = [ARCHLIST_ACTION]
+const SYMLINK_ACTION: ActionDef = {
+	name: "symlink",
+	states: [ENSURE, OFF],
+	defaultState: ENSURE,
+}
+
+const ACTIONS: readonly ActionDef[] = [ARCHLIST_ACTION, SYMLINK_ACTION]
 
 const actionArgs = buildGunshiArgs(ACTIONS)
 
@@ -104,6 +111,11 @@ function buildDlOptions(
 		archlistState = OFF
 	}
 
+	let symlinkState = actionResult.states.symlink
+	if (anyExplicit && !actionResult.explicit.symlink) {
+		symlinkState = OFF
+	}
+
 	return {
 		consumeDexportOutput: !!values["consume-dexport-output"],
 		noLogCache: !!values["no-log-cache"],
@@ -112,6 +124,7 @@ function buildDlOptions(
 		doWiki,
 		archlistState,
 		doSymlink,
+		symlinkState,
 		expand: !!values.expand,
 		dryRun: !!values["dry-run"],
 	}
@@ -229,6 +242,7 @@ function main() {
 		plugins: createDlPlugins(),
 		subCommands: {
 			archlist: archlistSubcommand,
+			symlink: symlinkSubcommand,
 		},
 		fallbackToEntry: true,
 	})

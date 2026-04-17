@@ -9,6 +9,7 @@ export interface DlOptions {
 	doWiki: boolean
 	archlistState: StepState
 	doSymlink: boolean
+	symlinkState: StepState
 	expand: boolean
 	dryRun: boolean
 }
