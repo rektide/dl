@@ -7,6 +7,7 @@ export interface DlOptions {
 	reportLifecycle: boolean
 	archiveState: StepState
 	wikiState: StepState
+	deepwikiState: StepState
 	archlistState: StepState
 	symlinkState: StepState
 	anycase: boolean

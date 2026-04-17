@@ -11,6 +11,7 @@ export function buildBaseOptions(values: Record<string, unknown>): DlOptions {
 		reportLifecycle: !!values["report-lifecycle"],
 		archiveState: OFF,
 		wikiState: OFF,
+		deepwikiState: OFF,
 		archlistState: OFF,
 		symlinkState: OFF,
 		anycase: false,

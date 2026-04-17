@@ -35,6 +35,7 @@ function createOptions(overrides?: Partial<DlOptions>): DlOptions {
 		reportLifecycle: true,
 		archiveState: ENSURE,
 		wikiState: OFF,
+		deepwikiState: OFF,
 		archlistState: OFF,
 		symlinkState: OFF,
 		anycase: false,

@@ -71,6 +71,7 @@ function buildDlOptions(
 		...buildBaseOptions(values as Record<string, unknown>),
 		archiveState: actionOptions.archiveState ?? OFF,
 		wikiState: actionOptions.wikiState ?? OFF,
+		deepwikiState: actionOptions.deepwikiState ?? OFF,
 		archlistState: actionOptions.archlistState ?? OFF,
 		symlinkState: actionOptions.symlinkState ?? OFF,
 		anycase: !!values.anycase,
