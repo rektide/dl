@@ -3,6 +3,7 @@ import {
 	ARCHIVE_ACTION_FLAG_OPTION,
 	ARCHIVE_ACTION_SPEC,
 	ARCHIVE_ACTION_STATE_OPTION,
+	archiveHandler,
 } from "../../dl/archive-action.ts"
 
 export const DL_ARCHIVE_ACTION_PLUGIN_ID = "dl:action:archive" as const
@@ -16,5 +17,6 @@ export const dlArchiveActionPlugin = plugin({
 	},
 	extension: () => ({
 		"dl:actions": [ARCHIVE_ACTION_SPEC],
+		"dl:handlers": [archiveHandler],
 	}),
 })

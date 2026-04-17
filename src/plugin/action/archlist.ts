@@ -3,6 +3,7 @@ import {
 	ARCHLIST_ACTION_FLAG_OPTION,
 	ARCHLIST_ACTION_SPEC,
 	ARCHLIST_ACTION_STATE_OPTION,
+	archlistHandler,
 } from "../../dl/archlist.ts"
 
 export const DL_ARCHLIST_ACTION_PLUGIN_ID = "dl:action:archlist" as const
@@ -16,5 +17,6 @@ export const dlArchlistActionPlugin = plugin({
 	},
 	extension: () => ({
 		"dl:actions": [ARCHLIST_ACTION_SPEC],
+		"dl:handlers": [archlistHandler],
 	}),
 })

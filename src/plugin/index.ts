@@ -1,6 +1,7 @@
 import { c12 } from "gunshi-c12"
 import { dlArchlistActionPlugin } from "./action/archlist.ts"
 import { dlArchiveActionPlugin } from "./action/archive.ts"
+import { dlDeepwikiActionPlugin } from "./action/deepwiki.ts"
 import { dlSymlinkActionPlugin } from "./action/symlink.ts"
 import { dlWikiActionPlugin } from "./action/wiki.ts"
 import { dlActionsPlugin } from "./dl-actions.ts"
@@ -19,6 +20,7 @@ export const dlPlugins = [
 	dexportPlugin,
 	dlArchiveActionPlugin,
 	dlWikiActionPlugin,
+	dlDeepwikiActionPlugin,
 	dlArchlistActionPlugin,
 	dlSymlinkActionPlugin,
 	dlActionsPlugin,

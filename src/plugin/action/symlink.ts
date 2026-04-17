@@ -3,6 +3,7 @@ import {
 	SYMLINK_ACTION_FLAG_OPTION,
 	SYMLINK_ACTION_SPEC,
 	SYMLINK_ACTION_STATE_OPTION,
+	symlinkHandler,
 } from "../../dl/symlink.ts"
 
 export const DL_SYMLINK_ACTION_PLUGIN_ID = "dl:action:symlink" as const
@@ -16,5 +17,6 @@ export const dlSymlinkActionPlugin = plugin({
 	},
 	extension: () => ({
 		"dl:actions": [SYMLINK_ACTION_SPEC],
+		"dl:handlers": [symlinkHandler],
 	}),
 })
