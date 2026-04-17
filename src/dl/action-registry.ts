@@ -20,10 +20,11 @@ export interface DlActionSpec<State extends string = string> {
 /**
  * Plugin extension contract for action providers.
  *
- * Any plugin can expose this field to contribute action metadata.
+ * Any plugin can expose this field to contribute action metadata and handlers.
  */
 export interface DlActionProviderExtension {
 	readonly "dl:actions": ReadonlyArray<DlActionSpec>
+	readonly "dl:handlers": ReadonlyArray<import("./pipeline.ts").ActionHandler>
 }
 
 /**
@@ -67,6 +68,24 @@ export function collectActionSpecsFromExtensions(
 			}
 			seen.add(spec.name)
 			collected.push(spec)
+		}
+	}
+
+	return collected
+}
+
+export function collectActionHandlersFromExtensions(
+	extensions: Record<string, unknown>,
+): Array<import("./pipeline.ts").ActionHandler> {
+	const collected: Array<import("./pipeline.ts").ActionHandler> = []
+
+	for (const value of Object.values(extensions)) {
+		if (!isDlActionProviderExtension(value)) {
+			continue
+		}
+		const handlers = value["dl:handlers"]
+		if (Array.isArray(handlers)) {
+			collected.push(...handlers)
 		}
 	}
 
