@@ -10,12 +10,12 @@ import type { ActionDef } from "../dl/actions.ts"
 import { FORCE, ENSURE, OFF, buildGunshiArgs, preprocessArgv, resolveActions } from "../dl/actions.ts"
 import { watchClipboard } from "../dl/clipboard.ts"
 import { watchArchlist } from "../dl/watch.ts"
-import { prependOrg } from "./prepend-org.ts"
+import { prependOrg } from "../util/prepend-org.ts"
 import { createDlPlugins } from "../plugin/index.ts"
-import { requireExtensions } from "./dl-shared.ts"
-import { globalArgs } from "./dl-global-args.ts"
-import { sharedArgs } from "./dl-shared-args.ts"
-import archlistSubcommand from "./dl-archlist.ts"
+import { requireExtensions } from "./context.ts"
+import { globalArgs } from "../arg/global.ts"
+import { sharedArgs } from "../arg/shared.ts"
+import archlistSubcommand from "./archlist/index.ts"
 
 const ARCHLIST_ACTION: ActionDef = {
 	name: "archlist",
