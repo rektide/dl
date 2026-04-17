@@ -1,10 +1,9 @@
-import type { DexportOps } from "../dexport/types.ts"
-import type { GitOps } from "../git/types.ts"
-import type { RepoContext } from "../repo/context.ts"
-import type { DlContext } from "./types.ts"
+import type { DlOptions, DlContext } from "./types.ts"
 import type { ActionHandler } from "./pipeline.ts"
 import { runPipeline } from "./pipeline.ts"
 import type { LogExtension } from "../plugin/log.ts"
+import type { RepoExtension } from "../plugin/repo.ts"
+import type { RepoContext } from "../repo/context.ts"
 
 export async function processRepoContext(
 	resolved: RepoContext,
@@ -22,9 +21,9 @@ export async function processRepoContext(
 
 export function createProcessEntry(
 	handlers: readonly ActionHandler[],
-	repoExtension: import("../plugin/repo.ts").RepoExtension,
+	repoExtension: RepoExtension,
 	roots: DlContext["roots"],
-	options: import("./types.ts").DlOptions,
+	options: DlOptions,
 	log: LogExtension,
 ): (input: string) => Promise<boolean> {
 	return async (input: string) => {

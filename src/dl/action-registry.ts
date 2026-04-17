@@ -1,3 +1,5 @@
+import type { ActionHandler } from "./pipeline.ts"
+
 /**
  * Declarative definition of a dl action surfaced on the CLI.
  *
@@ -24,7 +26,7 @@ export interface DlActionSpec<State extends string = string> {
  */
 export interface DlActionProviderExtension {
 	readonly "dl:actions": ReadonlyArray<DlActionSpec>
-	readonly "dl:handlers": ReadonlyArray<import("./pipeline.ts").ActionHandler>
+	readonly "dl:handlers": ReadonlyArray<ActionHandler>
 }
 
 /**
@@ -76,8 +78,8 @@ export function collectActionSpecsFromExtensions(
 
 export function collectActionHandlersFromExtensions(
 	extensions: Record<string, unknown>,
-): Array<import("./pipeline.ts").ActionHandler> {
-	const collected: Array<import("./pipeline.ts").ActionHandler> = []
+): Array<ActionHandler> {
+	const collected: Array<ActionHandler> = []
 
 	for (const value of Object.values(extensions)) {
 		if (!isDlActionProviderExtension(value)) {
