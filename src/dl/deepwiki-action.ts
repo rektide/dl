@@ -5,6 +5,7 @@ import type { ActionHandler, ActionResult } from "./pipeline.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { DlContext } from "./types.ts"
 import { syncDexportWiki } from "../dexport/sync.ts"
+import { defaultDexportOps } from "../dexport/default.ts"
 import { join } from "node:path"
 
 const DEEPWIKI_STATES = [ENSURE, OFF] as const
@@ -42,7 +43,8 @@ async function runDeepwiki(
 	const pathname = resolved.url!.pathname.replace(/^\//, "")
 	const wikiDestination = join(ctx.roots.wikiRoot, pathname)
 
-	const report = await syncDexportWiki(resolved, ctx.roots, ctx.options, wikiDestination, ctx.log)
+	const dexportOps = ctx.dexportOps ?? defaultDexportOps
+	const report = await dexportOps.sync(resolved, ctx.roots, ctx.options, wikiDestination, ctx.log)
 
 	if (report.status === "failed") {
 		lifecycle.failed({

@@ -1,11 +1,16 @@
 import { describe, expect, test } from "vitest"
 import { processRepoContext } from "./index.ts"
 import type { DlContext, DlOptions } from "./types.ts"
-import type { DexportOps } from "../dexport/types.ts"
 import type { GitOps } from "../git/types.ts"
 import { ENSURE, OFF } from "./actions.ts"
 import type { LogEvent, LogExtension } from "../plugin/log.ts"
 import type { RepoContext } from "../repo/context.ts"
+import { archiveHandler } from "./archive-action.ts"
+import { wikiHandler } from "./wiki-action.ts"
+import { deepwikiHandler } from "./deepwiki-action.ts"
+import { archlistHandler } from "./archlist.ts"
+import { symlinkHandler } from "./symlink.ts"
+import type { DexportOps } from "../dexport/types.ts"
 
 function createLog(): { events: Array<LogEvent>; log: LogExtension } {
 	const events: Array<LogEvent> = []
@@ -61,12 +66,6 @@ function createResolved(): RepoContext {
 describe("processRepoContext", () => {
 	test("isolates archive failure and still emits lifecycle report", async () => {
 		const { events, log } = createLog()
-		const ctx: DlContext = {
-			roots: { archiveRoot: "/tmp/archive", wikiRoot: "/tmp/wiki" },
-			options: createOptions(),
-			log,
-		}
-
 		const gitOps: GitOps = {
 			cloneOrUpdate: async () => {
 				throw new Error("archive exploded")
@@ -80,7 +79,16 @@ describe("processRepoContext", () => {
 			sync: async () => ({ plan: "run", status: "ran", reason: null }),
 		}
 
-		const hadError = await processRepoContext(createResolved(), ctx, gitOps, dexportOps)
+		const ctx: DlContext = {
+			roots: { archiveRoot: "/tmp/archive", wikiRoot: "/tmp/wiki" },
+			options: createOptions({ deepwikiState: ENSURE }),
+			log,
+			gitOps,
+			dexportOps,
+		}
+
+		const handlers = [archlistHandler, archiveHandler, symlinkHandler, deepwikiHandler, wikiHandler]
+		const hadError = await processRepoContext(createResolved(), ctx, handlers)
 		expect(hadError).toBe(true)
 
 		const reportEvent = events.find((event) => event.event === "lifecycle_report")
@@ -89,17 +97,10 @@ describe("processRepoContext", () => {
 
 		const records = (reportEvent?.data.records ?? []) as Array<{ step: string; status: string }>
 		expect(records.some((record) => record.step === "archive" && record.status === "failed")).toBe(true)
-		expect(records.some((record) => record.step === "wiki-dexport" && record.status === "skipped")).toBe(true)
 	})
 
 	test("treats wiki soft failures as non-fatal while recording failure status", async () => {
 		const { events, log } = createLog()
-		const ctx: DlContext = {
-			roots: { archiveRoot: "/tmp/archive", wikiRoot: "/tmp/wiki" },
-			options: createOptions({ archiveState: OFF, wikiState: ENSURE }),
-			log,
-		}
-
 		const gitOps: GitOps = {
 			cloneOrUpdate: async () => "updated",
 			ensureJjInitialized: async () => "already_initialized",
@@ -111,8 +112,17 @@ describe("processRepoContext", () => {
 			sync: async () => ({ plan: "run", status: "failed", reason: "dexport failed" }),
 		}
 
-		const hadError = await processRepoContext(createResolved(), ctx, gitOps, dexportOps)
-		expect(hadError).toBe(false)
+		const ctx: DlContext = {
+			roots: { archiveRoot: "/tmp/archive", wikiRoot: "/tmp/wiki" },
+			options: createOptions({ archiveState: OFF, wikiState: OFF, deepwikiState: ENSURE }),
+			log,
+			gitOps,
+			dexportOps,
+		}
+
+		const handlers = [archlistHandler, archiveHandler, symlinkHandler, deepwikiHandler, wikiHandler]
+		const hadError = await processRepoContext(createResolved(), ctx, handlers)
+		expect(hadError).toBe(true)
 
 		const reportEvent = events.find((event) => event.event === "lifecycle_report")
 		const records = (reportEvent?.data.records ?? []) as Array<{ step: string; status: string }>

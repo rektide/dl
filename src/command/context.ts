@@ -40,8 +40,6 @@ export interface DlRunCtx {
 	log: LogExtension
 	roots: { archiveRoot: string; wikiRoot: string }
 	repo: RepoExtension
-	git: GitExtension
-	dexport: DexportExtension
 	options: DlOptions
 }
 
@@ -50,15 +48,11 @@ export function requireExtensions(extensions: DlExtensions) {
 	const log = extensions[LOG_PLUGIN_ID]
 	const roots = extensions[ROOTS_PLUGIN_ID]
 	const repo = extensions[REPO_PLUGIN_ID]
-	const git = extensions[GIT_PLUGIN_ID]
-	const dexport = extensions[DEXPORT_PLUGIN_ID]
 	if (!actions) throw new Error("dl: actions plugin extension is not available")
 	if (!log) throw new Error("dl: log plugin extension is not available")
 	if (!roots) throw new Error("dl: roots plugin extension is not available")
 	if (!repo) throw new Error("dl: repo plugin extension is not available")
-	if (!git) throw new Error("dl: git plugin extension is not available")
-	if (!dexport) throw new Error("dl: dexport plugin extension is not available")
-	return { actions, log, roots, repo, git, dexport }
+	return { actions, log, roots, repo }
 }
 
 export async function resolveDlSetup(
@@ -72,8 +66,6 @@ export async function resolveDlSetup(
 		log: ext.log,
 		roots,
 		repo: ext.repo,
-		git: ext.git,
-		dexport: ext.dexport,
 		options,
 	}
 }

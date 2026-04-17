@@ -5,6 +5,7 @@ import type { ActionHandler, ActionResult } from "./pipeline.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { DlContext } from "./types.ts"
 import { syncArchive } from "../archive/sync.ts"
+import { defaultGitOps } from "../git/default.ts"
 
 const ARCHIVE_STATES = [ENSURE, OFF] as const
 
@@ -40,7 +41,7 @@ async function runArchive(
 	}
 
 	try {
-		const report = await syncArchive(resolved, ctx)
+		const report = await syncArchive(resolved, ctx, ctx.gitOps ?? defaultGitOps)
 		lifecycle.ok({
 			step: "archive",
 			source: "archiveHandler -> syncArchive",

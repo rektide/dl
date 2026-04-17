@@ -26,13 +26,13 @@ export async function runEntries(
 	inputs: readonly string[],
 ): Promise<boolean> {
 	const setup = await resolveDlSetup(extensions, options)
+	const handlers = setup.actions["dl:handlers"]
 	const processEntry = createProcessEntry(
+		handlers,
 		setup.repo,
 		setup.roots,
 		options,
 		setup.log,
-		setup.git,
-		setup.dexport,
 	)
 	let hadError = false
 	for (const input of inputs) {

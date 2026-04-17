@@ -149,13 +149,13 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		}
 
 		let hadError = false
+		const handlers = ext.actions["dl:handlers"]
 		const processEntry = createProcessEntry(
+			handlers,
 			ext.repo,
 			roots,
 			options,
 			ext.log,
-			ext.git,
-			ext.dexport,
 		)
 
 		for (const input of inputs) {

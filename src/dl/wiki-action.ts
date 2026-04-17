@@ -5,6 +5,7 @@ import type { ActionHandler, ActionResult } from "./pipeline.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { DlContext } from "./types.ts"
 import { syncGitWiki } from "../wiki/git.ts"
+import { defaultGitOps } from "../git/default.ts"
 import { join } from "node:path"
 
 const WIKI_STATES = [ENSURE, OFF] as const
@@ -54,7 +55,7 @@ async function runWiki(
 	ctx.log.info("sync", "wiki", { destination: wikiDestination })
 
 	try {
-		const report = await syncGitWiki(resolved, wikiDestination, undefined, ctx.log)
+		const report = await syncGitWiki(resolved, wikiDestination, ctx.gitOps ?? defaultGitOps, ctx.log)
 		if (report.status === "failed") {
 			lifecycle.failed({
 				step: "wiki-git",
