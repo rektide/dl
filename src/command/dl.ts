@@ -15,7 +15,7 @@ import { createDlPlugins } from "../plugin/index.ts"
 import { requireExtensions } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"
 import { sharedArgs } from "../arg/shared.ts"
-import archlistSubcommand from "./archlist/index.ts"
+import archlistSubcommand from "./archlist.ts"
 
 const ARCHLIST_ACTION: ActionDef = {
 	name: "archlist",
