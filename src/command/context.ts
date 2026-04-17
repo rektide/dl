@@ -33,6 +33,8 @@ export interface DlExtensions extends Record<string, unknown> {
 	[LOG_PLUGIN_ID]: LogExtension
 }
 
+export type DlCommandParams = { extensions: DlExtensions }
+
 export interface DlRunCtx {
 	actions: DlActionsExtension
 	log: LogExtension

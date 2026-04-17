@@ -2,7 +2,7 @@ import { define } from "gunshi"
 import { resolveActionState } from "../dl/action-registry.ts"
 import { ARCHLIST_ACTION_SPEC } from "../dl/archlist.ts"
 import { buildBaseOptions, runEntries } from "../util/command.ts"
-import type { DlExtensions } from "./context.ts"
+import type { DlCommandParams } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"
 import { prependOrg } from "../util/prepend-org.ts"
 
@@ -16,7 +16,7 @@ const args = {
 	},
 } as const
 
-export default define<{ extensions: DlExtensions }>({
+export default define<DlCommandParams>({
 	name: "archlist",
 	description: "Append resolved repository URLs to ~/archlist",
 	args,

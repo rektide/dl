@@ -2,7 +2,7 @@ import { define } from "gunshi"
 import { resolveActionState } from "../dl/action-registry.ts"
 import { SYMLINK_ACTION_SPEC } from "../dl/symlink.ts"
 import { buildBaseOptions, runEntries } from "../util/command.ts"
-import type { DlExtensions } from "./context.ts"
+import type { DlCommandParams } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"
 import { prependOrg } from "../util/prepend-org.ts"
 
@@ -21,7 +21,7 @@ const args = {
 	},
 } as const
 
-export default define<{ extensions: DlExtensions }>({
+export default define<DlCommandParams>({
 	name: "symlink",
 	description: "Create simplified symlinks for org/repo names",
 	args,

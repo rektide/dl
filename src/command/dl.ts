@@ -12,7 +12,7 @@ import { watchArchlist } from "../dl/watch.ts"
 import { prependOrg } from "../util/prepend-org.ts"
 import { buildBaseOptions } from "../util/command.ts"
 import { dlPlugins } from "../plugin/index.ts"
-import { requireExtensions, type DlExtensions } from "./context.ts"
+import { requireExtensions, type DlCommandParams, type DlExtensions } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"
 import { sharedArgs } from "../arg/shared.ts"
 import archlistSubcommand from "./archlist.ts"
@@ -179,7 +179,7 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 	}
 }
 
-const dlCommand = defineWithTypes<{ args: DlArgs; extensions: DlExtensions }>()({
+const dlCommand = defineWithTypes<DlCommandParams & { args: DlArgs }>()({
 	name: DL_COMMAND_NAME,
 	description: "Fetch repository checkout and wiki checkout",
 	args: dlArgs,
