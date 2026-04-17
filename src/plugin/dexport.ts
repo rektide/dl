@@ -6,10 +6,8 @@ export const DEXPORT_PLUGIN_ID = "rekon:dexport" as const
 
 export interface DexportExtension extends DexportOps {}
 
-export function createDexportPlugin() {
-	return plugin({
-		id: DEXPORT_PLUGIN_ID,
-		name: "Rekon Dexport",
-		extension: (): DexportExtension => defaultDexportOps,
-	})
-}
+export const dexportPlugin = plugin({
+	id: DEXPORT_PLUGIN_ID,
+	name: "Rekon Dexport",
+	extension: (): DexportExtension => defaultDexportOps,
+})

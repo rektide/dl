@@ -10,7 +10,8 @@ import { OFF } from "../dl/actions.ts"
 import { watchClipboard } from "../dl/clipboard.ts"
 import { watchArchlist } from "../dl/watch.ts"
 import { prependOrg } from "../util/prepend-org.ts"
-import { createDlPlugins } from "../plugin/index.ts"
+import { buildBaseOptions } from "../util/command.ts"
+import { dlPlugins } from "../plugin/index.ts"
 import { requireExtensions, type DlExtensions } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"
 import { sharedArgs } from "../arg/shared.ts"
@@ -67,16 +68,13 @@ function buildDlOptions(
 	)
 
 	return {
-		consumeDexportOutput: !!values["consume-dexport-output"],
-		noLogCache: !!values["no-log-cache"],
-		reportLifecycle: !!values["report-lifecycle"],
+		...buildBaseOptions(values as Record<string, unknown>),
 		archiveState: actionOptions.archiveState ?? OFF,
 		wikiState: actionOptions.wikiState ?? OFF,
 		archlistState: actionOptions.archlistState ?? OFF,
 		symlinkState: actionOptions.symlinkState ?? OFF,
 		anycase: !!values.anycase,
 		expand: !!values.expand,
-		dryRun: !!values["dry-run"],
 	}
 }
 
@@ -193,7 +191,7 @@ export default dlCommand
 function main() {
 	cli(process.argv.slice(2), dlCommand, {
 		name: DL_COMMAND_NAME,
-		plugins: createDlPlugins(),
+		plugins: dlPlugins,
 		subCommands: {
 			archlist: archlistSubcommand,
 			symlink: symlinkSubcommand,

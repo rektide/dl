@@ -2,13 +2,10 @@ import { describe, expect, test } from "vitest"
 import { ENSURE, FORCE, OFF } from "./actions.ts"
 import type { DlActionSpec } from "./action-registry.ts"
 import {
-	actionStatesToOptions,
-	buildActionArgs,
 	collectActionSpecsFromExtensions,
 	resolveActionOptions,
 	resolveActionState,
 	resolveActionStates,
-	stateOptionName,
 } from "./action-registry.ts"
 
 const ARCHIVE_SPEC: DlActionSpec = {
@@ -97,18 +94,6 @@ describe("resolveActionOptions", () => {
 		})
 	})
 
-	test("supports direct state-to-options mapping", () => {
-		const mapped = actionStatesToOptions(SPECS, {
-			archive: ENSURE,
-			archlist: FORCE,
-			mirror: "audit",
-		})
-		expect(mapped).toEqual({
-			archiveState: ENSURE,
-			archlistState: FORCE,
-			mirrorState: "audit",
-		})
-	})
 })
 
 describe("collectActionSpecsFromExtensions", () => {
@@ -121,15 +106,18 @@ describe("collectActionSpecsFromExtensions", () => {
 
 		expect(collected.map((spec) => spec.name)).toEqual(["archive", "mirror"])
 	})
-})
 
-describe("buildActionArgs", () => {
-	test("builds boolean action flag and enum state flag", () => {
-		const args = buildActionArgs([CUSTOM_SPEC])
-		expect(args["mirror"]).toBeDefined()
-		expect(args[stateOptionName(CUSTOM_SPEC)]).toBeDefined()
-		expect(args[stateOptionName(CUSTOM_SPEC)]?.type).toBe("enum")
-		expect(args[stateOptionName(CUSTOM_SPEC)]?.choices).toEqual(["sync", "audit", "off"])
+	test("fails on duplicate action names", () => {
+		expect(() => {
+			collectActionSpecsFromExtensions({
+				"plugin:a": { "dl:actions": [ARCHIVE_SPEC] },
+				"plugin:b": {
+					"dl:actions": [
+						{ ...ARCHIVE_SPEC, description: "Duplicate archive action" },
+					],
+				},
+			})
+		}).toThrow("dl: duplicate action registration for 'archive'")
 	})
 })
 

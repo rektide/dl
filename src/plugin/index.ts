@@ -1,19 +1,25 @@
 import { c12 } from "gunshi-c12"
-import { createDlActionsPlugin } from "./dl-actions.ts"
-import { createDexportPlugin } from "./dexport.ts"
-import { createGitPlugin } from "./git.ts"
-import { createLogPlugin } from "./log.ts"
-import { createRepoPlugin } from "./repo.ts"
-import { createRootsPlugin } from "./roots.ts"
+import { dlArchlistActionPlugin } from "./action/archlist.ts"
+import { dlArchiveActionPlugin } from "./action/archive.ts"
+import { dlSymlinkActionPlugin } from "./action/symlink.ts"
+import { dlWikiActionPlugin } from "./action/wiki.ts"
+import { dlActionsPlugin } from "./dl-actions.ts"
+import { dexportPlugin } from "./dexport.ts"
+import { gitPlugin } from "./git.ts"
+import { logPlugin } from "./log.ts"
+import { repoPlugin } from "./repo.ts"
+import { rootsPlugin } from "./roots.ts"
 
-export function createDlPlugins() {
-	return [
-		c12({ name: "rekon" }),
-		createLogPlugin(),
-		createRootsPlugin(),
-		createRepoPlugin(),
-		createGitPlugin(),
-		createDexportPlugin(),
-		createDlActionsPlugin(),
-	]
-}
+export const dlPlugins = [
+	c12({ name: "rekon" }),
+	logPlugin,
+	rootsPlugin,
+	repoPlugin,
+	gitPlugin,
+	dexportPlugin,
+	dlArchiveActionPlugin,
+	dlWikiActionPlugin,
+	dlArchlistActionPlugin,
+	dlSymlinkActionPlugin,
+	dlActionsPlugin,
+]

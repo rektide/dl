@@ -53,12 +53,10 @@ async function resolveDestinationRoots(
 	}
 }
 
-export function createRootsPlugin() {
-	return plugin({
-		id: ROOTS_PLUGIN_ID,
-		name: "Rekon Roots",
-		extension: (ctx): RootsExtension => ({
-			resolveRoots: () => resolveDestinationRoots(ctx),
-		}),
-	})
-}
+export const rootsPlugin = plugin({
+	id: ROOTS_PLUGIN_ID,
+	name: "Rekon Roots",
+	extension: (ctx): RootsExtension => ({
+		resolveRoots: () => resolveDestinationRoots(ctx),
+	}),
+})

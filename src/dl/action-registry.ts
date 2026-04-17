@@ -1,5 +1,3 @@
-import type { Args } from "gunshi"
-
 /**
  * Declarative definition of a dl action surfaced on the CLI.
  *
@@ -29,13 +27,6 @@ export interface DlActionProviderExtension {
 }
 
 /**
- * Minimal plugin context contract needed to register global options.
- */
-export interface DlActionOptionRegistrar {
-	addGlobalOption: (name: string, schema: Record<string, unknown>) => void
-}
-
-/**
  * Minimal token shape consumed from Gunshi command context.
  */
 export interface DlActionToken {
@@ -58,39 +49,28 @@ export function isDlActionProviderExtension(value: unknown): value is DlActionPr
 }
 
 /**
- * Deduplicates action specs by name while preserving first occurrence.
- */
-export function dedupeActionSpecs(specs: ReadonlyArray<DlActionSpec>): Array<DlActionSpec> {
-	const seen = new Set<string>()
-	const deduped: Array<DlActionSpec> = []
-
-	for (const spec of specs) {
-		if (seen.has(spec.name)) {
-			continue
-		}
-		seen.add(spec.name)
-		deduped.push(spec)
-	}
-
-	return deduped
-}
-
-/**
  * Collects every `dl:actions` contribution from current plugin extensions.
  */
 export function collectActionSpecsFromExtensions(
 	extensions: Record<string, unknown>,
 ): Array<DlActionSpec> {
 	const collected: Array<DlActionSpec> = []
+	const seen = new Set<string>()
 
 	for (const value of Object.values(extensions)) {
 		if (!isDlActionProviderExtension(value)) {
 			continue
 		}
-		collected.push(...value["dl:actions"])
+		for (const spec of value["dl:actions"]) {
+			if (seen.has(spec.name)) {
+				throw new Error(`dl: duplicate action registration for '${spec.name}'`)
+			}
+			seen.add(spec.name)
+			collected.push(spec)
+		}
 	}
 
-	return dedupeActionSpecs(collected)
+	return collected
 }
 
 function validState(spec: DlActionSpec, value: unknown): string | null {
@@ -103,48 +83,8 @@ function validState(spec: DlActionSpec, value: unknown): string | null {
 	return value
 }
 
-/**
- * Derives the state-option key for an action.
- *
- * Example: `archlist` -> `archlist-state`
- */
-export function stateOptionName(spec: DlActionSpec): string {
+function stateOptionName(spec: DlActionSpec): string {
 	return `${spec.name}-state`
-}
-
-/**
- * Converts action specs into Gunshi args definitions.
- */
-export function buildActionArgs(specs: ReadonlyArray<DlActionSpec>): Args {
-	const args: Args = {}
-
-	for (const spec of specs) {
-		args[spec.name] = {
-			type: "boolean",
-			default: false,
-			description: `${spec.description} (bare --${spec.name} uses default state '${spec.defaultState}')`,
-		}
-		args[stateOptionName(spec)] = {
-			type: "enum",
-			choices: [...spec.states],
-			description: `${spec.description} state (${spec.states.join("|")})`,
-		}
-	}
-
-	return args
-}
-
-/**
- * Registers action args as global options via Gunshi plugin setup.
- */
-export function registerActionGlobalOptions(
-	ctx: DlActionOptionRegistrar,
-	specs: ReadonlyArray<DlActionSpec>,
-): void {
-	const args = buildActionArgs(specs)
-	for (const [name, schema] of Object.entries(args)) {
-		ctx.addGlobalOption(name, schema as Record<string, unknown>)
-	}
 }
 
 /**
@@ -240,10 +180,13 @@ export function resolveActionStates(
 /**
  * Maps resolved states to an options bag keyed by `spec.optionKey`.
  */
-export function actionStatesToOptions(
+export function resolveActionOptions(
 	specs: ReadonlyArray<DlActionSpec>,
-	states: Record<string, string>,
+	values: Record<string, unknown>,
+	explicit: Record<string, boolean | undefined>,
+	tokens: ReadonlyArray<DlActionToken> = [],
 ): Record<string, string> {
+	const states = resolveActionStates(specs, values, explicit, tokens)
 	const options: Record<string, string> = {}
 
 	for (const spec of specs) {
@@ -254,19 +197,4 @@ export function actionStatesToOptions(
 	}
 
 	return options
-}
-
-/**
- * Convenience wrapper that resolves states and maps them into option keys.
- */
-export function resolveActionOptions(
-	specs: ReadonlyArray<DlActionSpec>,
-	values: Record<string, unknown>,
-	explicit: Record<string, boolean | undefined>,
-	tokens: ReadonlyArray<DlActionToken> = [],
-): Record<string, string> {
-	return actionStatesToOptions(
-		specs,
-		resolveActionStates(specs, values, explicit, tokens),
-	)
 }

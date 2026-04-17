@@ -6,13 +6,27 @@ import type { DlActionSpec } from "./action-registry.ts"
 import type { LifecycleReporter } from "./lifecycle.ts"
 import type { ActionHandler, ActionResult } from "./pipeline.ts"
 
+const SYMLINK_STATES = [ENSURE, OFF] as const
+
 export const SYMLINK_ACTION_SPEC: DlActionSpec = {
 	name: "symlink",
 	description: "Symlink creation action",
 	defaultState: ENSURE,
-	states: [ENSURE, OFF],
+	states: SYMLINK_STATES,
 	optionKey: "symlinkState",
 }
+
+export const SYMLINK_ACTION_FLAG_OPTION = {
+	type: "boolean",
+	default: false,
+	description: "Symlink creation action (bare --symlink uses default state 'ensure')",
+} as const
+
+export const SYMLINK_ACTION_STATE_OPTION = {
+	type: "enum",
+	choices: SYMLINK_STATES,
+	description: "Symlink creation action state (ensure|off)",
+} as const
 
 export async function runSymlink(
 	resolved: RepoContext,

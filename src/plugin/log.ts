@@ -58,54 +58,52 @@ function formatEventJson(event: LogEvent): string {
 	})
 }
 
-export function createLogPlugin() {
-	return plugin({
-		id: LOG_PLUGIN_ID,
-		name: "Rekon Log",
-		setup: (ctx) => {
-			ctx.addGlobalOption("output", {
-				type: "string",
-				description:
-					'Default child process output (true|false|stdout|stderr). true=inherit, false=ignore, stdout/stderr=redirect',
-			})
-			ctx.addGlobalOption("output-stdout", {
-				type: "string",
-				description:
-					'Child stdout handling (true|false|stdout|stderr). Overrides --output for stdout',
-			})
-			ctx.addGlobalOption("output-stderr", {
-				type: "string",
-				description:
-					'Child stderr handling (true|false|stdout|stderr). Overrides --output for stderr',
-			})
-			ctx.addGlobalOption("json", {
-				type: "boolean",
-				short: "j",
-				description: "Output as JSON lines (ndjson)",
-			})
-		},
-		extension: (core): LogExtension => {
-			const values = core.values as LogOptions
-			const useJson = values.json ?? false
-			const formatter = useJson ? formatEventJson : formatEventText
+export const logPlugin = plugin({
+	id: LOG_PLUGIN_ID,
+	name: "Rekon Log",
+	setup: (ctx) => {
+		ctx.addGlobalOption("output", {
+			type: "string",
+			description:
+				'Default child process output (true|false|stdout|stderr). true=inherit, false=ignore, stdout/stderr=redirect',
+		})
+		ctx.addGlobalOption("output-stdout", {
+			type: "string",
+			description:
+				'Child stdout handling (true|false|stdout|stderr). Overrides --output for stdout',
+		})
+		ctx.addGlobalOption("output-stderr", {
+			type: "string",
+			description:
+				'Child stderr handling (true|false|stdout|stderr). Overrides --output for stderr',
+		})
+		ctx.addGlobalOption("json", {
+			type: "boolean",
+			short: "j",
+			description: "Output as JSON lines (ndjson)",
+		})
+	},
+	extension: (core): LogExtension => {
+		const values = core.values as LogOptions
+		const useJson = values.json ?? false
+		const formatter = useJson ? formatEventJson : formatEventText
 
-			const log = (event: LogEvent) => {
-				process.stderr.write(formatter(event) + "\n")
-			}
+		const log = (event: LogEvent) => {
+			process.stderr.write(formatter(event) + "\n")
+		}
 
-			const getOutputStdout = () => resolveStreamMode(values.outputStdout, values.output)
-			const getOutputStderr = () => resolveStreamMode(values.outputStderr, values.output)
+		const getOutputStdout = () => resolveStreamMode(values.outputStdout, values.output)
+		const getOutputStderr = () => resolveStreamMode(values.outputStderr, values.output)
 
-			return {
-				log,
-				debug: (stage, event, data = {}) => log({ level: "debug", stage, event, data }),
-				info: (stage, event, data = {}) => log({ level: "info", stage, event, data }),
-				warn: (stage, event, data = {}) => log({ level: "warn", stage, event, data }),
-				error: (stage, event, data = {}) => log({ level: "error", stage, event, data }),
-				formatEvent: formatter,
-				getOutputStdout,
-				getOutputStderr,
-			}
-		},
-	})
-}
+		return {
+			log,
+			debug: (stage, event, data = {}) => log({ level: "debug", stage, event, data }),
+			info: (stage, event, data = {}) => log({ level: "info", stage, event, data }),
+			warn: (stage, event, data = {}) => log({ level: "warn", stage, event, data }),
+			error: (stage, event, data = {}) => log({ level: "error", stage, event, data }),
+			formatEvent: formatter,
+			getOutputStdout,
+			getOutputStderr,
+		}
+	},
+})

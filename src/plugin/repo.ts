@@ -18,33 +18,31 @@ export interface RepoExtension {
 	resolve: (input: string) => AsyncGenerator<RepoContext>
 }
 
-export function createRepoPlugin() {
-	return plugin({
-		id: REPO_PLUGIN_ID,
-		name: "Rekon Repository",
-		extension: (): RepoExtension => {
-			const registry = createRegistry(genericProvider)
-			registry.register(githubProvider)
-			registry.register(gitlabProvider)
-			registry.register(tangledProvider)
-			registry.register(cratesIoProvider)
-			registry.register(docsRsProvider)
-			registry.register(npmxDevProvider)
+export const repoPlugin = plugin({
+	id: REPO_PLUGIN_ID,
+	name: "Rekon Repository",
+	extension: (): RepoExtension => {
+		const registry = createRegistry(genericProvider)
+		registry.register(githubProvider)
+		registry.register(gitlabProvider)
+		registry.register(tangledProvider)
+		registry.register(cratesIoProvider)
+		registry.register(docsRsProvider)
+		registry.register(npmxDevProvider)
 
-			return {
-				async *candidates(input: string) {
-					yield* collectCandidates(input, registry)
-				},
-				async *resolve(input: string) {
-					const signal = AbortSignal.timeout(RESOLVE_TIMEOUT)
-					const candidates = collectCandidates(input, registry)
-					const verified = verifyCandidates(candidates, registry, signal)
-					for await (const ctx of verified) {
-						enrich(ctx, registry)
-						yield ctx
-					}
-				},
-			}
-		},
-	})
-}
+		return {
+			async *candidates(input: string) {
+				yield* collectCandidates(input, registry)
+			},
+			async *resolve(input: string) {
+				const signal = AbortSignal.timeout(RESOLVE_TIMEOUT)
+				const candidates = collectCandidates(input, registry)
+				const verified = verifyCandidates(candidates, registry, signal)
+				for await (const ctx of verified) {
+					enrich(ctx, registry)
+					yield ctx
+				}
+			},
+		}
+	},
+})

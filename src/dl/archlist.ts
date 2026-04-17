@@ -9,13 +9,27 @@ import type { RepoContext } from "../repo/context.ts"
 import type { DlContext } from "./types.ts"
 import type { ActionHandler, ActionResult } from "./pipeline.ts"
 
+const ARCHLIST_STATES = [FORCE, ENSURE, OFF] as const
+
 export const ARCHLIST_ACTION_SPEC: DlActionSpec = {
 	name: "archlist",
 	description: "Archlist update action",
 	defaultState: FORCE,
-	states: [FORCE, ENSURE, OFF],
+	states: ARCHLIST_STATES,
 	optionKey: "archlistState",
 }
+
+export const ARCHLIST_ACTION_FLAG_OPTION = {
+	type: "boolean",
+	default: false,
+	description: "Archlist update action (bare --archlist uses default state 'force')",
+} as const
+
+export const ARCHLIST_ACTION_STATE_OPTION = {
+	type: "enum",
+	choices: ARCHLIST_STATES,
+	description: "Archlist update action state (force|ensure|off)",
+} as const
 
 export type ArchlistDecision =
 	| { action: "append" }

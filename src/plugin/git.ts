@@ -6,10 +6,8 @@ export const GIT_PLUGIN_ID = "rekon:git" as const
 
 export interface GitExtension extends GitOps {}
 
-export function createGitPlugin() {
-	return plugin({
-		id: GIT_PLUGIN_ID,
-		name: "Rekon Git",
-		extension: (): GitExtension => defaultGitOps,
-	})
-}
+export const gitPlugin = plugin({
+	id: GIT_PLUGIN_ID,
+	name: "Rekon Git",
+	extension: (): GitExtension => defaultGitOps,
+})

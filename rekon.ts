@@ -7,7 +7,7 @@ import interpolateCommand from './src/command/interpolate.ts'
 import projectFilesCommand from './src/command/project-files.ts'
 import lnCommand from './src/command/ln.ts'
 import completion from '@gunshi/plugin-completion'
-import { createDlPlugins } from './src/plugin/index.ts'
+import { dlPlugins } from './src/plugin/index.ts'
 
 const mainCommand = define({
 	name: 'rekon',
@@ -32,6 +32,6 @@ await cli(process.argv.slice(2), mainCommand, {
 	},
 	plugins: [
 		completion(),
-		...createDlPlugins(),
+		...dlPlugins,
 	]
 })
