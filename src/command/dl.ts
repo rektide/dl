@@ -2,7 +2,6 @@
 import { realpath } from "node:fs/promises"
 import { pathToFileURL } from "node:url"
 import { defineWithTypes, cli, type CommandContext, type ArgValues } from "gunshi"
-import { DL_COMMAND_NAME } from "../dl/args.ts"
 import type { DlActionToken } from "../dl/action-registry.ts"
 import { createProcessEntry } from "../dl/index.ts"
 import type { DlOptions } from "../dl/types.ts"
@@ -181,7 +180,7 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 }
 
 const dlCommand = defineWithTypes<DlCommandParams & { args: DlArgs }>()({
-	name: DL_COMMAND_NAME,
+	name: "dl",
 	description: "Fetch repository checkout and wiki checkout",
 	args: dlArgs,
 	run,
@@ -191,7 +190,7 @@ export default dlCommand
 
 function main() {
 	cli(process.argv.slice(2), dlCommand, {
-		name: DL_COMMAND_NAME,
+		name: "dl",
 		plugins: dlPlugins,
 		subCommands: {
 			archlist: archlistSubcommand,
