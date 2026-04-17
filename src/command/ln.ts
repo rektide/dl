@@ -4,8 +4,8 @@ import { homedir } from "node:os"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { define, cli } from "gunshi"
-import { simplify, ensureSymlink } from "../simplify/index.ts"
-import type { SimplifyLog } from "../simplify/index.ts"
+import { simplify, ensureSymlink } from "../symlink/index.ts"
+import type { SimplifyLog } from "../symlink/index.ts"
 
 const stdLog: SimplifyLog = {
 	info: (_stage, event, data) => console.log(`${event}: ${JSON.stringify(data)}`),

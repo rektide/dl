@@ -1,5 +1,5 @@
 import { ENSURE, OFF } from "./actions.ts"
-import { syncSimplify } from "../simplify/index.ts"
+import { syncSimplify } from "../symlink/index.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { DlContext } from "./types.ts"
 import type { DlActionSpec } from "./action-registry.ts"
