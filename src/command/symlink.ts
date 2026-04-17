@@ -1,8 +1,7 @@
-import { OFF, ENSURE, state } from "../dl/actions.ts"
-import { symlinkHandler } from "../dl/symlink.ts"
+import { ENSURE, OFF } from "../dl/actions.ts"
+import { resolveActionState } from "../dl/action-registry.ts"
+import { SYMLINK_ACTION_SPEC } from "../dl/symlink.ts"
 import { createDlCommand } from "./dl-command.ts"
-
-const VALID_STATES = new Set<string>([ENSURE, OFF])
 
 export default createDlCommand({
 	name: "symlink",
@@ -10,7 +9,8 @@ export default createDlCommand({
 	usage: "usage: rekon dl symlink [--state=ensure|off] [--anycase] <repo-url|org/repo> [...]",
 	args: {
 		state: {
-			type: "string",
+			type: "enum",
+			choices: [ENSURE, OFF],
 			default: "ensure",
 			description: "Symlink state (ensure|off)",
 		},
@@ -21,9 +21,7 @@ export default createDlCommand({
 		},
 	},
 	buildOptions: (values) => ({
-		doSymlink: true,
-		symlinkState: VALID_STATES.has(values.state as string) ? state(values.state as string) : ENSURE,
+		symlinkState: resolveActionState(SYMLINK_ACTION_SPEC, values.state ?? ENSURE),
 		anycase: !!values.anycase,
 	}),
-	handlers: [symlinkHandler],
 })

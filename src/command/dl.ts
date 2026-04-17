@@ -1,59 +1,25 @@
 #!/usr/bin/env node
 import { realpath } from "node:fs/promises"
 import { pathToFileURL } from "node:url"
-import { define, cli, type CommandContext, type ArgValues } from "gunshi"
+import { defineWithTypes, cli, type CommandContext, type ArgValues } from "gunshi"
 import { DL_COMMAND_NAME } from "../dl/args.ts"
-import { resolveDlFlags } from "../dl/flags.ts"
+import type { DlActionToken } from "../dl/action-registry.ts"
 import { createProcessEntry } from "../dl/index.ts"
 import type { DlOptions } from "../dl/types.ts"
-import type { ActionDef } from "../dl/actions.ts"
-import { FORCE, ENSURE, OFF, buildGunshiArgs, preprocessArgv, resolveActions } from "../dl/actions.ts"
+import { OFF } from "../dl/actions.ts"
 import { watchClipboard } from "../dl/clipboard.ts"
 import { watchArchlist } from "../dl/watch.ts"
 import { prependOrg } from "../util/prepend-org.ts"
 import { createDlPlugins } from "../plugin/index.ts"
-import { requireExtensions } from "./context.ts"
+import { requireExtensions, type DlExtensions } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"
 import { sharedArgs } from "../arg/shared.ts"
 import archlistSubcommand from "./archlist.ts"
 import symlinkSubcommand from "./symlink.ts"
 
-const ARCHLIST_ACTION: ActionDef = {
-	name: "archlist",
-	states: [FORCE, ENSURE, OFF],
-	defaultState: FORCE,
-}
-
-const SYMLINK_ACTION: ActionDef = {
-	name: "symlink",
-	states: [ENSURE, OFF],
-	defaultState: ENSURE,
-}
-
-const ACTIONS: readonly ActionDef[] = [ARCHLIST_ACTION, SYMLINK_ACTION]
-
-const actionArgs = buildGunshiArgs(ACTIONS)
-
 const dlArgs = {
 	...globalArgs,
 	...sharedArgs,
-	...actionArgs,
-	archive: {
-		type: "boolean",
-		default: false,
-		description: "Only update archive (disables wiki unless --wiki also set)",
-	},
-	wiki: {
-		type: "boolean",
-		default: false,
-		description: "Only update wiki (disables archive unless --archive also set)",
-	},
-	symlink: {
-		type: "boolean",
-		short: "l",
-		default: true,
-		description: "Create simplified symlinks for org/repo names (on by default, use --no-symlink to disable)",
-	},
 	watch: {
 		type: "boolean",
 		default: false,
@@ -90,53 +56,31 @@ type DlArgs = typeof dlArgs
 
 function buildDlOptions(
 	values: ArgValues<DlArgs>,
-	explicit: Record<string, boolean>,
+	explicit: Record<string, boolean | undefined>,
+	tokens: ReadonlyArray<DlActionToken>,
+	extensions: ReturnType<typeof requireExtensions>,
 ): DlOptions {
-	const actionResult = resolveActions(ACTIONS, values, explicit)
-
-	const oldFlags = resolveDlFlags(
-		{ archive: !!values.archive, wiki: !!values.wiki, symlink: !!values.symlink },
-		{ archive: !!explicit.archive, wiki: !!explicit.wiki, symlink: !!explicit.symlink },
+	const actionOptions = extensions.actions.resolveActionOptions(
+		values as Record<string, unknown>,
+		explicit,
+		tokens,
 	)
-
-	const anyExplicit = oldFlags.anyExplicit || actionResult.anyExplicit
-
-	let doArchive = oldFlags.doArchive
-	let doWiki = oldFlags.doWiki
-	let doSymlink = oldFlags.doSymlink
-
-	if (actionResult.anyExplicit && !oldFlags.anyExplicit) {
-		if (!explicit.archive) doArchive = false
-		if (!explicit.wiki) doWiki = false
-		if (!explicit.symlink) doSymlink = !!values.symlink
-	}
-
-	let archlistState = actionResult.states.archlist
-	if (anyExplicit && !actionResult.explicit.archlist) {
-		archlistState = OFF
-	}
-
-	let symlinkState = actionResult.states.symlink
-	if (anyExplicit && !actionResult.explicit.symlink) {
-		symlinkState = OFF
-	}
 
 	return {
 		consumeDexportOutput: !!values["consume-dexport-output"],
 		noLogCache: !!values["no-log-cache"],
 		reportLifecycle: !!values["report-lifecycle"],
-		doArchive,
-		doWiki,
-		archlistState,
-		doSymlink,
-		symlinkState,
+		archiveState: actionOptions.archiveState ?? OFF,
+		wikiState: actionOptions.wikiState ?? OFF,
+		archlistState: actionOptions.archlistState ?? OFF,
+		symlinkState: actionOptions.symlinkState ?? OFF,
 		anycase: !!values.anycase,
 		expand: !!values.expand,
 		dryRun: !!values["dry-run"],
 	}
 }
 
-async function run(ctx: CommandContext<{ args: DlArgs }>) {
+async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions }>) {
 	try {
 		const { org, watch, clipboard } = ctx.values
 		const inputs = prependOrg(org, ctx.positionals)
@@ -150,9 +94,14 @@ async function run(ctx: CommandContext<{ args: DlArgs }>) {
 
 		if (ctx.values.noop) return
 
-		const ext = requireExtensions(ctx.extensions as Record<string, unknown>)
+		const ext = requireExtensions(ctx.extensions)
 		const roots = await ext.roots.resolveRoots()
-		const options = buildDlOptions(ctx.values, ctx.explicit)
+		const options = buildDlOptions(
+			ctx.values,
+			ctx.explicit as Record<string, boolean | undefined>,
+			ctx.tokens,
+			ext,
+		)
 
 		if (watch && options.archlistState !== OFF) {
 			ext.log.warn("sync", "archlist_disabled", { reason: "watch mode feedback loop" })
@@ -232,7 +181,7 @@ async function run(ctx: CommandContext<{ args: DlArgs }>) {
 	}
 }
 
-const dlCommand = define({
+const dlCommand = defineWithTypes<{ args: DlArgs; extensions: DlExtensions }>()({
 	name: DL_COMMAND_NAME,
 	description: "Fetch repository checkout and wiki checkout",
 	args: dlArgs,
@@ -242,8 +191,7 @@ const dlCommand = define({
 export default dlCommand
 
 function main() {
-	const argv = preprocessArgv(process.argv.slice(2), ACTIONS)
-	cli(argv, dlCommand, {
+	cli(process.argv.slice(2), dlCommand, {
 		name: DL_COMMAND_NAME,
 		plugins: createDlPlugins(),
 		subCommands: {

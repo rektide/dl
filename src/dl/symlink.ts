@@ -1,16 +1,25 @@
-import { OFF, ENSURE, FORCE, type StepState } from "./actions.ts"
+import { ENSURE, OFF } from "./actions.ts"
 import { syncSimplify } from "../simplify/index.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { DlContext } from "./types.ts"
+import type { DlActionSpec } from "./action-registry.ts"
 import type { LifecycleReporter } from "./lifecycle.ts"
 import type { ActionHandler, ActionResult } from "./pipeline.ts"
+
+export const SYMLINK_ACTION_SPEC: DlActionSpec = {
+	name: "symlink",
+	description: "Symlink creation action",
+	defaultState: ENSURE,
+	states: [ENSURE, OFF],
+	optionKey: "symlinkState",
+}
 
 export async function runSymlink(
 	resolved: RepoContext,
 	ctx: DlContext,
 	lifecycle: LifecycleReporter,
 ): Promise<ActionResult> {
-	if (!ctx.options.doSymlink || ctx.options.symlinkState === OFF) {
+	if (ctx.options.symlinkState === OFF) {
 		lifecycle.skipped({ step: "symlink-org", source: "symlinkHandler", transition: "off" })
 		lifecycle.skipped({ step: "symlink-repo", source: "symlinkHandler", transition: "off" })
 		return { hadError: false }

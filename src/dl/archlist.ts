@@ -1,12 +1,21 @@
 import { appendFile, readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { OFF, ENSURE, type StepState } from "./actions.ts"
+import { FORCE, OFF, ENSURE, type StepState } from "./actions.ts"
+import type { DlActionSpec } from "./action-registry.ts"
 import type { LifecycleReporter } from "./lifecycle.ts"
 import type { LogExtension } from "../plugin/log.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { DlContext } from "./types.ts"
 import type { ActionHandler, ActionResult } from "./pipeline.ts"
+
+export const ARCHLIST_ACTION_SPEC: DlActionSpec = {
+	name: "archlist",
+	description: "Archlist update action",
+	defaultState: FORCE,
+	states: [FORCE, ENSURE, OFF],
+	optionKey: "archlistState",
+}
 
 export type ArchlistDecision =
 	| { action: "append" }

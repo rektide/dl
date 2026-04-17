@@ -3,7 +3,7 @@ import { processRepoContext } from "./index.ts"
 import type { DlContext, DlOptions } from "./types.ts"
 import type { DexportOps } from "../dexport/types.ts"
 import type { GitOps } from "../git/types.ts"
-import { OFF } from "./actions.ts"
+import { ENSURE, OFF } from "./actions.ts"
 import type { LogEvent, LogExtension } from "../plugin/log.ts"
 import type { RepoContext } from "../repo/context.ts"
 
@@ -33,10 +33,9 @@ function createOptions(overrides?: Partial<DlOptions>): DlOptions {
 		consumeDexportOutput: false,
 		noLogCache: false,
 		reportLifecycle: true,
-		doArchive: true,
-		doWiki: false,
+		archiveState: ENSURE,
+		wikiState: OFF,
 		archlistState: OFF,
-		doSymlink: false,
 		symlinkState: OFF,
 		anycase: false,
 		expand: false,
@@ -96,7 +95,7 @@ describe("processRepoContext", () => {
 		const { events, log } = createLog()
 		const ctx: DlContext = {
 			roots: { archiveRoot: "/tmp/archive", wikiRoot: "/tmp/wiki" },
-			options: createOptions({ doArchive: false, doWiki: true }),
+			options: createOptions({ archiveState: OFF, wikiState: ENSURE }),
 			log,
 		}
 

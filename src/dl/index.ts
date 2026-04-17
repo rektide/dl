@@ -10,7 +10,7 @@ import { syncWiki } from "../wiki/sync.ts"
 import type { DlOptions, DlContext } from "./types.ts"
 import type { LogExtension } from "../plugin/log.ts"
 import { createLifecycleReporter } from "./lifecycle.ts"
-import { OFF, ENSURE, type StepState } from "./actions.ts"
+import { OFF, ENSURE } from "./actions.ts"
 import { syncArchlist } from "./archlist.ts"
 
 export async function processRepoContext(
@@ -24,16 +24,19 @@ export async function processRepoContext(
 
 	try {
 		const pathname = resolved.url?.pathname?.replace(/^\//, "")
+		const doArchive = ctx.options.archiveState !== OFF
+		const doWiki = ctx.options.wikiState !== OFF
+		const doSymlink = ctx.options.symlinkState !== OFF
 		if (ctx.options.dryRun) {
 			ctx.log.info("dry-run", "would_sync", {
 				url: resolved.url?.toString(),
 				pathname,
-				doArchive: ctx.options.doArchive,
-				doWiki: ctx.options.doWiki,
-				archivePath: ctx.options.doArchive && pathname
+				doArchive,
+				doWiki,
+				archivePath: doArchive && pathname
 					? `${ctx.roots.archiveRoot}/${pathname}`
 					: undefined,
-				wikiPath: ctx.options.doWiki && pathname
+				wikiPath: doWiki && pathname
 					? `${ctx.roots.wikiRoot}/${pathname}`
 					: undefined,
 			})
@@ -52,7 +55,7 @@ export async function processRepoContext(
 				})
 			}
 
-			if (ctx.options.doArchive) {
+			if (doArchive) {
 				lifecycle.ok({
 					step: "archive",
 					source: "processRepoContext",
@@ -76,7 +79,7 @@ export async function processRepoContext(
 				})
 			}
 
-			if (ctx.options.doSymlink) {
+			if (doSymlink) {
 				lifecycle.ok({
 					step: "symlink-org",
 					source: "processRepoContext",
@@ -100,7 +103,7 @@ export async function processRepoContext(
 				})
 			}
 
-			if (ctx.options.doWiki) {
+			if (doWiki) {
 				lifecycle.ok({
 					step: "wiki-dexport",
 					source: "processRepoContext",
@@ -132,7 +135,7 @@ export async function processRepoContext(
 			)
 			if (archlistResult.hadError) hadError = true
 
-			if (ctx.options.doArchive) {
+			if (doArchive) {
 				try {
 					const archiveReport = await syncArchive(resolved, ctx, gitOps)
 					lifecycle.ok({
@@ -177,7 +180,7 @@ export async function processRepoContext(
 				})
 			}
 
-			if (ctx.options.doSymlink) {
+			if (doSymlink) {
 				try {
 					const simplifyReport = await syncSimplify(resolved, ctx)
 					if (simplifyReport.orgStatus === "skipped") {
@@ -239,7 +242,7 @@ export async function processRepoContext(
 				})
 			}
 
-			if (ctx.options.doWiki) {
+			if (doWiki) {
 				try {
 					const wikiReport = await syncWiki(resolved, ctx, gitOps, dexportOps)
 

@@ -5,10 +5,9 @@ export interface DlOptions {
 	consumeDexportOutput: boolean
 	noLogCache: boolean
 	reportLifecycle: boolean
-	doArchive: boolean
-	doWiki: boolean
+	archiveState: StepState
+	wikiState: StepState
 	archlistState: StepState
-	doSymlink: boolean
 	symlinkState: StepState
 	anycase: boolean
 	expand: boolean

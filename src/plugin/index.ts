@@ -1,4 +1,5 @@
 import { c12 } from "gunshi-c12"
+import { createDlActionsPlugin } from "./dl-actions.ts"
 import { createDexportPlugin } from "./dexport.ts"
 import { createGitPlugin } from "./git.ts"
 import { createLogPlugin } from "./log.ts"
@@ -13,5 +14,6 @@ export function createDlPlugins() {
 		createRepoPlugin(),
 		createGitPlugin(),
 		createDexportPlugin(),
+		createDlActionsPlugin(),
 	]
 }
