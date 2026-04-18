@@ -1,16 +1,33 @@
 #!/usr/bin/env node
 import { realpath } from "node:fs/promises"
 import { pathToFileURL } from "node:url"
-import { defineWithTypes, cli, type CommandContext, type ArgValues } from "gunshi"
-import type { DlActionToken } from "../action/registry.ts"
-import { processEntries, processCandidates, processExpand, buildMainOptions } from "./run.ts"
-import type { DlOptions } from "../action/types.ts"
+import { defineWithTypes, cli, type CommandContext } from "gunshi"
+import {
+	processEntries,
+	processCandidates,
+	processExpand,
+	buildMainOptions,
+} from "./run.ts"
 import { OFF } from "../action/state.ts"
-import { positionalSource, watchSource, clipboardSource, mergeSources } from "./input.ts"
+import type { DlOptions } from "../action/types.ts"
 import { dlPlugins } from "../plugin/index.ts"
+import {
+	POSITIONAL_INPUT_PLUGIN_ID,
+	type PositionalInputExtension,
+} from "../plugin/input-positional.ts"
+import {
+	WATCH_INPUT_PLUGIN_ID,
+	type WatchInputExtension,
+} from "../plugin/input-watch.ts"
+import {
+	CLIPBOARD_INPUT_PLUGIN_ID,
+	type ClipboardInputExtension,
+} from "../plugin/input-clipboard.ts"
+import {
+	RESOLVE_STREAM_PLUGIN_ID,
+	type ResolveStreamExtension,
+} from "../plugin/resolve-stream.ts"
 import { requireExtensions, type DlCommandParams, type DlExtensions } from "./context.ts"
-import { globalArgs } from "../arg/global.ts"
-import { sharedArgs } from "../arg/shared.ts"
 import archlistSubcommand from "./archlist.ts"
 import archiveSubcommand from "./archive.ts"
 import deepwikiSubcommand from "./deepwiki.ts"
@@ -18,37 +35,10 @@ import symlinkSubcommand from "./symlink.ts"
 import wikiSubcommand from "./wiki.ts"
 
 const dlArgs = {
-	...globalArgs,
-	...sharedArgs,
-	watch: {
-		type: "boolean",
-		default: false,
-		description: "Watch ~/archlist and process appended entries serially",
-	},
-	clipboard: {
-		type: "boolean",
-		default: false,
-		description: "Watch system clipboard for URLs and process them serially",
-	},
-	expand: {
-		type: "boolean",
-		default: false,
-		description: "Output resolved repo info without syncing",
-	},
-	candidates: {
-		type: "boolean",
-		default: false,
-		description: "Print expanded candidate URLs before verification (no network calls)",
-	},
 	noop: {
 		type: "boolean",
 		default: false,
 		description: "Do nothing — exit immediately without resolving or syncing",
-	},
-	anycase: {
-		type: "boolean",
-		default: false,
-		description: "Also create symlinks for pure case differences (e.g. Rust→rust)",
 	},
 } as const
 
@@ -56,9 +46,12 @@ type DlArgs = typeof dlArgs
 
 async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions }>) {
 	try {
-		const { org, watch, clipboard } = ctx.values
+		const positional = ctx.extensions[POSITIONAL_INPUT_PLUGIN_ID] as PositionalInputExtension
+		const watch = ctx.extensions[WATCH_INPUT_PLUGIN_ID] as WatchInputExtension
+		const clipboard = ctx.extensions[CLIPBOARD_INPUT_PLUGIN_ID] as ClipboardInputExtension
+		const hasInputs = ctx.positionals.length > 0
 
-		if (ctx.positionals.length === 0 && !watch && !clipboard) {
+		if (!hasInputs && !watch.active && !clipboard.active) {
 			console.error(
 				"usage: rekon dl [--watch] [--clipboard] [--org <org>] <repo-url|org/repo> [repo-url|org/repo ...]",
 			)
@@ -75,12 +68,13 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 			ctx.tokens,
 		)
 
-		if (watch && options.archlistState !== OFF) {
+		if (watch.active && options.archlistState !== OFF) {
 			ext.log.warn("sync", "archlist_disabled", { reason: "watch mode feedback loop" })
 			options.archlistState = OFF
 		}
 
-		const inputs = positionalSource(org, ctx.positionals)
+		const inputs = positional.source(ctx.values.org as string | undefined, ctx.positionals)
+		const stream = ctx.extensions[RESOLVE_STREAM_PLUGIN_ID] as ResolveStreamExtension
 
 		if (ctx.values.candidates) {
 			await processCandidates(ctx.extensions, inputs)
@@ -92,11 +86,11 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 			return
 		}
 
-		const sources = [inputs]
-		if (watch) sources.push(watchSource(ext.log))
-		if (clipboard) sources.push(clipboardSource(ext.log))
+		const sources: AsyncIterable<string>[] = [inputs]
+		if (watch.active) sources.push(watch.source())
+		if (clipboard.active) sources.push(clipboard.source())
 
-		const hadError = await processEntries(ctx.extensions, options, mergeSources(sources))
+		const hadError = await processEntries(ctx.extensions, options, mergeConcurrent(sources))
 		if (hadError) {
 			process.exit(1)
 		}
@@ -104,6 +98,12 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		const message = error instanceof Error ? error.message : String(error)
 		console.error(`sync failed: ${message}`)
 		process.exit(1)
+	}
+}
+
+async function* mergeConcurrent(sources: AsyncIterable<string>[]): AsyncGenerator<string> {
+	for (const source of sources) {
+		yield* source
 	}
 }
 

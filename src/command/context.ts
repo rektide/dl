@@ -12,6 +12,18 @@ import {
 	type GitExtension,
 } from "../plugin/git.ts"
 import {
+	CLIPBOARD_INPUT_PLUGIN_ID,
+	type ClipboardInputExtension,
+} from "../plugin/input-clipboard.ts"
+import {
+	POSITIONAL_INPUT_PLUGIN_ID,
+	type PositionalInputExtension,
+} from "../plugin/input-positional.ts"
+import {
+	WATCH_INPUT_PLUGIN_ID,
+	type WatchInputExtension,
+} from "../plugin/input-watch.ts"
+import {
 	LOG_PLUGIN_ID,
 	type LogExtension,
 } from "../plugin/log.ts"
@@ -33,6 +45,9 @@ export interface DlExtensions extends Record<string, unknown> {
 	[ROOTS_PLUGIN_ID]: RootsExtension
 	[REPO_PLUGIN_ID]: RepoExtension
 	[RESOLVE_STREAM_PLUGIN_ID]: ResolveStreamExtension
+	[POSITIONAL_INPUT_PLUGIN_ID]: PositionalInputExtension
+	[WATCH_INPUT_PLUGIN_ID]: WatchInputExtension
+	[CLIPBOARD_INPUT_PLUGIN_ID]: ClipboardInputExtension
 	[GIT_PLUGIN_ID]: GitExtension
 	[DEXPORT_PLUGIN_ID]: DexportExtension
 	[LOG_PLUGIN_ID]: LogExtension

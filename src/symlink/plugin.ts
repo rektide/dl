@@ -14,6 +14,11 @@ export const dlSymlinkActionPlugin = plugin({
 	setup: (ctx) => {
 		ctx.addGlobalOption(SYMLINK_ACTION_SPEC.name, SYMLINK_ACTION_FLAG_OPTION)
 		ctx.addGlobalOption(`${SYMLINK_ACTION_SPEC.name}-state`, SYMLINK_ACTION_STATE_OPTION)
+		ctx.addGlobalOption("anycase", {
+			type: "boolean",
+			default: false,
+			description: "Also create symlinks for pure case differences (e.g. Rust→rust)",
+		})
 	},
 	extension: () => ({
 		"dl:actions": [SYMLINK_ACTION_SPEC],

@@ -16,6 +16,28 @@ export interface ResolveStreamExtension {
 export const resolveStreamPlugin = plugin({
 	id: RESOLVE_STREAM_PLUGIN_ID,
 	name: "Rekon Resolve Stream",
+	setup: (ctx) => {
+		ctx.addGlobalOption("candidates", {
+			type: "boolean",
+			default: false,
+			description: "Print expanded candidate URLs before verification (no network calls)",
+		})
+		ctx.addGlobalOption("expand", {
+			type: "boolean",
+			default: false,
+			description: "Output resolved repo info without syncing",
+		})
+		ctx.addGlobalOption("dry-run", {
+			type: "boolean",
+			default: false,
+			description: "Show what would be done without making changes",
+		})
+		ctx.addGlobalOption("report-lifecycle", {
+			type: "boolean",
+			default: false,
+			description: "Emit structured lifecycle summary per resolved repository",
+		})
+	},
 	extension: (ctx): ResolveStreamExtension => {
 		const extensions = ctx.extensions as Record<string, unknown>
 		const repo = extensions[REPO_PLUGIN_ID] as RepoExtension

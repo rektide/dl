@@ -9,5 +9,13 @@ export interface DexportExtension extends DexportOps {}
 export const dexportPlugin = plugin({
 	id: DEXPORT_PLUGIN_ID,
 	name: "Rekon Dexport",
+	setup: (ctx) => {
+		ctx.addGlobalOption("consume-dexport-output", {
+			type: "boolean",
+			short: "c",
+			default: false,
+			description: "Run dexport detached and suppress its output",
+		})
+	},
 	extension: (): DexportExtension => defaultDexportOps,
 })

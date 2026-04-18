@@ -1,31 +1,23 @@
 import { define } from "gunshi"
 import { SYMLINK_ACTION_SPEC } from "../symlink/handler.ts"
 import { buildSubcommandOptions, processEntries } from "./run.ts"
-import { positionalSource } from "./input.ts"
+import { POSITIONAL_INPUT_PLUGIN_ID, type PositionalInputExtension } from "../plugin/input-positional.ts"
 import type { DlCommandParams } from "./context.ts"
-import { globalArgs } from "../arg/global.ts"
-
-const args = {
-	...globalArgs,
-	state: {
-		type: "enum",
-		choices: [...SYMLINK_ACTION_SPEC.states],
-		default: SYMLINK_ACTION_SPEC.defaultState,
-		description: "Symlink state (ensure|off)",
-	},
-	anycase: {
-		type: "boolean",
-		default: false,
-		description: "Also create symlinks for pure case differences (e.g. Rust→rust)",
-	},
-} as const
 
 export default define<DlCommandParams>({
 	name: "symlink",
 	description: "Create simplified symlinks for org/repo names",
-	args,
+	args: {
+		state: {
+			type: "enum",
+			choices: [...SYMLINK_ACTION_SPEC.states],
+			default: SYMLINK_ACTION_SPEC.defaultState,
+			description: "Symlink state (ensure|off)",
+		},
+	},
 	async run(ctx) {
-		const inputs = positionalSource(ctx.values.org, ctx.positionals)
+		const positional = ctx.extensions[POSITIONAL_INPUT_PLUGIN_ID] as PositionalInputExtension
+		const inputs = positional.source(ctx.values.org as string | undefined, ctx.positionals)
 		const options = buildSubcommandOptions(
 			ctx.extensions,
 			ctx.values as Record<string, unknown>,

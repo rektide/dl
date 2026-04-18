@@ -7,6 +7,9 @@ import { dlWikiActionPlugin } from "../wiki/plugin.ts"
 import { dlActionsPlugin } from "./dl-actions.ts"
 import { dexportPlugin } from "./dexport.ts"
 import { gitPlugin } from "./git.ts"
+import { clipboardInputPlugin } from "./input-clipboard.ts"
+import { positionalInputPlugin } from "./input-positional.ts"
+import { watchInputPlugin } from "./input-watch.ts"
 import { logPlugin } from "./log.ts"
 import { repoPlugin } from "./repo.ts"
 import { resolveStreamPlugin } from "./resolve-stream.ts"
@@ -18,6 +21,9 @@ export const dlPlugins = [
 	rootsPlugin,
 	repoPlugin,
 	resolveStreamPlugin,
+	positionalInputPlugin,
+	watchInputPlugin,
+	clipboardInputPlugin,
 	gitPlugin,
 	dexportPlugin,
 	dlArchiveActionPlugin,

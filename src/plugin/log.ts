@@ -62,6 +62,11 @@ export const logPlugin = plugin({
 	id: LOG_PLUGIN_ID,
 	name: "Rekon Log",
 	setup: (ctx) => {
+		ctx.addGlobalOption("no-log-cache", {
+			type: "boolean",
+			default: false,
+			description: "Disable logging of cached file names",
+		})
 		ctx.addGlobalOption("output", {
 			type: "string",
 			description:
