@@ -7,18 +7,18 @@
  *
  *   input strings → resolve-stream plugin → action handlers → lifecycle report
  *
- * {@link processEntries} accepts an `AsyncIterable<string>` and feeds it through
- * the resolve-stream plugin, which yields candidate and resolved events. Only
- * resolved events are piped into the action pipeline.
+ * Three consumers of the resolve-stream plugin:
+ * - {@link processCandidates} logs candidate (pre-verification) events
+ * - {@link processExpand} logs resolved (post-verification) events
+ * - {@link processEntries} runs resolved events through the action pipeline
  *
  * Input sources ({@link positionalSource}, {@link watchSource}, {@link clipboardSource})
  * are defined in {@link command/input} and produce the async iterables consumed here.
  *
  * Option building:
  * - {@link buildBaseOptions} constructs `DlOptions` with all actions off.
- * - {@link buildSubcommandOptions} layers the action plugin system on top, mapping
- *   `--state` to the subcommand's primary action spec and passing through sibling
- *   action flags (e.g. `--deepwiki=ensure` on `rekon dl archive`).
+ * - {@link buildMainOptions} resolves all action states via the plugin system.
+ * - {@link buildSubcommandOptions} layers the plugin system with a `--state` alias.
  */
 
 import { OFF } from "../action/state.ts"
@@ -101,6 +101,91 @@ export async function processEntries(
 		}
 	}
 	return hadError
+}
+
+/**
+ * Build `DlOptions` for the main dl command using the full action plugin system.
+ *
+ * Resolves all action states through `ext.actions.resolveActionOptions`, then
+ * layers on dl-main-specific flags (anycase, expand).
+ */
+export function buildMainOptions(
+	extensions: DlExtensions,
+	values: Record<string, unknown>,
+	explicit: Record<string, boolean | undefined>,
+	tokens: readonly DlActionToken[],
+): DlOptions {
+	const ext = requireExtensions(extensions)
+	const actionOptions = ext.actions.resolveActionOptions(values, explicit, tokens)
+
+	return {
+		...buildBaseOptions(values),
+		archiveState: actionOptions.archiveState ?? OFF,
+		wikiState: actionOptions.wikiState ?? OFF,
+		deepwikiState: actionOptions.deepwikiState ?? OFF,
+		archlistState: actionOptions.archlistState ?? OFF,
+		symlinkState: actionOptions.symlinkState ?? OFF,
+		anycase: !!values.anycase,
+		expand: !!values.expand,
+	}
+}
+
+/**
+ * Feed an async stream through the resolve-stream plugin, logging only
+ * candidate (pre-verification) events.
+ *
+ * This is the `--candidates` mode: expand inputs into candidate URLs and print
+ * them without any network verification or syncing.
+ */
+export async function processCandidates(
+	extensions: DlExtensions,
+	inputs: AsyncIterable<string>,
+): Promise<void> {
+	const ext = requireExtensions(extensions)
+	const stream = extensions[RESOLVE_STREAM_PLUGIN_ID] as ResolveStreamExtension
+
+	for await (const event of stream.resolveStream(inputs)) {
+		if (event.type === "candidate") {
+			ext.log.info("candidates", "expanded", {
+				input: event.input,
+				url: event.context.url?.toString(),
+				org: event.context.org,
+				project: event.context.project,
+				provider: event.context.source.provider,
+				verified: event.context.verified,
+			})
+		}
+		if (event.type === "resolved" && !event.context.verified) {
+			ext.log.warn("candidates", "no_match", { input: event.input })
+		}
+	}
+}
+
+/**
+ * Feed an async stream through the resolve-stream plugin, logging only
+ * resolved (post-verification) events.
+ *
+ * This is the `--expand` mode: resolve and verify inputs, then print the
+ * full repo context without syncing.
+ */
+export async function processExpand(
+	extensions: DlExtensions,
+	inputs: AsyncIterable<string>,
+): Promise<void> {
+	const ext = requireExtensions(extensions)
+	const stream = extensions[RESOLVE_STREAM_PLUGIN_ID] as ResolveStreamExtension
+
+	for await (const event of stream.resolveStream(inputs)) {
+		if (event.type === "resolved") {
+			ext.log.info("expand", "resolved", {
+				input: event.input,
+				url: event.context.url?.toString(),
+				pathname: event.context.url?.pathname,
+				wikiRepoUrl: event.context.wikiRepoUrl?.toString(),
+				source: event.context.source,
+			})
+		}
+	}
 }
 
 /**

@@ -3,7 +3,7 @@ import { realpath } from "node:fs/promises"
 import { pathToFileURL } from "node:url"
 import { defineWithTypes, cli, type CommandContext, type ArgValues } from "gunshi"
 import type { DlActionToken } from "../action/registry.ts"
-import { processEntries, buildBaseOptions } from "./run.ts"
+import { processEntries, processCandidates, processExpand, buildMainOptions } from "./run.ts"
 import type { DlOptions } from "../action/types.ts"
 import { OFF } from "../action/state.ts"
 import { positionalSource, watchSource, clipboardSource, mergeSources } from "./input.ts"
@@ -54,30 +54,6 @@ const dlArgs = {
 
 type DlArgs = typeof dlArgs
 
-function buildDlOptions(
-	values: ArgValues<DlArgs>,
-	explicit: Record<string, boolean | undefined>,
-	tokens: ReadonlyArray<DlActionToken>,
-	extensions: ReturnType<typeof requireExtensions>,
-): DlOptions {
-	const actionOptions = extensions.actions.resolveActionOptions(
-		values as Record<string, unknown>,
-		explicit,
-		tokens,
-	)
-
-	return {
-		...buildBaseOptions(values as Record<string, unknown>),
-		archiveState: actionOptions.archiveState ?? OFF,
-		wikiState: actionOptions.wikiState ?? OFF,
-		deepwikiState: actionOptions.deepwikiState ?? OFF,
-		archlistState: actionOptions.archlistState ?? OFF,
-		symlinkState: actionOptions.symlinkState ?? OFF,
-		anycase: !!values.anycase,
-		expand: !!values.expand,
-	}
-}
-
 async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions }>) {
 	try {
 		const { org, watch, clipboard } = ctx.values
@@ -92,11 +68,11 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		if (ctx.values.noop) return
 
 		const ext = requireExtensions(ctx.extensions)
-		const options = buildDlOptions(
-			ctx.values,
+		const options = buildMainOptions(
+			ctx.extensions,
+			ctx.values as Record<string, unknown>,
 			ctx.explicit as Record<string, boolean | undefined>,
 			ctx.tokens,
-			ext,
 		)
 
 		if (watch && options.archlistState !== OFF) {
@@ -104,48 +80,19 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 			options.archlistState = OFF
 		}
 
+		const inputs = positionalSource(org, ctx.positionals)
+
 		if (ctx.values.candidates) {
-			for await (const input of positionalSource(org, ctx.positionals)) {
-				let found = false
-				for await (const candidate of ext.repo.candidates(input)) {
-					found = true
-					ext.log.info("candidates", "expanded", {
-						input,
-						url: candidate.url?.toString(),
-						org: candidate.org,
-						project: candidate.project,
-						provider: candidate.source.provider,
-						verified: candidate.verified,
-					})
-				}
-				if (!found) {
-					ext.log.warn("candidates", "no_match", { input })
-				}
-			}
+			await processCandidates(ctx.extensions, inputs)
 			return
 		}
 
 		if (options.expand) {
-			for await (const input of positionalSource(org, ctx.positionals)) {
-				let found = false
-				for await (const resolved of ext.repo.resolve(input)) {
-					found = true
-					ext.log.info("expand", "resolved", {
-						input,
-						url: resolved.url?.toString(),
-						pathname: resolved.url?.pathname,
-						wikiRepoUrl: resolved.wikiRepoUrl?.toString(),
-						source: resolved.source,
-					})
-				}
-				if (!found) {
-					ext.log.warn("expand", "no_match", { input })
-				}
-			}
+			await processExpand(ctx.extensions, inputs)
 			return
 		}
 
-		const sources = [positionalSource(org, ctx.positionals)]
+		const sources = [inputs]
 		if (watch) sources.push(watchSource(ext.log))
 		if (clipboard) sources.push(clipboardSource(ext.log))
 
