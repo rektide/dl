@@ -13,9 +13,17 @@ export interface ResolveStreamExtension {
 	resolveStream(inputs: AsyncIterable<string>): AsyncGenerator<ResolveEvent>
 }
 
-export const resolveStreamPlugin = plugin({
+const dependencies = [REPO_PLUGIN_ID, LOG_PLUGIN_ID] as const
+
+export const resolveStreamPlugin = plugin<
+	{ [REPO_PLUGIN_ID]: RepoExtension; [LOG_PLUGIN_ID]: LogExtension },
+	typeof RESOLVE_STREAM_PLUGIN_ID,
+	typeof dependencies,
+	ResolveStreamExtension
+>({
 	id: RESOLVE_STREAM_PLUGIN_ID,
 	name: "Rekon Resolve Stream",
+	dependencies,
 	setup: (ctx) => {
 		ctx.addGlobalOption("candidates", {
 			type: "boolean",
@@ -39,9 +47,8 @@ export const resolveStreamPlugin = plugin({
 		})
 	},
 	extension: (ctx): ResolveStreamExtension => {
-		const extensions = ctx.extensions as Record<string, unknown>
-		const repo = extensions[REPO_PLUGIN_ID] as RepoExtension
-		const log = extensions[LOG_PLUGIN_ID] as LogExtension
+		const repo = ctx.extensions[REPO_PLUGIN_ID]
+		const log = ctx.extensions[LOG_PLUGIN_ID]
 
 		async function* resolveStream(inputs: AsyncIterable<string>): AsyncGenerator<ResolveEvent> {
 			for await (const input of inputs) {

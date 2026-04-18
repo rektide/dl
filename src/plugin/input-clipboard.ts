@@ -9,9 +9,17 @@ export interface ClipboardInputExtension {
 	source: () => InputSource
 }
 
-export const clipboardInputPlugin = plugin({
+const dependencies = [LOG_PLUGIN_ID] as const
+
+export const clipboardInputPlugin = plugin<
+	{ [LOG_PLUGIN_ID]: LogExtension },
+	typeof CLIPBOARD_INPUT_PLUGIN_ID,
+	typeof dependencies,
+	ClipboardInputExtension
+>({
 	id: CLIPBOARD_INPUT_PLUGIN_ID,
 	name: "Rekon Clipboard Input",
+	dependencies,
 	setup: (ctx) => {
 		ctx.addGlobalOption("clipboard", {
 			type: "boolean",
@@ -20,9 +28,8 @@ export const clipboardInputPlugin = plugin({
 		})
 	},
 	extension: (ctx): ClipboardInputExtension => {
-		const extensions = ctx.extensions as Record<string, unknown>
-		const log = extensions[LOG_PLUGIN_ID] as LogExtension
-		const values = ctx.values as { clipboard?: boolean }
+		const log = ctx.extensions[LOG_PLUGIN_ID]
+		const values = ctx.values as { clipboard?: boolean } // gunshi: plugin-registered global
 		return {
 			active: !!values.clipboard,
 			source: () => clipboardSource(log),

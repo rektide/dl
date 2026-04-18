@@ -29,12 +29,8 @@ export const dlActionsPlugin = plugin({
 	id: DL_ACTIONS_PLUGIN_ID,
 	name: "DL Actions",
 	extension: (ctx): DlActionsExtension => {
-		const specs = collectActionSpecsFromExtensions(
-			ctx.extensions as Record<string, unknown>,
-		)
-		const handlers = collectActionHandlersFromExtensions(
-			ctx.extensions as Record<string, unknown>,
-		)
+		const specs = collectActionSpecsFromExtensions(ctx.extensions)
+		const handlers = collectActionHandlersFromExtensions(ctx.extensions)
 		if (specs.length === 0) {
 			throw new Error("dl: no action providers registered")
 		}

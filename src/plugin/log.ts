@@ -89,7 +89,7 @@ export const logPlugin = plugin({
 		})
 	},
 	extension: (core): LogExtension => {
-		const values = core.values as LogOptions
+		const values = core.values as LogOptions // gunshi: plugin-registered global options
 		const useJson = values.json ?? false
 		const formatter = useJson ? formatEventJson : formatEventText
 

@@ -9,9 +9,17 @@ export interface WatchInputExtension {
 	source: () => InputSource
 }
 
-export const watchInputPlugin = plugin({
+const dependencies = [LOG_PLUGIN_ID] as const
+
+export const watchInputPlugin = plugin<
+	{ [LOG_PLUGIN_ID]: LogExtension },
+	typeof WATCH_INPUT_PLUGIN_ID,
+	typeof dependencies,
+	WatchInputExtension
+>({
 	id: WATCH_INPUT_PLUGIN_ID,
 	name: "Rekon Watch Input",
+	dependencies,
 	setup: (ctx) => {
 		ctx.addGlobalOption("watch", {
 			type: "boolean",
@@ -20,9 +28,8 @@ export const watchInputPlugin = plugin({
 		})
 	},
 	extension: (ctx): WatchInputExtension => {
-		const extensions = ctx.extensions as Record<string, unknown>
-		const log = extensions[LOG_PLUGIN_ID] as LogExtension
-		const values = ctx.values as { watch?: boolean }
+		const log = ctx.extensions[LOG_PLUGIN_ID]
+		const values = ctx.values as { watch?: boolean } // gunshi: plugin-registered global
 		return {
 			active: !!values.watch,
 			source: () => watchSource(log),

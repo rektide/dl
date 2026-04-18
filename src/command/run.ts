@@ -26,7 +26,7 @@ import type { DlOptions, DlContext } from "../action/types.ts"
 import type { ActionHandler } from "../action/handler.ts"
 import type { DlActionSpec, DlActionToken } from "../action/registry.ts"
 import { runPipeline } from "../action/pipeline.ts"
-import { RESOLVE_STREAM_PLUGIN_ID, type ResolveStreamExtension } from "../plugin/resolve-stream.ts"
+import { RESOLVE_STREAM_PLUGIN_ID } from "../plugin/resolve-stream.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { DlExtensions } from "./context.ts"
 import { requireExtensions, resolveDlSetup } from "./context.ts"
@@ -92,7 +92,7 @@ export async function processEntries(
 	const setup = await resolveDlSetup(extensions, options)
 	const handlers = setup.actions["dl:handlers"]
 	const ctx: DlContext = { roots: setup.roots, options, log: setup.log }
-	const stream = extensions[RESOLVE_STREAM_PLUGIN_ID] as ResolveStreamExtension
+	const stream = extensions[RESOLVE_STREAM_PLUGIN_ID]
 
 	let hadError = false
 	for await (const event of stream.resolveStream(inputs)) {
@@ -142,7 +142,7 @@ export async function processCandidates(
 	inputs: AsyncIterable<string>,
 ): Promise<void> {
 	const ext = requireExtensions(extensions)
-	const stream = extensions[RESOLVE_STREAM_PLUGIN_ID] as ResolveStreamExtension
+	const stream = extensions[RESOLVE_STREAM_PLUGIN_ID]
 
 	for await (const event of stream.resolveStream(inputs)) {
 		if (event.type === "candidate") {
@@ -173,7 +173,7 @@ export async function processExpand(
 	inputs: AsyncIterable<string>,
 ): Promise<void> {
 	const ext = requireExtensions(extensions)
-	const stream = extensions[RESOLVE_STREAM_PLUGIN_ID] as ResolveStreamExtension
+	const stream = extensions[RESOLVE_STREAM_PLUGIN_ID]
 
 	for await (const event of stream.resolveStream(inputs)) {
 		if (event.type === "resolved") {

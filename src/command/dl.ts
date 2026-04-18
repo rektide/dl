@@ -13,19 +13,15 @@ import type { DlOptions } from "../action/types.ts"
 import { dlPlugins } from "../plugin/index.ts"
 import {
 	POSITIONAL_INPUT_PLUGIN_ID,
-	type PositionalInputExtension,
 } from "../plugin/input-positional.ts"
 import {
 	WATCH_INPUT_PLUGIN_ID,
-	type WatchInputExtension,
 } from "../plugin/input-watch.ts"
 import {
 	CLIPBOARD_INPUT_PLUGIN_ID,
-	type ClipboardInputExtension,
 } from "../plugin/input-clipboard.ts"
 import {
 	RESOLVE_STREAM_PLUGIN_ID,
-	type ResolveStreamExtension,
 } from "../plugin/resolve-stream.ts"
 import { requireExtensions, type DlCommandParams, type DlExtensions } from "./context.ts"
 import archlistSubcommand from "./archlist.ts"
@@ -46,9 +42,9 @@ type DlArgs = typeof dlArgs
 
 async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions }>) {
 	try {
-		const positional = ctx.extensions[POSITIONAL_INPUT_PLUGIN_ID] as PositionalInputExtension
-		const watch = ctx.extensions[WATCH_INPUT_PLUGIN_ID] as WatchInputExtension
-		const clipboard = ctx.extensions[CLIPBOARD_INPUT_PLUGIN_ID] as ClipboardInputExtension
+		const positional = ctx.extensions[POSITIONAL_INPUT_PLUGIN_ID]
+		const watch = ctx.extensions[WATCH_INPUT_PLUGIN_ID]
+		const clipboard = ctx.extensions[CLIPBOARD_INPUT_PLUGIN_ID]
 		const hasInputs = ctx.positionals.length > 0
 
 		if (!hasInputs && !watch.active && !clipboard.active) {
@@ -63,8 +59,8 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		const ext = requireExtensions(ctx.extensions)
 		const options = buildMainOptions(
 			ctx.extensions,
-			ctx.values as Record<string, unknown>,
-			ctx.explicit as Record<string, boolean | undefined>,
+			ctx.values,
+			ctx.explicit,
 			ctx.tokens,
 		)
 
@@ -73,8 +69,8 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 			options.archlistState = OFF
 		}
 
-		const inputs = positional.source(ctx.values.org as string | undefined, ctx.positionals)
-		const stream = ctx.extensions[RESOLVE_STREAM_PLUGIN_ID] as ResolveStreamExtension
+		const inputs = positional.source(ctx.values.org as string | undefined, ctx.positionals) // gunshi: plugin-registered global
+		const stream = ctx.extensions[RESOLVE_STREAM_PLUGIN_ID]
 
 		if (ctx.values.candidates) {
 			await processCandidates(ctx.extensions, inputs)

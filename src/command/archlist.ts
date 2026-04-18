@@ -1,10 +1,10 @@
-import { define } from "gunshi"
+import { defineWithTypes } from "gunshi"
 import { ARCHLIST_ACTION_SPEC } from "../archlist/handler.ts"
 import { buildSubcommandOptions, processEntries } from "./run.ts"
-import { POSITIONAL_INPUT_PLUGIN_ID, type PositionalInputExtension } from "../plugin/input-positional.ts"
+import { POSITIONAL_INPUT_PLUGIN_ID } from "../plugin/input-positional.ts"
 import type { DlCommandParams } from "./context.ts"
 
-export default define<DlCommandParams>({
+export default defineWithTypes<DlCommandParams>()({
 	name: "archlist",
 	description: "Append resolved repository URLs to ~/archlist",
 	args: {
@@ -16,12 +16,12 @@ export default define<DlCommandParams>({
 		},
 	},
 	async run(ctx) {
-		const positional = ctx.extensions[POSITIONAL_INPUT_PLUGIN_ID] as PositionalInputExtension
-		const inputs = positional.source(ctx.values.org as string | undefined, ctx.positionals)
+		const positional = ctx.extensions[POSITIONAL_INPUT_PLUGIN_ID]
+		const inputs = positional.source(ctx.values.org as string | undefined, ctx.positionals) // gunshi: plugin-registered global
 		const options = buildSubcommandOptions(
 			ctx.extensions,
-			ctx.values as Record<string, unknown>,
-			ctx.explicit as Record<string, boolean | undefined>,
+			ctx.values,
+			ctx.explicit,
 			ctx.tokens,
 			ARCHLIST_ACTION_SPEC,
 			ctx.values.state,
