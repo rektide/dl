@@ -1,59 +1,11 @@
 import { appendFile, readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { FORCE, OFF, ENSURE, type StepState } from "./actions.ts"
-import type { DlActionSpec } from "./action-registry.ts"
-import type { LifecycleReporter } from "./lifecycle.ts"
+import { OFF, type StepState } from "../action/state.ts"
+import type { LifecycleReporter } from "../action/lifecycle.ts"
 import type { LogExtension } from "../plugin/log.ts"
-import type { RepoContext } from "../repo/context.ts"
-import type { DlContext } from "./types.ts"
-import type { ActionHandler, ActionResult } from "./pipeline.ts"
-
-const ARCHLIST_STATES = [FORCE, ENSURE, OFF] as const
-
-export const ARCHLIST_ACTION_SPEC: DlActionSpec = {
-	name: "archlist",
-	description: "Archlist update action",
-	defaultState: FORCE,
-	states: ARCHLIST_STATES,
-	optionKey: "archlistState",
-}
-
-export const ARCHLIST_ACTION_FLAG_OPTION = {
-	type: "boolean",
-	default: false,
-	description: "Archlist update action (bare --archlist uses default state 'force')",
-} as const
-
-export const ARCHLIST_ACTION_STATE_OPTION = {
-	type: "enum",
-	choices: ARCHLIST_STATES,
-	description: "Archlist update action state (force|ensure|off)",
-} as const
-
-export type ArchlistDecision =
-	| { action: "append" }
-	| { action: "already_present" }
-	| { action: "skip" }
-
-export function decideArchlist(
-	archlistState: StepState,
-	url: string,
-	fileContent: string | null,
-): ArchlistDecision {
-	if (archlistState === OFF) return { action: "skip" }
-
-	if (archlistState === ENSURE) {
-		if (fileContent !== null) {
-			const lines = fileContent.split("\n")
-			if (lines.includes(url)) {
-				return { action: "already_present" }
-			}
-		}
-	}
-
-	return { action: "append" }
-}
+import type { ActionResult } from "../action/handler.ts"
+import { decideArchlist } from "./decide.ts"
 
 export async function syncArchlist(
 	url: string,
@@ -122,16 +74,4 @@ export async function syncArchlist(
 		})
 		return { hadError: true }
 	}
-}
-
-export const archlistHandler: ActionHandler = {
-	id: "archlist",
-	run: async (resolved: RepoContext, ctx: DlContext, lifecycle: LifecycleReporter): Promise<ActionResult> => {
-		return syncArchlist(
-			resolved.url!.toString(),
-			ctx.options.archlistState,
-			lifecycle,
-			ctx.log,
-		)
-	},
 }

@@ -1,4 +1,4 @@
-import type { ActionHandler } from "./pipeline.ts"
+import type { ActionHandler } from "./handler.ts"
 
 /**
  * Declarative definition of a dl action surfaced on the CLI.

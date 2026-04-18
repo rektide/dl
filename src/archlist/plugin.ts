@@ -4,7 +4,7 @@ import {
 	ARCHLIST_ACTION_SPEC,
 	ARCHLIST_ACTION_STATE_OPTION,
 	archlistHandler,
-} from "../../dl/archlist.ts"
+} from "./handler.ts"
 
 export const DL_ARCHLIST_ACTION_PLUGIN_ID = "dl:action:archlist" as const
 

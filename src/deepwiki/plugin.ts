@@ -4,7 +4,7 @@ import {
 	DEEPWIKI_ACTION_SPEC,
 	DEEPWIKI_ACTION_STATE_OPTION,
 	deepwikiHandler,
-} from "../../dl/deepwiki-action.ts"
+} from "./handler.ts"
 
 export const DL_DEEPWIKI_ACTION_PLUGIN_ID = "dl:action:deepwiki" as const
 

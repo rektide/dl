@@ -4,7 +4,7 @@ import {
 	WIKI_ACTION_SPEC,
 	WIKI_ACTION_STATE_OPTION,
 	wikiHandler,
-} from "../../dl/wiki-action.ts"
+} from "./handler.ts"
 
 export const DL_WIKI_ACTION_PLUGIN_ID = "dl:action:wiki" as const
 

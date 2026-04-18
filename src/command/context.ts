@@ -1,4 +1,4 @@
-import type { DlOptions } from "../dl/types.ts"
+import type { DlOptions } from "../action/types.ts"
 import {
 	DL_ACTIONS_PLUGIN_ID,
 	type DlActionsExtension,

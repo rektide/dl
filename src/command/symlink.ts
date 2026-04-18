@@ -1,6 +1,6 @@
 import { define } from "gunshi"
-import { resolveActionState } from "../dl/action-registry.ts"
-import { SYMLINK_ACTION_SPEC } from "../dl/symlink.ts"
+import { resolveActionState } from "../action/registry.ts"
+import { SYMLINK_ACTION_SPEC } from "../symlink/handler.ts"
 import { buildBaseOptions, runEntries } from "../util/command.ts"
 import type { DlCommandParams } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"

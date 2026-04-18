@@ -1,6 +1,6 @@
 import { define } from "gunshi"
-import { resolveActionState } from "../dl/action-registry.ts"
-import { ARCHLIST_ACTION_SPEC } from "../dl/archlist.ts"
+import { resolveActionState } from "../action/registry.ts"
+import { ARCHLIST_ACTION_SPEC } from "../archlist/handler.ts"
 import { buildBaseOptions, runEntries } from "../util/command.ts"
 import type { DlCommandParams } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"

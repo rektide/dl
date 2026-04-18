@@ -2,7 +2,8 @@ import { mkdir, rm, lstat, readlink } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { describe, expect, test, beforeEach, afterEach } from "vitest"
-import { simplify, ensureSymlink, needsSymlink } from "./index.ts"
+import { simplify } from "./simplify.ts"
+import { ensureSymlink, needsSymlink } from "./ensure.ts"
 
 describe("simplify", () => {
 	test("lowercases", () => {

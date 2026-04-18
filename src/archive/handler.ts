@@ -1,10 +1,10 @@
-import { ENSURE, OFF } from "./actions.ts"
-import type { DlActionSpec } from "./action-registry.ts"
-import type { LifecycleReporter } from "./lifecycle.ts"
-import type { ActionHandler, ActionResult } from "./pipeline.ts"
+import { ENSURE, OFF } from "../action/state.ts"
+import type { DlActionSpec } from "../action/registry.ts"
+import type { LifecycleReporter } from "../action/lifecycle.ts"
+import type { ActionHandler, ActionResult } from "../action/handler.ts"
 import type { RepoContext } from "../repo/context.ts"
-import type { DlContext } from "./types.ts"
-import { syncArchive } from "../archive/sync.ts"
+import type { DlContext } from "../action/types.ts"
+import { syncArchive } from "./sync.ts"
 import { defaultGitOps } from "../git/default.ts"
 
 const ARCHIVE_STATES = [ENSURE, OFF] as const

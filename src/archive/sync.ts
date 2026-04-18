@@ -1,5 +1,5 @@
 import { join } from "node:path"
-import type { DlContext } from "../dl/types.ts"
+import type { DlContext } from "../action/types.ts"
 import type { RepoContext } from "../repo/context.ts"
 import { defaultGitOps } from "../git/default.ts"
 import type { GitCloneStatus, GitOps, JjInitStatus } from "../git/types.ts"

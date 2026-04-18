@@ -1,5 +1,5 @@
 import type { LogExtension } from "../plugin/log.ts"
-import type { StepState } from "./actions.ts"
+import type { StepState } from "./state.ts"
 import type { GitOps } from "../git/types.ts"
 import type { DexportOps } from "../dexport/types.ts"
 

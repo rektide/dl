@@ -4,7 +4,7 @@ import {
 	ARCHIVE_ACTION_SPEC,
 	ARCHIVE_ACTION_STATE_OPTION,
 	archiveHandler,
-} from "../../dl/archive-action.ts"
+} from "./handler.ts"
 
 export const DL_ARCHIVE_ACTION_PLUGIN_ID = "dl:action:archive" as const
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
-import { decideArchlist } from "./archlist.ts"
-import { OFF, FORCE, ENSURE } from "./actions.ts"
+import { decideArchlist } from "./decide.ts"
+import { OFF, FORCE, ENSURE } from "../action/state.ts"
 
 describe("decideArchlist", () => {
 	test("off skips regardless of content", () => {

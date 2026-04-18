@@ -1,22 +1,7 @@
 import { lstat, readlink, symlink } from "node:fs/promises"
 import { join } from "node:path"
 import type { LogExtension } from "../plugin/log.ts"
-import type { RepoContext } from "../repo/context.ts"
-import type { DlContext } from "../dl/types.ts"
-
-/**
- * Lowercases and strips all non-alphanumeric characters from a name.
- *
- * @example
- * ```ts
- * simplify("Effect-TS")       // "effectts"
- * simplify("duckdb_mooncake") // "duckdbmooncake"
- * simplify("effect")          // "effect"
- * ```
- */
-export function simplify(name: string): string {
-	return name.toLowerCase().replace(/[^a-z0-9]/g, "")
-}
+import { simplify } from "./simplify.ts"
 
 /** Result of an {@link ensureSymlink} call. */
 export type SimplifyStatus =
@@ -25,13 +10,6 @@ export type SimplifyStatus =
 	| "already_linked"
 	| "conflict_symlink"
 	| "conflict_exists"
-
-export type SimplifySyncReport = {
-	readonly orgStatus: SimplifyStatus | "skipped"
-	readonly projectStatus: SimplifyStatus | "skipped"
-	readonly org: string | null
-	readonly project: string | null
-}
 
 /** Minimal logger interface accepted by {@link ensureSymlink}. */
 export interface SimplifyLog {
@@ -90,53 +68,4 @@ export async function ensureSymlink(
 	await symlink(original, linkPath, "junction")
 	log.info("link", "created", { linkPath, target: original })
 	return "created"
-}
-
-/**
- * Given a resolved repo context, create org-level and repo-level simplified
- * symlinks under the archive root. Runs as a step in the dl pipeline after
- * {@link syncArchive} so the real directory exists.
- */
-export async function syncSimplify(
-	resolved: RepoContext,
-	ctx: DlContext,
-): Promise<SimplifySyncReport> {
-	if (!resolved.url) {
-		return {
-			orgStatus: "skipped",
-			projectStatus: "skipped",
-			org: null,
-			project: null,
-		}
-	}
-
-	const segments = resolved.url.pathname.replace(/^\//, "").split("/")
-	if (segments.length < 2) {
-		return {
-			orgStatus: "skipped",
-			projectStatus: "skipped",
-			org: null,
-			project: null,
-		}
-	}
-
-	const org = segments[0]
-	const project = segments[1].replace(/\.git$/, "")
-
-	const simplifiedOrg = simplify(org)
-	const simplifiedProject = simplify(project)
-	const dryRun = ctx.options.dryRun
-	const anycase = ctx.options.anycase ?? false
-
-	const orgStatus = await ensureSymlink(ctx.roots.archiveRoot, org, simplifiedOrg, dryRun, ctx.log, anycase)
-
-	const orgDir = join(ctx.roots.archiveRoot, org)
-	const projectStatus = await ensureSymlink(orgDir, project, simplifiedProject, dryRun, ctx.log, anycase)
-
-	return {
-		orgStatus,
-		projectStatus,
-		org,
-		project,
-	}
 }

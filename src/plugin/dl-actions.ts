@@ -1,12 +1,12 @@
 import { plugin } from "gunshi/plugin"
-import type { DlActionSpec, DlActionToken } from "../dl/action-registry.ts"
-import type { ActionHandler } from "../dl/pipeline.ts"
+import type { DlActionSpec, DlActionToken } from "../action/registry.ts"
+import type { ActionHandler } from "../action/handler.ts"
 import {
 	collectActionSpecsFromExtensions,
 	collectActionHandlersFromExtensions,
 	resolveActionOptions,
 	resolveActionStates,
-} from "../dl/action-registry.ts"
+} from "../action/registry.ts"
 
 export const DL_ACTIONS_PLUGIN_ID = "dl:actions" as const
 

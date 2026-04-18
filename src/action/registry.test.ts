@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest"
-import { ENSURE, FORCE, OFF } from "./actions.ts"
-import type { DlActionSpec } from "./action-registry.ts"
+import { ENSURE, FORCE, OFF } from "./state.ts"
+import type { DlActionSpec } from "./registry.ts"
 import {
 	collectActionSpecsFromExtensions,
 	resolveActionOptions,
 	resolveActionState,
 	resolveActionStates,
-} from "./action-registry.ts"
+} from "./registry.ts"
 
 const ARCHIVE_SPEC: DlActionSpec = {
 	name: "archive",

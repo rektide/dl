@@ -1,10 +1,10 @@
-import { ENSURE, OFF } from "./actions.ts"
-import { syncSimplify } from "../symlink/index.ts"
+import { ENSURE, OFF } from "../action/state.ts"
+import type { DlActionSpec } from "../action/registry.ts"
+import type { LifecycleReporter } from "../action/lifecycle.ts"
+import type { ActionHandler, ActionResult } from "../action/handler.ts"
 import type { RepoContext } from "../repo/context.ts"
-import type { DlContext } from "./types.ts"
-import type { DlActionSpec } from "./action-registry.ts"
-import type { LifecycleReporter } from "./lifecycle.ts"
-import type { ActionHandler, ActionResult } from "./pipeline.ts"
+import type { DlContext } from "../action/types.ts"
+import { syncSimplify } from "./sync.ts"
 
 const SYMLINK_STATES = [ENSURE, OFF] as const
 

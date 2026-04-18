@@ -4,7 +4,7 @@ import {
 	SYMLINK_ACTION_SPEC,
 	SYMLINK_ACTION_STATE_OPTION,
 	symlinkHandler,
-} from "../../dl/symlink.ts"
+} from "./handler.ts"
 
 export const DL_SYMLINK_ACTION_PLUGIN_ID = "dl:action:symlink" as const
 

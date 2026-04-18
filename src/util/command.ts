@@ -1,8 +1,8 @@
-import { OFF } from "../dl/actions.ts"
-import { createProcessEntry } from "../dl/index.ts"
-import type { DlOptions } from "../dl/types.ts"
-import type { DlExtensions } from "../command/context.ts"
-import { resolveDlSetup } from "../command/context.ts"
+import { OFF } from "../action/state.ts"
+import { createProcessEntry } from "./run.ts"
+import type { DlOptions } from "../action/types.ts"
+import type { DlExtensions } from "./context.ts"
+import { resolveDlSetup } from "./context.ts"
 
 export function buildBaseOptions(values: Record<string, unknown>): DlOptions {
 	return {
