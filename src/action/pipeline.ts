@@ -1,5 +1,6 @@
 import type { RepoContext } from "../repo/context.ts"
 import type { DlContext } from "./types.ts"
+import { createLifecycleReporter } from "./lifecycle.ts"
 import type { LifecycleReporter } from "./lifecycle.ts"
 import type { LogExtension } from "../plugin/log.ts"
 import type { ActionHandler } from "./handler.ts"
@@ -11,7 +12,6 @@ export async function runPipeline(
 	reportLifecycle: boolean,
 	log: LogExtension,
 ): Promise<boolean> {
-	const { createLifecycleReporter } = await import("./lifecycle.ts")
 	const lifecycle = createLifecycleReporter(resolved)
 	let hadError = false
 
