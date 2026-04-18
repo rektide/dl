@@ -1,3 +1,30 @@
+/**
+ * @module command/run
+ *
+ * Shared processing entry points for the dl command and its subcommands.
+ *
+ * The pipeline flows through these stages:
+ *
+ *   input strings → resolve-stream plugin → action handlers → lifecycle report
+ *
+ * Two paths exist:
+ *
+ * 1. **Stream path** (preferred): {@link processStream} accepts an `AsyncIterable<string>`
+ *    and feeds it through the resolve-stream plugin, which yields candidate and resolved
+ *    events. Only resolved events are piped into the action pipeline. Used by
+ *    {@link processEntries} and will be used by future input sources (watch, clipboard).
+ *
+ * 2. **Legacy entry path**: {@link createProcessEntry} returns a per-input callback that
+ *    calls `repo.resolve()` directly. Kept for watch/clipboard which need a long-lived
+ *    processor. Will be replaced once the input source abstraction (option B) lands.
+ *
+ * Option building:
+ * - {@link buildBaseOptions} constructs `DlOptions` with all actions off.
+ * - {@link buildSubcommandOptions} layers the action plugin system on top, mapping
+ *   `--state` to the subcommand's primary action spec and passing through sibling
+ *   action flags (e.g. `--deepwiki=ensure` on `rekon dl archive`).
+ */
+
 import { OFF } from "../action/state.ts"
 import type { DlOptions, DlContext } from "../action/types.ts"
 import type { ActionHandler } from "../action/handler.ts"
@@ -10,6 +37,12 @@ import type { RepoContext } from "../repo/context.ts"
 import type { DlExtensions } from "./context.ts"
 import { requireExtensions, resolveDlSetup } from "./context.ts"
 
+/**
+ * Run the action pipeline against a single resolved repo context.
+ *
+ * Delegates to {@link runPipeline} with lifecycle reporting configured from
+ * `ctx.options`. Returns `true` if any handler reported an error.
+ */
 export async function processRepoContext(
 	resolved: RepoContext,
 	ctx: DlContext,
@@ -24,6 +57,16 @@ export async function processRepoContext(
 	)
 }
 
+/**
+ * Create a per-input processing callback for long-lived input sources.
+ *
+ * The returned function resolves an input string through `repoExtension.resolve()`,
+ * then feeds each resolved {@link RepoContext} through the action pipeline via
+ * {@link processRepoContext}.
+ *
+ * Used by watch and clipboard modes which need a stable callback to hand off
+ * to their event loops.
+ */
 export function createProcessEntry(
 	handlers: readonly ActionHandler[],
 	repoExtension: RepoExtension,
@@ -52,6 +95,13 @@ export function createProcessEntry(
 	}
 }
 
+/**
+ * Build `DlOptions` with all action states set to {@link OFF}.
+ *
+ * Reads shared flags (dry-run, log/cache, etc.) from raw gunshi values.
+ * Action states default to off; callers layer specific states on top via
+ * {@link buildSubcommandOptions} or the action plugin system.
+ */
 export function buildBaseOptions(values: Record<string, unknown>): DlOptions {
 	return {
 		consumeDexportOutput: !!values["consume-dexport-output"],
@@ -68,6 +118,16 @@ export function buildBaseOptions(values: Record<string, unknown>): DlOptions {
 	}
 }
 
+/**
+ * Feed an async stream of input strings through the resolve-stream plugin and
+ * action pipeline.
+ *
+ * This is the primary processing path. Each input is resolved by the
+ * resolve-stream plugin, which yields both candidate and verified events.
+ * Only resolved events are piped into the action handlers.
+ *
+ * Returns `true` if any handler reported an error.
+ */
 export async function processStream(
 	extensions: DlExtensions,
 	options: DlOptions,
@@ -87,6 +147,12 @@ export async function processStream(
 	return hadError
 }
 
+/**
+ * Convenience wrapper around {@link processStream} for a static array of inputs.
+ *
+ * Converts the array into an `AsyncIterable<string>` and delegates to
+ * {@link processStream}. Used by subcommands and the main dl batch path.
+ */
 export async function processEntries(
 	extensions: DlExtensions,
 	options: DlOptions,
@@ -98,6 +164,23 @@ export async function processEntries(
 	return processStream(extensions, options, fromArray())
 }
 
+/**
+ * Build `DlOptions` for an action subcommand, bridging the `--state` alias
+ * with the action plugin flag system.
+ *
+ * Maps the subcommand's `--state` value to the primary action's `<name>-state`
+ * option key, then resolves all action states through
+ * `ext.actions.resolveActionOptions`. This means sibling action flags work
+ * on subcommands: `rekon dl archive --deepwiki=ensure` enables both archive
+ * (via the subcommand) and deepwiki (via the global flag).
+ *
+ * @param extensions - Gunshi plugin extensions from the command context
+ * @param values - Raw parsed arg values from gunshi
+ * @param explicit - Which args were explicitly provided (from `ctx.explicit`)
+ * @param tokens - Raw arg tokens (from `ctx.tokens`) for inline value parsing
+ * @param primarySpec - The action spec for this subcommand's primary action
+ * @param stateValue - The value of `--state` (if provided)
+ */
 export function buildSubcommandOptions(
 	extensions: DlExtensions,
 	values: Record<string, unknown>,
