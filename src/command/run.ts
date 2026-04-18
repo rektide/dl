@@ -7,15 +7,12 @@
  *
  *   input strings → resolve-stream plugin → action handlers → lifecycle report
  *
- * Two paths exist:
+ * {@link processEntries} accepts an `AsyncIterable<string>` and feeds it through
+ * the resolve-stream plugin, which yields candidate and resolved events. Only
+ * resolved events are piped into the action pipeline.
  *
- * 1. **Stream path** (preferred): {@link processEntries} accepts an `AsyncIterable<string>`
- *    and feeds it through the resolve-stream plugin, which yields candidate and resolved
- *    events. Only resolved events are piped into the action pipeline.
- *
- * 2. **Legacy entry path**: {@link createProcessEntry} returns a per-input callback that
- *    calls `repo.resolve()` directly. Kept for watch/clipboard which need a long-lived
- *    processor. Will be replaced once the input source abstraction (option B) lands.
+ * Input sources ({@link positionalSource}, {@link watchSource}, {@link clipboardSource})
+ * are defined in {@link command/input} and produce the async iterables consumed here.
  *
  * Option building:
  * - {@link buildBaseOptions} constructs `DlOptions` with all actions off.
@@ -29,8 +26,6 @@ import type { DlOptions, DlContext } from "../action/types.ts"
 import type { ActionHandler } from "../action/handler.ts"
 import type { DlActionSpec, DlActionToken } from "../action/registry.ts"
 import { runPipeline } from "../action/pipeline.ts"
-import type { LogExtension } from "../plugin/log.ts"
-import type { RepoExtension } from "../plugin/repo.ts"
 import { RESOLVE_STREAM_PLUGIN_ID, type ResolveStreamExtension } from "../plugin/resolve-stream.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { DlExtensions } from "./context.ts"
@@ -54,44 +49,6 @@ export async function processRepoContext(
 		ctx.options.reportLifecycle,
 		ctx.log,
 	)
-}
-
-/**
- * Create a per-input processing callback for long-lived input sources.
- *
- * The returned function resolves an input string through `repoExtension.resolve()`,
- * then feeds each resolved {@link RepoContext} through the action pipeline via
- * {@link processRepoContext}.
- *
- * Used by watch and clipboard modes which need a stable callback to hand off
- * to their event loops.
- */
-export function createProcessEntry(
-	handlers: readonly ActionHandler[],
-	repoExtension: RepoExtension,
-	roots: DlContext["roots"],
-	options: DlOptions,
-	log: LogExtension,
-): (input: string) => Promise<boolean> {
-	return async (input: string) => {
-		try {
-			const ctx: DlContext = { roots, options, log }
-			let hadError = false
-			let found = false
-			for await (const resolved of repoExtension.resolve(input)) {
-				found = true
-				hadError = (await processRepoContext(resolved, ctx, handlers)) || hadError
-			}
-			if (!found) {
-				log.warn("sync", "no_match", { input })
-			}
-			return hadError
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error)
-			log.error("sync", "failed", { message })
-			return true
-		}
-	}
 }
 
 /**
@@ -121,9 +78,9 @@ export function buildBaseOptions(values: Record<string, unknown>): DlOptions {
  * Feed an async stream of input strings through the resolve-stream plugin and
  * action pipeline.
  *
- * This is the primary processing path. Each input is resolved by the
- * resolve-stream plugin, which yields both candidate and verified events.
- * Only resolved events are piped into the action handlers.
+ * Each input is resolved by the resolve-stream plugin, which yields both
+ * candidate and verified events. Only resolved events are piped into the
+ * action handlers.
  *
  * Returns `true` if any handler reported an error.
  */

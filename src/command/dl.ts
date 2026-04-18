@@ -3,12 +3,10 @@ import { realpath } from "node:fs/promises"
 import { pathToFileURL } from "node:url"
 import { defineWithTypes, cli, type CommandContext, type ArgValues } from "gunshi"
 import type { DlActionToken } from "../action/registry.ts"
-import { createProcessEntry, processEntries, buildBaseOptions } from "./run.ts"
+import { processEntries, buildBaseOptions } from "./run.ts"
 import type { DlOptions } from "../action/types.ts"
 import { OFF } from "../action/state.ts"
-import { watchClipboard } from "./clipboard.ts"
-import { watchArchlist } from "./watch.ts"
-import { prependOrg } from "./prepend-org.ts"
+import { positionalSource, watchSource, clipboardSource, mergeSources } from "./input.ts"
 import { dlPlugins } from "../plugin/index.ts"
 import { requireExtensions, type DlCommandParams, type DlExtensions } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"
@@ -83,9 +81,8 @@ function buildDlOptions(
 async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions }>) {
 	try {
 		const { org, watch, clipboard } = ctx.values
-		const inputs = prependOrg(org, ctx.positionals)
 
-		if (inputs.length === 0 && !watch && !clipboard) {
+		if (ctx.positionals.length === 0 && !watch && !clipboard) {
 			console.error(
 				"usage: rekon dl [--watch] [--clipboard] [--org <org>] <repo-url|org/repo> [repo-url|org/repo ...]",
 			)
@@ -95,7 +92,6 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		if (ctx.values.noop) return
 
 		const ext = requireExtensions(ctx.extensions)
-		const roots = await ext.roots.resolveRoots()
 		const options = buildDlOptions(
 			ctx.values,
 			ctx.explicit as Record<string, boolean | undefined>,
@@ -109,7 +105,7 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		}
 
 		if (ctx.values.candidates) {
-			for (const input of inputs) {
+			for await (const input of positionalSource(org, ctx.positionals)) {
 				let found = false
 				for await (const candidate of ext.repo.candidates(input)) {
 					found = true
@@ -130,7 +126,7 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		}
 
 		if (options.expand) {
-			for (const input of inputs) {
+			for await (const input of positionalSource(org, ctx.positionals)) {
 				let found = false
 				for await (const resolved of ext.repo.resolve(input)) {
 					found = true
@@ -149,36 +145,11 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 			return
 		}
 
-		if (watch || clipboard) {
-			const handlers = ext.actions["dl:handlers"]
-			const processEntry = createProcessEntry(
-				handlers,
-				ext.repo,
-				roots,
-				options,
-				ext.log,
-			)
+		const sources = [positionalSource(org, ctx.positionals)]
+		if (watch) sources.push(watchSource(ext.log))
+		if (clipboard) sources.push(clipboardSource(ext.log))
 
-			let hadError = false
-			for (const input of inputs) {
-				hadError = (await processEntry(input)) || hadError
-			}
-
-			if (watch) {
-				hadError = (await watchArchlist(processEntry, ext.log)) || hadError
-			}
-
-			if (clipboard) {
-				hadError = (await watchClipboard(processEntry, ext.log)) || hadError
-			}
-
-			if (hadError) {
-				process.exit(1)
-			}
-			return
-		}
-
-		const hadError = await processEntries(ctx.extensions, options, (async function* () { for (const i of inputs) yield i })())
+		const hadError = await processEntries(ctx.extensions, options, mergeSources(sources))
 		if (hadError) {
 			process.exit(1)
 		}
