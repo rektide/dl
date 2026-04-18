@@ -1,6 +1,6 @@
 import { define } from "gunshi"
 import { SYMLINK_ACTION_SPEC } from "../symlink/handler.ts"
-import { buildSubcommandOptions, processStream, inputsFromArray } from "./run.ts"
+import { buildSubcommandOptions, processEntries } from "./run.ts"
 import type { DlCommandParams } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"
 import { prependOrg } from "./prepend-org.ts"
@@ -39,7 +39,7 @@ export default define<DlCommandParams>({
 			ctx.values.state,
 		)
 		options.anycase = !!ctx.values.anycase
-		const hadError = await processStream(ctx.extensions, options, inputsFromArray(inputs))
+		const hadError = await processEntries(ctx.extensions, options, (async function* () { for (const i of inputs) yield i })())
 		if (hadError) process.exit(1)
 	},
 })

@@ -1,6 +1,6 @@
 import { define } from "gunshi"
 import { DEEPWIKI_ACTION_SPEC } from "../deepwiki/handler.ts"
-import { buildSubcommandOptions, processStream, inputsFromArray } from "./run.ts"
+import { buildSubcommandOptions, processEntries } from "./run.ts"
 import type { DlCommandParams } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"
 import { prependOrg } from "./prepend-org.ts"
@@ -33,7 +33,7 @@ export default define<DlCommandParams>({
 			DEEPWIKI_ACTION_SPEC,
 			ctx.values.state,
 		)
-		const hadError = await processStream(ctx.extensions, options, inputsFromArray(inputs))
+		const hadError = await processEntries(ctx.extensions, options, (async function* () { for (const i of inputs) yield i })())
 		if (hadError) process.exit(1)
 	},
 })

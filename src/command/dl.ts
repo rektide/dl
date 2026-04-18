@@ -3,7 +3,7 @@ import { realpath } from "node:fs/promises"
 import { pathToFileURL } from "node:url"
 import { defineWithTypes, cli, type CommandContext, type ArgValues } from "gunshi"
 import type { DlActionToken } from "../action/registry.ts"
-import { createProcessEntry, processStream, buildBaseOptions, inputsFromArray } from "./run.ts"
+import { createProcessEntry, processEntries, buildBaseOptions } from "./run.ts"
 import type { DlOptions } from "../action/types.ts"
 import { OFF } from "../action/state.ts"
 import { watchClipboard } from "./clipboard.ts"
@@ -178,7 +178,7 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 			return
 		}
 
-		const hadError = await processStream(ctx.extensions, options, inputsFromArray(inputs))
+		const hadError = await processEntries(ctx.extensions, options, (async function* () { for (const i of inputs) yield i })())
 		if (hadError) {
 			process.exit(1)
 		}
