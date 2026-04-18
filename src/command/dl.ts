@@ -3,13 +3,12 @@ import { realpath } from "node:fs/promises"
 import { pathToFileURL } from "node:url"
 import { defineWithTypes, cli, type CommandContext, type ArgValues } from "gunshi"
 import type { DlActionToken } from "../action/registry.ts"
-import { createProcessEntry } from "./run.ts"
+import { createProcessEntry, processEntries, buildBaseOptions } from "./run.ts"
 import type { DlOptions } from "../action/types.ts"
 import { OFF } from "../action/state.ts"
 import { watchClipboard } from "./clipboard.ts"
 import { watchArchlist } from "./watch.ts"
 import { prependOrg } from "./prepend-org.ts"
-import { buildBaseOptions } from "./util.ts"
 import { dlPlugins } from "../plugin/index.ts"
 import { requireExtensions, type DlCommandParams, type DlExtensions } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"
@@ -150,28 +149,36 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 			return
 		}
 
-		let hadError = false
-		const handlers = ext.actions["dl:handlers"]
-		const processEntry = createProcessEntry(
-			handlers,
-			ext.repo,
-			roots,
-			options,
-			ext.log,
-		)
+		if (watch || clipboard) {
+			const handlers = ext.actions["dl:handlers"]
+			const processEntry = createProcessEntry(
+				handlers,
+				ext.repo,
+				roots,
+				options,
+				ext.log,
+			)
 
-		for (const input of inputs) {
-			hadError = (await processEntry(input)) || hadError
+			let hadError = false
+			for (const input of inputs) {
+				hadError = (await processEntry(input)) || hadError
+			}
+
+			if (watch) {
+				hadError = (await watchArchlist(processEntry, ext.log)) || hadError
+			}
+
+			if (clipboard) {
+				hadError = (await watchClipboard(processEntry, ext.log)) || hadError
+			}
+
+			if (hadError) {
+				process.exit(1)
+			}
+			return
 		}
 
-		if (watch) {
-			hadError = (await watchArchlist(processEntry, ext.log)) || hadError
-		}
-
-		if (clipboard) {
-			hadError = (await watchClipboard(processEntry, ext.log)) || hadError
-		}
-
+		const hadError = await processEntries(ctx.extensions, options, inputs)
 		if (hadError) {
 			process.exit(1)
 		}
