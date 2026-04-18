@@ -9,6 +9,7 @@ import { cratesIoProvider } from "../repo/provider/crates-io.ts"
 import { docsRsProvider } from "../repo/provider/docs-rs.ts"
 import { genericProvider } from "../repo/provider/generic.ts"
 import { npmxDevProvider } from "../repo/provider/npmx-dev.ts"
+import { githubioProvider } from "../repo/provider/githubio.ts"
 import { RESOLVE_TIMEOUT } from "../repo/util.ts"
 
 export const REPO_PLUGIN_ID = "rekon:repo" as const
@@ -29,6 +30,7 @@ export const repoPlugin = plugin({
 		registry.register(cratesIoProvider)
 		registry.register(docsRsProvider)
 		registry.register(npmxDevProvider)
+		registry.register(githubioProvider)
 
 		return {
 			async *candidates(input: string) {
