@@ -15,7 +15,10 @@ import { requireExtensions, type DlCommandParams, type DlExtensions } from "./co
 import { globalArgs } from "../arg/global.ts"
 import { sharedArgs } from "../arg/shared.ts"
 import archlistSubcommand from "./archlist.ts"
+import archiveSubcommand from "./archive.ts"
+import deepwikiSubcommand from "./deepwiki.ts"
 import symlinkSubcommand from "./symlink.ts"
+import wikiSubcommand from "./wiki.ts"
 
 const dlArgs = {
 	...globalArgs,
@@ -193,8 +196,11 @@ function main() {
 		name: "dl",
 		plugins: dlPlugins,
 		subCommands: {
+			archive: archiveSubcommand,
 			archlist: archlistSubcommand,
+			deepwiki: deepwikiSubcommand,
 			symlink: symlinkSubcommand,
+			wiki: wikiSubcommand,
 		},
 		fallbackToEntry: true,
 	})
