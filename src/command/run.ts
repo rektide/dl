@@ -11,8 +11,8 @@
  *
  * 1. **Stream path** (preferred): {@link processStream} accepts an `AsyncIterable<string>`
  *    and feeds it through the resolve-stream plugin, which yields candidate and resolved
- *    events. Only resolved events are piped into the action pipeline. Used by
- *    {@link processEntries} and will be used by future input sources (watch, clipboard).
+ *    events. Only resolved events are piped into the action pipeline.
+ *    {@link inputsFromArray} adapts static arrays for this path.
  *
  * 2. **Legacy entry path**: {@link createProcessEntry} returns a per-input callback that
  *    calls `repo.resolve()` directly. Kept for watch/clipboard which need a long-lived
@@ -148,20 +148,13 @@ export async function processStream(
 }
 
 /**
- * Convenience wrapper around {@link processStream} for a static array of inputs.
+ * Convenience: convert a static array into an async iterable.
  *
- * Converts the array into an `AsyncIterable<string>` and delegates to
- * {@link processStream}. Used by subcommands and the main dl batch path.
+ * Thin adapter for callers that already have inputs in array form
+ * (e.g. `ctx.positionals`) to feed into {@link processStream}.
  */
-export async function processEntries(
-	extensions: DlExtensions,
-	options: DlOptions,
-	inputs: readonly string[],
-): Promise<boolean> {
-	async function* fromArray() {
-		for (const input of inputs) yield input
-	}
-	return processStream(extensions, options, fromArray())
+export async function* inputsFromArray(inputs: readonly string[]): AsyncGenerator<string> {
+	for (const input of inputs) yield input
 }
 
 /**

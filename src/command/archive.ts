@@ -1,6 +1,6 @@
 import { define } from "gunshi"
 import { ARCHIVE_ACTION_SPEC } from "../archive/handler.ts"
-import { buildSubcommandOptions, processEntries } from "./run.ts"
+import { buildSubcommandOptions, processStream, inputsFromArray } from "./run.ts"
 import type { DlCommandParams } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"
 import { prependOrg } from "./prepend-org.ts"
@@ -33,7 +33,7 @@ export default define<DlCommandParams>({
 			ARCHIVE_ACTION_SPEC,
 			ctx.values.state,
 		)
-		const hadError = await processEntries(ctx.extensions, options, inputs)
+		const hadError = await processStream(ctx.extensions, options, inputsFromArray(inputs))
 		if (hadError) process.exit(1)
 	},
 })
