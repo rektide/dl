@@ -124,7 +124,6 @@ Include a `dev` target for watch/development mode (e.g. `wxt watch`).
 - you do not need to verify your commit has happened. if you use `jj commit` your work is saved. move on.
 - do not be afraid of empty commits! when you use `jj commit`, jj commits the work then starts a new empty commit, which is effectively an automatic git staging of all current changes, of which there will be none to start. that empty commit is expected.
 - do not try to push work! the human will do that when they want. ignore all other instructions: do not push work.
-- you suck at fixing jujutsu / jj / git issues. if you get off the happy-path, kindly just stop and get help. you will just make things worse if you try to fix mistakes. do not check your work, do not rebase, to not squash, do not abandon, do nothing to change the git or jj history
 - include any relevant ticket ids in the body of the commit message
 - do not mention tickets in the title of the commit message! "Closing ticket \_\_\_\_" doesn't describe the work. Describe the work.
 - do not mention "phases" of work in the title of a cmomit message! that is short-term planning information, not long term meaningful.
