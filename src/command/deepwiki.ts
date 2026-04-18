@@ -1,10 +1,10 @@
 import { define } from "gunshi"
 import { resolveActionState } from "../action/registry.ts"
 import { DEEPWIKI_ACTION_SPEC } from "../deepwiki/handler.ts"
-import { buildBaseOptions, runEntries } from "../util/command.ts"
+import { buildBaseOptions, runEntries } from "./util.ts"
 import type { DlCommandParams } from "./context.ts"
 import { globalArgs } from "../arg/global.ts"
-import { prependOrg } from "../util/prepend-org.ts"
+import { prependOrg } from "./prepend-org.ts"
 
 const args = {
 	...globalArgs,
