@@ -20,6 +20,10 @@ import {
 	type RepoExtension,
 } from "../plugin/repo.ts"
 import {
+	RESOLVE_STREAM_PLUGIN_ID,
+	type ResolveStreamExtension,
+} from "../plugin/resolve-stream.ts"
+import {
 	ROOTS_PLUGIN_ID,
 	type RootsExtension,
 } from "../plugin/roots.ts"
@@ -28,6 +32,7 @@ export interface DlExtensions extends Record<string, unknown> {
 	[DL_ACTIONS_PLUGIN_ID]: DlActionsExtension
 	[ROOTS_PLUGIN_ID]: RootsExtension
 	[REPO_PLUGIN_ID]: RepoExtension
+	[RESOLVE_STREAM_PLUGIN_ID]: ResolveStreamExtension
 	[GIT_PLUGIN_ID]: GitExtension
 	[DEXPORT_PLUGIN_ID]: DexportExtension
 	[LOG_PLUGIN_ID]: LogExtension

@@ -5,6 +5,7 @@ import type { DlActionSpec, DlActionToken } from "../action/registry.ts"
 import { runPipeline } from "../action/pipeline.ts"
 import type { LogExtension } from "../plugin/log.ts"
 import type { RepoExtension } from "../plugin/repo.ts"
+import { RESOLVE_STREAM_PLUGIN_ID, type ResolveStreamExtension } from "../plugin/resolve-stream.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { DlExtensions } from "./context.ts"
 import { requireExtensions, resolveDlSetup } from "./context.ts"
@@ -67,25 +68,34 @@ export function buildBaseOptions(values: Record<string, unknown>): DlOptions {
 	}
 }
 
+export async function processStream(
+	extensions: DlExtensions,
+	options: DlOptions,
+	inputs: AsyncIterable<string>,
+): Promise<boolean> {
+	const setup = await resolveDlSetup(extensions, options)
+	const handlers = setup.actions["dl:handlers"]
+	const ctx: DlContext = { roots: setup.roots, options, log: setup.log }
+	const stream = extensions[RESOLVE_STREAM_PLUGIN_ID] as ResolveStreamExtension
+
+	let hadError = false
+	for await (const event of stream.resolveStream(inputs)) {
+		if (event.type === "resolved") {
+			hadError = (await processRepoContext(event.context, ctx, handlers)) || hadError
+		}
+	}
+	return hadError
+}
+
 export async function processEntries(
 	extensions: DlExtensions,
 	options: DlOptions,
 	inputs: readonly string[],
 ): Promise<boolean> {
-	const setup = await resolveDlSetup(extensions, options)
-	const handlers = setup.actions["dl:handlers"]
-	const processEntry = createProcessEntry(
-		handlers,
-		setup.repo,
-		setup.roots,
-		options,
-		setup.log,
-	)
-	let hadError = false
-	for (const input of inputs) {
-		hadError = (await processEntry(input)) || hadError
+	async function* fromArray() {
+		for (const input of inputs) yield input
 	}
-	return hadError
+	return processStream(extensions, options, fromArray())
 }
 
 export function buildSubcommandOptions(

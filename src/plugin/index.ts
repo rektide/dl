@@ -9,6 +9,7 @@ import { dexportPlugin } from "./dexport.ts"
 import { gitPlugin } from "./git.ts"
 import { logPlugin } from "./log.ts"
 import { repoPlugin } from "./repo.ts"
+import { resolveStreamPlugin } from "./resolve-stream.ts"
 import { rootsPlugin } from "./roots.ts"
 
 export const dlPlugins = [
@@ -16,6 +17,7 @@ export const dlPlugins = [
 	logPlugin,
 	rootsPlugin,
 	repoPlugin,
+	resolveStreamPlugin,
 	gitPlugin,
 	dexportPlugin,
 	dlArchiveActionPlugin,
