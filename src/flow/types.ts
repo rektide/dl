@@ -32,18 +32,44 @@ export type RepoStream<TRepo extends Repo = Repo> = AsyncIterable<TRepo> & {
 	readonly [repoStreamBrand]: TRepo
 }
 
-export type FlowEvent =
-	| Readonly<{ type: "candidate"; repo: Repo }>
-	| Readonly<{ type: "verified"; repo: Repo }>
-	| Readonly<{ type: "miss"; input: string; provider: string; url: URL | null }>
-	| Readonly<{ type: "error"; input: string; provider: string; message: string }>
+export type FlowCandidateEvent = {
+	type: "candidate"
+	repo: Repo
+}
 
-export type FlowContext = Readonly<{
+export type FlowVerifiedEvent = {
+	type: "verified"
+	repo: Repo
+}
+
+export type FlowMissEvent = {
+	type: "miss"
+	input: string
+	provider: string
+	url: URL | null
+}
+
+export type FlowErrorEvent = {
+	type: "error"
+	input: string
+	provider: string
+	message: string
+}
+
+export type FlowEvent =
+	| Readonly<FlowCandidateEvent>
+	| Readonly<FlowVerifiedEvent>
+	| Readonly<FlowMissEvent>
+	| Readonly<FlowErrorEvent>
+
+export type FlowContextShape = {
 	signal: AbortSignal
 	goal: FlowGoal
 	dedupe: Set<string>
 	now: () => Date
-}>
+}
+
+export type FlowContext = Readonly<FlowContextShape>
 
 export type RepoStep<I extends Repo = Repo, O extends Repo = Repo> = Readonly<{
 	name: string
