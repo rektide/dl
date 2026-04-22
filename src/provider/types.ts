@@ -1,17 +1,45 @@
 import type { Repo } from "../flow/types.ts"
 
-export type Provider = Readonly<{
+export type ProviderCandidates = (input: string) => AsyncGenerator<Repo>
+export type ProviderVerify = (
+	repo: Repo,
+	signal: AbortSignal,
+) => AsyncGenerator<Repo>
+
+export type ProviderShape = {
 	name: string
 	hosts: ReadonlyArray<string>
-	candidates(input: string): AsyncGenerator<Repo>
-	verify(repo: Repo, signal: AbortSignal): AsyncGenerator<Repo>
-}>
+	candidates: ProviderCandidates
+	verify: ProviderVerify
+}
 
-export type ProviderRegistry = Readonly<{
+export type Provider = Readonly<ProviderShape>
+
+export const PROVIDER_LOOKUP_MODE = {
+	candidate: "candidate",
+	verify: "verify",
+} as const
+
+export type ProviderLookupMode =
+	(typeof PROVIDER_LOOKUP_MODE)[keyof typeof PROVIDER_LOOKUP_MODE]
+
+export type ProviderLookupOptionsShape = {
+	mode: ProviderLookupMode
+	repo: Repo | null
+}
+
+export type ProviderLookupOptions = Readonly<ProviderLookupOptionsShape>
+
+export type ProviderLookup = (
+	input: string,
+	options?: ProviderLookupOptions,
+) => ReadonlyArray<Provider>
+
+export type ProviderRegistryShape = {
 	providers: ReadonlyArray<Provider>
 	byName: ReadonlyMap<string, Provider>
-	byHost: ReadonlyMap<string, ReadonlyArray<Provider>>
 	register(provider: Provider): void
-	lookup(host: string): ReadonlyArray<Provider>
-	resolve(input: string): ReadonlyArray<Provider>
-}>
+	lookup: ProviderLookup
+}
+
+export type ProviderRegistry = Readonly<ProviderRegistryShape>

@@ -12,7 +12,7 @@ export const FLOW_GOAL = {
 
 export type FlowGoal = (typeof FLOW_GOAL)[keyof typeof FLOW_GOAL]
 
-export type Repo = Readonly<{
+export type RepoShape = {
 	id: string
 	input: string
 	url: URL
@@ -23,12 +23,15 @@ export type Repo = Readonly<{
 	state: RepoState
 	producedBy: string
 	verifiedBy: ReadonlySet<string>
-}>
+}
+
+export type Repo = Readonly<RepoShape>
 
 declare const repoStreamBrand: unique symbol
-declare const repoStepBrand: unique symbol
 
-export type RepoStream<TRepo extends Repo = Repo> = AsyncIterable<TRepo> & {
+export type RepoStreamShape<TRepo extends Repo = Repo> = AsyncIterable<TRepo>
+
+export type RepoStream<TRepo extends Repo = Repo> = RepoStreamShape<TRepo> & {
 	readonly [repoStreamBrand]: TRepo
 }
 
@@ -56,6 +59,12 @@ export type FlowErrorEvent = {
 	message: string
 }
 
+export type FlowEventShape =
+	| FlowCandidateEvent
+	| FlowVerifiedEvent
+	| FlowMissEvent
+	| FlowErrorEvent
+
 export type FlowEvent =
 	| Readonly<FlowCandidateEvent>
 	| Readonly<FlowVerifiedEvent>
@@ -71,13 +80,16 @@ export type FlowContextShape = {
 
 export type FlowContext = Readonly<FlowContextShape>
 
-export type RepoStep<I extends Repo = Repo, O extends Repo = Repo> = Readonly<{
+export type RepoStepRun<I extends Repo = Repo, O extends Repo = Repo> = (
+	input: RepoStream<I>,
+	ctx: FlowContext,
+) => RepoStream<O>
+
+export type RepoStepShape<I extends Repo = Repo, O extends Repo = Repo> = {
 	name: string
-	run(input: RepoStream<I>, ctx: FlowContext): RepoStream<O>
-	readonly [repoStepBrand]: {
-		readonly in: I
-		readonly out: O
-	}
-}>
+	run: RepoStepRun<I, O>
+}
+
+export type RepoStep<I extends Repo = Repo, O extends Repo = Repo> = RepoStepShape<I, O>
 
 export type RepoIdentity = (repo: Repo) => string

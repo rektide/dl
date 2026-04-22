@@ -1,18 +1,24 @@
-export type InputEntry = Readonly<{
+export type InputEntryShape = {
 	value: string
 	source: string
-}>
+}
+
+export type InputEntry = Readonly<InputEntryShape>
 
 export type InputStream = AsyncIterable<InputEntry>
 
-export type InputSource = Readonly<{
+export type InputSourceShape = {
 	name: string
 	active: boolean
 	stream(): InputStream
-}>
+}
 
-export type InputOptions = Readonly<{
+export type InputSource = Readonly<InputSourceShape>
+
+export type InputOptionsShape = {
 	org: string | null
 	watch: boolean
 	clipboard: boolean
-}>
+}
+
+export type InputOptions = Readonly<InputOptionsShape>
