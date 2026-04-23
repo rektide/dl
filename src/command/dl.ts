@@ -3,11 +3,11 @@ import { realpath } from "node:fs/promises"
 import { pathToFileURL } from "node:url"
 import { defineWithTypes, cli, type CommandContext } from "gunshi"
 import {
-	processEntries,
 	processCandidates,
 	processVerified,
 	buildMainOptions,
 } from "./run.ts"
+import { runLegacyActionsFromFlow } from "../legacy/run.ts"
 import { OFF } from "../action/state.ts"
 import type { DlOptions } from "../action/types.ts"
 import { dlPlugins } from "../plugin/index.ts"
@@ -82,7 +82,7 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		if (watch.active) sources.push(watch.source())
 		if (clipboard.active) sources.push(clipboard.source())
 
-		const hadError = await processEntries(ctx.extensions, options, mergeConcurrent(sources))
+		const hadError = await runLegacyActionsFromFlow(ctx.extensions, options, mergeConcurrent(sources))
 		if (hadError) {
 			process.exit(1)
 		}
