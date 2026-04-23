@@ -58,7 +58,7 @@ function makeContext(providers: ReadonlyArray<Provider>, verify = true): Execute
 }
 
 describe("createInputFlowExecutor", () => {
-	test("tries multiple providers and emits miss + verified", async () => {
+	test("tries multiple providers and yields verified repos", async () => {
 		const input = "mary.my.id/atcute"
 		const github = makeProvider(
 			"github",
@@ -72,19 +72,15 @@ describe("createInputFlowExecutor", () => {
 		)
 
 		const executor = createInputFlowExecutor()
-		const events = []
-		for await (const event of executor(oneInput(input), makeContext([github, tangled], true))) {
-			events.push(event)
+		const repos = []
+		for await (const repo of executor(oneInput(input), makeContext([github, tangled], true))) {
+			repos.push(repo)
 		}
 
-		expect(events.some((event) => event.type === "miss" && event.provider === "github")).toBe(
-			true,
-		)
-		expect(
-			events.some(
-				(event) => event.type === "verified" && event.repo.producedBy === "tangled",
-			),
-		).toBe(true)
+		expect(repos).toHaveLength(2)
+		expect(repos.every((repo) => repo.state === REPO_STATE.verified)).toBe(true)
+		expect(repos.some((repo) => repo.producedBy === "github")).toBe(true)
+		expect(repos.some((repo) => repo.producedBy === "tangled")).toBe(true)
 	})
 
 	test("does not call verify when verify option is false", async () => {
@@ -99,13 +95,13 @@ describe("createInputFlowExecutor", () => {
 		)
 
 		const executor = createInputFlowExecutor()
-		const events = []
-		for await (const event of executor(oneInput("org/repo"), makeContext([provider], false))) {
-			events.push(event)
+		const repos = []
+		for await (const repo of executor(oneInput("org/repo"), makeContext([provider], false))) {
+			repos.push(repo)
 		}
 
-		expect(events).toHaveLength(1)
-		expect(events[0]?.type).toBe("candidate")
+		expect(repos).toHaveLength(1)
+		expect(repos[0]?.state).toBe(REPO_STATE.candidate)
 		expect(verifyCalls).toBe(0)
 	})
 
@@ -123,12 +119,11 @@ describe("createInputFlowExecutor", () => {
 		)
 
 		const executor = createInputFlowExecutor()
-		const events = []
-		for await (const event of executor(oneInput(input), makeContext([github, mirror], false))) {
-			events.push(event)
+		const repos = []
+		for await (const repo of executor(oneInput(input), makeContext([github, mirror], false))) {
+			repos.push(repo)
 		}
 
-		const candidates = events.filter((event) => event.type === "candidate")
-		expect(candidates).toHaveLength(1)
+		expect(repos).toHaveLength(1)
 	})
 })

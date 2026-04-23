@@ -5,7 +5,7 @@ import { defineWithTypes, cli, type CommandContext } from "gunshi"
 import {
 	processEntries,
 	processCandidates,
-	processExpand,
+	processVerified,
 	buildMainOptions,
 } from "./run.ts"
 import { OFF } from "../action/state.ts"
@@ -20,9 +20,6 @@ import {
 import {
 	CLIPBOARD_INPUT_PLUGIN_ID,
 } from "../plugin/input-clipboard.ts"
-import {
-	RESOLVE_STREAM_PLUGIN_ID,
-} from "../plugin/resolve-stream.ts"
 import { requireExtensions, type DlCommandParams, type DlExtensions } from "./context.ts"
 import archlistSubcommand from "./archlist.ts"
 import archiveSubcommand from "./archive.ts"
@@ -70,15 +67,14 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		}
 
 		const inputs = positional.source(ctx.values.org as string | undefined, ctx.positionals) // gunshi: plugin-registered global
-		const stream = ctx.extensions[RESOLVE_STREAM_PLUGIN_ID]
 
 		if (ctx.values.candidates) {
 			await processCandidates(ctx.extensions, inputs)
 			return
 		}
 
-		if (options.expand) {
-			await processExpand(ctx.extensions, inputs)
+		if (options.verified) {
+			await processVerified(ctx.extensions, inputs)
 			return
 		}
 

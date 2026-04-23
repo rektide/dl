@@ -9,7 +9,7 @@
  *
  * Three consumers of the resolve-stream plugin:
  * - {@link processCandidates} logs candidate (pre-verification) events
- * - {@link processExpand} logs resolved (post-verification) events
+ * - {@link processVerified} logs resolved (post-verification) events
  * - {@link processEntries} runs resolved events through the action pipeline
  *
  * Input sources ({@link positionalSource}, {@link watchSource}, {@link clipboardSource})
@@ -74,7 +74,7 @@ export function buildBaseOptions(values: Record<string, unknown>): DlOptions {
 		archlistState: OFF,
 		symlinkState: OFF,
 		anycase: false,
-		expand: false,
+		verified: false,
 		dryRun: !!values["dry-run"],
 	}
 }
@@ -112,7 +112,7 @@ export async function processEntries(
  * Build `DlOptions` for the main dl command using the full action plugin system.
  *
  * Resolves all action states through `ext.actions.resolveActionOptions`, then
- * layers on dl-main-specific flags (anycase, expand).
+ * layers on dl-main-specific flags (anycase, verified).
  */
 export function buildMainOptions(
 	extensions: DlExtensions,
@@ -131,7 +131,7 @@ export function buildMainOptions(
 		archlistState: actionOptions.archlistState ?? OFF,
 		symlinkState: actionOptions.symlinkState ?? OFF,
 		anycase: !!values.anycase,
-		expand: !!values.expand,
+		verified: !!values.verified,
 	}
 }
 
@@ -151,16 +151,15 @@ export async function processCandidates(
 
 	for await (const input of inputs) {
 		let candidateFound = false
-		for await (const event of flow.resolveStream(singleInput(input), { verify: false })) {
-			if (event.type !== "candidate") continue
+		for await (const repo of flow.resolveStream(singleInput(input), { verify: false })) {
 			candidateFound = true
 			ext.log.info("candidates", "expanded", {
-				input: event.repo.input,
-				url: event.repo.url.toString(),
-				org: event.repo.org,
-				project: event.repo.project,
-				provider: event.repo.producedBy,
-				verified: event.repo.state === "verified",
+				input: repo.input,
+				url: repo.url.toString(),
+				org: repo.org,
+				project: repo.project,
+				provider: repo.producedBy,
+				verified: repo.state === "verified",
 			})
 		}
 
@@ -171,13 +170,13 @@ export async function processCandidates(
 }
 
 /**
- * Feed an async stream through the resolve-stream plugin, logging only
- * resolved (post-verification) events.
+ * Feed an async stream through the flow plugin, logging only
+ * verified (post-verification) repos.
  *
- * This is the `--expand` mode: resolve and verify inputs, then print the
+ * This is the `--verified` mode: resolve and verify inputs, then print the
  * full repo context without syncing.
  */
-export async function processExpand(
+export async function processVerified(
 	extensions: DlExtensions,
 	inputs: AsyncIterable<string>,
 ): Promise<void> {
@@ -186,16 +185,15 @@ export async function processExpand(
 
 	for await (const input of inputs) {
 		let resolvedFound = false
-		for await (const event of flow.resolveStream(singleInput(input), { verify: true })) {
-			if (event.type !== "verified") continue
+		for await (const repo of flow.resolveStream(singleInput(input), { verify: true })) {
 			resolvedFound = true
-			ext.log.info("expand", "resolved", {
-				input: event.repo.input,
-				url: event.repo.url.toString(),
-				pathname: event.repo.url.pathname,
+			ext.log.info("verified", "resolved", {
+				input: repo.input,
+				url: repo.url.toString(),
+				pathname: repo.url.pathname,
 				source: {
-					producedBy: event.repo.producedBy,
-					verifiedBy: Array.from(event.repo.verifiedBy),
+					producedBy: repo.producedBy,
+					verifiedBy: Array.from(repo.verifiedBy),
 				},
 			})
 		}

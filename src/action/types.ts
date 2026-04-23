@@ -13,7 +13,7 @@ export interface DlOptions {
 	archlistState: StepState
 	symlinkState: StepState
 	anycase: boolean
-	expand: boolean
+	verified: boolean
 	dryRun: boolean
 }
 

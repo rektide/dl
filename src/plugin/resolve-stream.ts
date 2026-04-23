@@ -30,10 +30,10 @@ export const resolveStreamPlugin = plugin<
 			default: false,
 			description: "Print expanded candidate URLs before verification (no network calls)",
 		})
-		ctx.addGlobalOption("expand", {
+		ctx.addGlobalOption("verified", {
 			type: "boolean",
 			default: false,
-			description: "Output resolved repo info without syncing",
+			description: "Output verified repo info without syncing",
 		})
 		ctx.addGlobalOption("dry-run", {
 			type: "boolean",
