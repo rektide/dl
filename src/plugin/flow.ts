@@ -1,5 +1,5 @@
 import { plugin } from "gunshi/plugin"
-import { FLOW_GOAL, type FlowEvent, type FlowGoal } from "../flow/types.ts"
+import { FLOW_GOAL, type FlowGoal, type Repo } from "../flow/types.ts"
 import { createInputFlowExecutor } from "../execute/executor.ts"
 import { RESOLVE_TIMEOUT } from "../repo/util.ts"
 import { createProviderRegistry } from "../provider/registry.ts"
@@ -24,7 +24,7 @@ export type FlowResolveOptionsShape = {
 export type FlowResolveOptions = Readonly<FlowResolveOptionsShape>
 
 export interface FlowExtension {
-	resolveStream(inputs: AsyncIterable<string>, options?: Partial<FlowResolveOptions>): AsyncGenerator<FlowEvent>
+	resolveStream(inputs: AsyncIterable<string>, options?: Partial<FlowResolveOptions>): AsyncGenerator<Repo>
 }
 
 function defaultResolveOptions(): FlowResolveOptions {
@@ -61,7 +61,7 @@ export const flowPlugin = plugin({
 		async function* resolveStream(
 			inputs: AsyncIterable<string>,
 			overrides: Partial<FlowResolveOptions> = {},
-		): AsyncGenerator<FlowEvent> {
+		): AsyncGenerator<Repo> {
 			const options = {
 				...defaultResolveOptions(),
 				...overrides,

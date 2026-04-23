@@ -1,4 +1,4 @@
-import type { FlowEvent, FlowGoal } from "../flow/types.ts"
+import type { FlowGoal, Repo } from "../flow/types.ts"
 import type { InputEntry, InputStream } from "../input/types.ts"
 import type { ProviderRegistry } from "../provider/types.ts"
 
@@ -24,7 +24,7 @@ export type FlowExecutor<TIn, TEvent, TContext> = (
 	ctx: TContext,
 ) => AsyncGenerator<TEvent>
 
-export type InputFlowExecutor = FlowExecutor<InputEntry, FlowEvent, ExecuteContext>
+export type InputFlowExecutor = FlowExecutor<InputEntry, Repo, ExecuteContext>
 
 export type FanIn<TItem> = (
 	sources: ReadonlyArray<AsyncIterable<TItem>>,
