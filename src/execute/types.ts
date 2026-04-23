@@ -23,24 +23,14 @@ export type FlowExecutorRun<TIn, TEvent, TContext> = (
 	ctx: TContext,
 ) => AsyncGenerator<TEvent>
 
-export type InputFlowExecutorRun = FlowExecutorRun<InputEntry, FlowEvent, ExecuteContext>
-
-export type FlowExecutorShape<TIn, TEvent, TContext> = {
-	run: FlowExecutorRun<TIn, TEvent, TContext>
-}
-
-export type FlowExecutor<TIn, TEvent, TContext> = Readonly<
-	FlowExecutorShape<TIn, TEvent, TContext>
->
+export type FlowExecutor<TIn, TEvent, TContext> = FlowExecutorRun<TIn, TEvent, TContext>
 
 export type InputFlowExecutor = FlowExecutor<InputEntry, FlowEvent, ExecuteContext>
 
-export type FanInShape<TItem> = (
+export type FanIn<TItem> = (
 	sources: ReadonlyArray<AsyncIterable<TItem>>,
 	signal?: AbortSignal,
 ) => AsyncIterable<TItem>
-
-export type FanIn<TItem> = FanInShape<TItem>
 
 export type InputFanIn = (
 	sources: ReadonlyArray<InputStream>,
