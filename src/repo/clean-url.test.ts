@@ -30,6 +30,10 @@ describe("stripGitPrefixes", () => {
 	test("leaves plain https untouched", () => {
 		expect(stripGitPrefixes("https://github.com/org/repo")).toBe("https://github.com/org/repo")
 	})
+
+	test("leaves scp-style ssh syntax untouched", () => {
+		expect(stripGitPrefixes("git@github.com:org/repo")).toBe("git@github.com:org/repo")
+	})
 })
 
 describe("stripGitSuffix", () => {
@@ -210,6 +214,12 @@ describe("cleanRepoUrl", () => {
 		)
 		expect(result).not.toBeNull()
 		expect(result!.pathname).toBe("/org/repo.git")
+	})
+
+	test("normalizes github pages URL with query and hash", () => {
+		const result = cleanRepoUrl("https://foo.github.io/bar/?a=1#readme")
+		expect(result).not.toBeNull()
+		expect(result!.toString()).toBe("https://foo.github.io/bar/")
 	})
 })
 

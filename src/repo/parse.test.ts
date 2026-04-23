@@ -181,6 +181,19 @@ describe("parseUrl", () => {
 		expect(result!.pathname).toBe("/org/repo")
 	})
 
+	test("drops query and hash from canonical URL", () => {
+		const result = parseUrl("https://github.com/org/repo.git?tab=readme#section")
+		expect(result).not.toBeUndefined()
+		expect(result!.toString()).toBe("https://github.com/org/repo")
+	})
+
+	test("preserves non-default port in host", () => {
+		const result = parseUrl("https://example.com:8443/org/repo")
+		expect(result).not.toBeUndefined()
+		expect(result!.host).toBe("example.com:8443")
+		expect(result!.toString()).toBe("https://example.com:8443/org/repo")
+	})
+
 	test("preserves host from ssh:// URL", () => {
 		const result = parseUrl("ssh://git@github.com/org/repo")
 		expect(result!.host).toBe("github.com")
