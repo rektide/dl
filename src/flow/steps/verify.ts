@@ -1,6 +1,6 @@
 // pattern: Functional Core
 
-import { FLOW_GOAL, REPO_STATE, type FlowContext, type Repo, type Step } from "../types.ts"
+import { FLOW_GOAL, REPO_STATE, type FlowContext, type Repo } from "../types.ts"
 import { PROVIDER_LOOKUP_MODE, type Provider, type ProviderRegistry } from "../../provider/types.ts"
 
 export type VerifyAttemptShape = {
@@ -53,56 +53,53 @@ function normalizeVerified(candidate: Repo, provider: Provider, verified: Repo):
 	}
 }
 
-export function createVerifyStep(
+export async function* verifyRepos(
+	input: AsyncIterable<Repo>,
+	ctx: FlowContext,
 	registry: ProviderRegistry,
 	continueOnError: boolean,
-): Step<Repo, VerifyAttempt, FlowContext> {
-	return {
-		name: "verify",
-		async *run(input, ctx) {
-			for await (const candidate of input) {
-				const providers = orderProviders(candidate, registry)
+): AsyncGenerator<VerifyAttempt> {
+	for await (const candidate of input) {
+		const providers = orderProviders(candidate, registry)
 
-				for (const provider of providers) {
-					try {
-						const verified = await provider.verify(candidate, ctx.signal)
-						if (!verified) {
-							yield {
-								input: candidate.input,
-								provider: provider.name,
-								candidate,
-								repo: null,
-								error: null,
-							}
-							continue
-						}
-
-						yield {
-							input: candidate.input,
-							provider: provider.name,
-							candidate,
-							repo: normalizeVerified(candidate, provider, verified),
-							error: null,
-						}
-
-						if (ctx.goal === FLOW_GOAL.firstSuccess) {
-							break
-						}
-					} catch (error) {
-						const normalized = toError(error)
-						yield {
-							input: candidate.input,
-							provider: provider.name,
-							candidate,
-							repo: null,
-							error: normalized,
-						}
-						if (!continueOnError) {
-							throw normalized
-						}
+		for (const provider of providers) {
+			try {
+				const verified = await provider.verify(candidate, ctx.signal)
+				if (!verified) {
+					yield {
+						input: candidate.input,
+						provider: provider.name,
+						candidate,
+						repo: null,
+						error: null,
 					}
+					continue
+				}
+
+				yield {
+					input: candidate.input,
+					provider: provider.name,
+					candidate,
+					repo: normalizeVerified(candidate, provider, verified),
+					error: null,
+				}
+
+				if (ctx.goal === FLOW_GOAL.firstSuccess) {
+					break
+				}
+			} catch (error) {
+				const normalized = toError(error)
+				yield {
+					input: candidate.input,
+					provider: provider.name,
+					candidate,
+					repo: null,
+					error: normalized,
+				}
+				if (!continueOnError) {
+					throw normalized
 				}
 			}
-		},
+		}
 	}
 }

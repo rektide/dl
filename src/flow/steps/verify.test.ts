@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest"
 import { createProviderRegistry } from "../../provider/registry.ts"
 import { FLOW_GOAL, REPO_STATE, type FlowContext, type FlowGoal, type Repo } from "../types.ts"
-import { createVerifyStep } from "./verify.ts"
+import { verifyRepos } from "./verify.ts"
 import type { Provider } from "../../provider/types.ts"
 
 async function* one<TItem>(value: TItem): AsyncGenerator<TItem> {
@@ -45,7 +45,7 @@ function makeProvider(
 	}
 }
 
-describe("createVerifyStep", () => {
+describe("verifyRepos", () => {
 	test("verifies producer first regardless of registry order", async () => {
 		const order: Array<string> = []
 		const producer = makeProvider("producer", async (repo) => {
@@ -58,10 +58,8 @@ describe("createVerifyStep", () => {
 		})
 
 		const registry = createProviderRegistry([other, producer])
-		const step = createVerifyStep(registry, true)
-
 		const attempts = []
-		for await (const attempt of step.run(one(makeRepo("producer")), makeContext())) {
+		for await (const attempt of verifyRepos(one(makeRepo("producer")), makeContext(), registry, true)) {
 			attempts.push(attempt)
 		}
 
@@ -78,10 +76,13 @@ describe("createVerifyStep", () => {
 			return { ...repo, state: REPO_STATE.verified }
 		})
 		const registry = createProviderRegistry([failing, succeeding])
-		const step = createVerifyStep(registry, true)
-
 		const attempts = []
-		for await (const attempt of step.run(one(makeRepo("failing")), makeContext(FLOW_GOAL.allSuccesses))) {
+		for await (const attempt of verifyRepos(
+			one(makeRepo("failing")),
+			makeContext(FLOW_GOAL.allSuccesses),
+			registry,
+			true,
+		)) {
 			attempts.push(attempt)
 		}
 
@@ -95,10 +96,8 @@ describe("createVerifyStep", () => {
 			throw new Error("stop")
 		})
 		const registry = createProviderRegistry([failing])
-		const step = createVerifyStep(registry, false)
-
 		await expect(async () => {
-			for await (const _attempt of step.run(one(makeRepo("failing")), makeContext())) {
+			for await (const _attempt of verifyRepos(one(makeRepo("failing")), makeContext(), registry, false)) {
 				// consume
 			}
 		}).rejects.toThrow("stop")

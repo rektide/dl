@@ -1,8 +1,8 @@
 // pattern: Imperative Shell
 
 import type { FlowContext, FlowEvent, Repo } from "../flow/types.ts"
-import { createDedupeStep } from "../flow/steps/dedupe.ts"
-import { createVerifyStep } from "../flow/steps/verify.ts"
+import { dedupeRepos } from "../flow/steps/dedupe.ts"
+import { verifyRepos } from "../flow/steps/verify.ts"
 import type { InputEntry } from "../input/types.ts"
 import { PROVIDER_LOOKUP_MODE } from "../provider/types.ts"
 import { fanIn } from "./fan-in.ts"
@@ -30,9 +30,6 @@ export function createInputFlowExecutor(merge: FanIn<Repo> = fanIn): InputFlowEx
 		inputs: AsyncIterable<InputEntry>,
 		ctx: ExecuteContext,
 	): AsyncGenerator<FlowEvent> {
-		const dedupe = createDedupeStep()
-		const verify = createVerifyStep(ctx.registry, ctx.options.continueOnError)
-
 		for await (const input of inputs) {
 			const providers = ctx.registry.lookup(input.value, {
 				mode: PROVIDER_LOOKUP_MODE.candidate,
@@ -41,7 +38,7 @@ export function createInputFlowExecutor(merge: FanIn<Repo> = fanIn): InputFlowEx
 
 			const candidateStreams = providers.map((provider) => provider.candidates(input.value))
 			const flowCtx = createFlowContext(ctx)
-			const candidates = dedupe.run(merge(candidateStreams, ctx.signal), flowCtx)
+			const candidates = dedupeRepos(merge(candidateStreams, ctx.signal), flowCtx)
 
 			for await (const candidate of candidates) {
 				yield { type: "candidate", repo: candidate }
@@ -50,7 +47,12 @@ export function createInputFlowExecutor(merge: FanIn<Repo> = fanIn): InputFlowEx
 					continue
 				}
 
-				const attempts = verify.run(one(candidate), flowCtx)
+				const attempts = verifyRepos(
+					one(candidate),
+					flowCtx,
+					ctx.registry,
+					ctx.options.continueOnError,
+				)
 				for await (const attempt of attempts) {
 					if (attempt.error) {
 						yield {

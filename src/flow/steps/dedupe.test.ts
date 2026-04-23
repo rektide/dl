@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 import { FLOW_GOAL, REPO_STATE, type FlowContext, type Repo } from "../types.ts"
-import { createDedupeStep } from "./dedupe.ts"
+import { dedupeRepos } from "./dedupe.ts"
 
 async function* fromArray<TItem>(items: ReadonlyArray<TItem>): AsyncGenerator<TItem> {
 	for (const item of items) {
@@ -32,9 +32,8 @@ function createContext(): FlowContext {
 	}
 }
 
-describe("createDedupeStep", () => {
+describe("dedupeRepos", () => {
 	test("removes duplicate repos by URL identity", async () => {
-		const step = createDedupeStep()
 		const input = fromArray([
 			makeRepo("https://github.com/org/repo", "github"),
 			makeRepo("https://github.com/org/repo", "gitlab"),
@@ -42,7 +41,7 @@ describe("createDedupeStep", () => {
 		])
 
 		const output: Array<Repo> = []
-		for await (const repo of step.run(input, createContext())) {
+		for await (const repo of dedupeRepos(input, createContext())) {
 			output.push(repo)
 		}
 

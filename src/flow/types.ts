@@ -70,30 +70,4 @@ export type FlowContextShape = {
 
 export type FlowContext = Readonly<FlowContextShape>
 
-export type StepRun<TIn, TOut, TContext> = (
-	input: AsyncIterable<TIn>,
-	ctx: TContext,
-) => AsyncIterable<TOut>
-
-export type StepShape<TIn, TOut, TContext> = {
-	name: string
-	run: StepRun<TIn, TOut, TContext>
-}
-
-export type Step<TIn, TOut, TContext> = Readonly<StepShape<TIn, TOut, TContext>>
-
-export type RepoStepRun<I extends Repo = Repo, O extends Repo = Repo> = (
-	input: RepoStream<I>,
-	ctx: FlowContext,
-) => RepoStream<O>
-
-export type RepoStepShape<I extends Repo = Repo, O extends Repo = Repo> = {
-	name: string
-	run: RepoStepRun<I, O>
-}
-
-export type RepoStep<I extends Repo = Repo, O extends Repo = Repo> = Readonly<
-	RepoStepShape<I, O>
->
-
 export type RepoIdentity = (repo: Repo) => string
