@@ -19,7 +19,7 @@ function createFlowContext(ctx: ExecuteContext): FlowContext {
 		goal: ctx.options.goal,
 		dedupe: new Set<string>(),
 		now: () => new Date(),
-		services: ctx.services,
+		plugins: ctx.plugins,
 	}
 }
 

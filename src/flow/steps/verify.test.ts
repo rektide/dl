@@ -29,7 +29,7 @@ function makeContext(goal: FlowGoal = FLOW_GOAL.firstSuccess): FlowContext {
 		goal,
 		dedupe: new Set<string>(),
 		now: () => new Date(),
-		services: {
+		plugins: {
 			flow: {
 				input: () => {},
 			},

@@ -54,7 +54,7 @@ function makeContext(providers: ReadonlyArray<Provider>, verify = true): Execute
 			verify,
 		},
 		signal: AbortSignal.timeout(2000),
-		services: {
+		plugins: {
 			flow: {
 				input: () => {},
 			},

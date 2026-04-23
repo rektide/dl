@@ -150,7 +150,7 @@ export const flowPlugin = plugin({
 			description: "Emit structured lifecycle summary per resolved repository",
 		})
 	},
-	extension: (): FlowExtension => {
+	extension: (core): FlowExtension => {
 		const defaultOptions = defaultResolveOptions()
 		const registry = createProviderRegistry([
 			githubProvider,
@@ -197,7 +197,8 @@ export const flowPlugin = plugin({
 
 			session.running = true
 			try {
-				const services = {
+				const plugins = {
+					...core.extensions,
 					flow: {
 						input,
 					},
@@ -212,7 +213,7 @@ export const flowPlugin = plugin({
 						registry,
 						options: session.options,
 						signal,
-						services,
+						plugins,
 						proposedStages: [createObserverStage(session.observers[FLOW_CHECKPOINT.proposed])],
 						verifiedStages: [createObserverStage(session.observers[FLOW_CHECKPOINT.verified])],
 					})

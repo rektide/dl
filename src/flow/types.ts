@@ -48,21 +48,19 @@ export type FlowContextShape = {
 	goal: FlowGoal
 	dedupe: Set<string>
 	now: () => Date
-	services: FlowServices
+	plugins: FlowPlugins
 }
 
 export type FlowContext = Readonly<FlowContextShape>
 
-export type FlowServiceShape = {
+export type FlowRuntimePluginShape = {
 	input: (input: FlowInput) => void
 }
 
-export type FlowService = Readonly<FlowServiceShape>
+export type FlowRuntimePlugin = Readonly<FlowRuntimePluginShape>
 
-export type FlowServicesShape = {
-	flow: FlowService
+export type FlowPlugins = Readonly<Record<string, unknown>> & {
+	readonly flow: FlowRuntimePlugin
 }
-
-export type FlowServices = Readonly<FlowServicesShape>
 
 export type RepoIdentity = (repo: Repo) => string
