@@ -53,14 +53,6 @@ export type FlowContextShape = {
 
 export type FlowContext = Readonly<FlowContextShape>
 
-export type FlowRuntimePluginShape = {
-	input: (input: FlowInput) => void
-}
-
-export type FlowRuntimePlugin = Readonly<FlowRuntimePluginShape>
-
-export type FlowPlugins = Readonly<Record<string, unknown>> & {
-	readonly flow: FlowRuntimePlugin
-}
+export type FlowPlugins = Readonly<Record<string, unknown>>
 
 export type RepoIdentity = (repo: Repo) => string

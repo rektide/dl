@@ -164,6 +164,7 @@ export const flowPlugin = plugin({
 		])
 		const execute = createInputFlowExecutor()
 		let session = createSession(defaultOptions)
+		let flowExtension: FlowExtension
 
 		function ensureSessionStarted(): void {
 			if (session.active) return
@@ -199,9 +200,7 @@ export const flowPlugin = plugin({
 			try {
 				const plugins = {
 					...core.extensions,
-					flow: {
-						input,
-					},
+					[FLOW_PLUGIN_ID]: flowExtension,
 				}
 
 				while (session.queue.length > 0) {
@@ -236,12 +235,14 @@ export const flowPlugin = plugin({
 			yield* run()
 		}
 
-		return {
+		flowExtension = {
 			start,
 			input,
 			on,
 			run,
 			resolveStream,
 		}
+
+		return flowExtension
 	},
 })
