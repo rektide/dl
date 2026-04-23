@@ -7,11 +7,11 @@ import { adaptLegacyProvider } from "../provider/adapt-legacy.ts"
 import { githubProvider } from "../provider/github.ts"
 import { gitlabProvider } from "../provider/gitlab.ts"
 import { tangledProvider } from "../provider/tangled.ts"
-import { cratesIoProvider } from "../repo/provider/crates-io.ts"
-import { docsRsProvider } from "../repo/provider/docs-rs.ts"
+import { cratesIoProvider } from "../provider/crates-io.ts"
+import { docsRsProvider } from "../provider/docs-rs.ts"
+import { npmxDevProvider } from "../provider/npmx-dev.ts"
+import { githubioProvider } from "../provider/githubio.ts"
 import { genericProvider } from "../repo/provider/generic.ts"
-import { npmxDevProvider } from "../repo/provider/npmx-dev.ts"
-import { githubioProvider } from "../repo/provider/githubio.ts"
 
 export const FLOW_PLUGIN_ID = "rekon:flow" as const
 
@@ -51,10 +51,10 @@ export const flowPlugin = plugin({
 			githubProvider,
 			gitlabProvider,
 			tangledProvider,
-			adaptLegacyProvider(cratesIoProvider),
-			adaptLegacyProvider(docsRsProvider),
-			adaptLegacyProvider(npmxDevProvider),
-			adaptLegacyProvider(githubioProvider),
+			cratesIoProvider,
+			docsRsProvider,
+			npmxDevProvider,
+			githubioProvider,
 			adaptLegacyProvider(genericProvider),
 		])
 		const execute = createInputFlowExecutor()
