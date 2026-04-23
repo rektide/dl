@@ -18,12 +18,12 @@ export type ExecuteContextShape = {
 
 export type ExecuteContext = Readonly<ExecuteContextShape>
 
-export type FlowExecutorRun<TIn, TEvent, TContext> = (
+export type FlowExecutor<TIn, TEvent, TContext> = (
 	inputs: AsyncIterable<TIn>,
 	ctx: TContext,
 ) => AsyncGenerator<TEvent>
 
-export type InputFlowExecutor = FlowExecutorRun<InputEntry, FlowEvent, ExecuteContext>
+export type InputFlowExecutor = FlowExecutor<InputEntry, FlowEvent, ExecuteContext>
 
 export type FanIn<TItem> = (
 	sources: ReadonlyArray<AsyncIterable<TItem>>,
