@@ -13,7 +13,6 @@ import { positionalInputPlugin } from "./input-positional.ts"
 import { watchInputPlugin } from "./input-watch.ts"
 import { logPlugin } from "./log.ts"
 import { repoPlugin } from "./repo.ts"
-import { resolveStreamPlugin } from "./resolve-stream.ts"
 import { rootsPlugin } from "./roots.ts"
 
 export const dlPlugins = [
@@ -22,7 +21,6 @@ export const dlPlugins = [
 	rootsPlugin,
 	repoPlugin,
 	flowPlugin,
-	resolveStreamPlugin,
 	positionalInputPlugin,
 	watchInputPlugin,
 	clipboardInputPlugin,

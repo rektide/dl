@@ -5,12 +5,11 @@
  *
  * The pipeline flows through these stages:
  *
- *   input strings → resolve-stream plugin → action handlers → lifecycle report
+ *   input strings → flow plugin → action handlers → lifecycle report
  *
- * Three consumers of the resolve-stream plugin:
+ * Two read-only consumers of the flow plugin:
  * - {@link processCandidates} logs candidate (pre-verification) events
  * - {@link processVerified} logs resolved (post-verification) events
- * - {@link processEntries} runs resolved events through the action pipeline
  *
  * Input sources ({@link positionalSource}, {@link watchSource}, {@link clipboardSource})
  * are defined in {@link command/input} and produce the async iterables consumed here.
@@ -26,11 +25,10 @@ import type { DlOptions, DlContext } from "../action/types.ts"
 import type { ActionHandler } from "../action/handler.ts"
 import type { DlActionSpec, DlActionToken } from "../action/registry.ts"
 import { runPipeline } from "../action/pipeline.ts"
-import { RESOLVE_STREAM_PLUGIN_ID } from "../plugin/resolve-stream.ts"
 import { FLOW_PLUGIN_ID } from "../plugin/flow.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { DlExtensions } from "./context.ts"
-import { requireExtensions, resolveDlSetup } from "./context.ts"
+import { requireExtensions } from "./context.ts"
 
 async function* singleInput(input: string): AsyncGenerator<string> {
 	yield input
@@ -80,35 +78,6 @@ export function buildBaseOptions(values: Record<string, unknown>): DlOptions {
 }
 
 /**
- * Feed an async stream of input strings through the resolve-stream plugin and
- * action pipeline.
- *
- * Each input is resolved by the resolve-stream plugin, which yields both
- * candidate and verified events. Only resolved events are piped into the
- * action handlers.
- *
- * Returns `true` if any handler reported an error.
- */
-export async function processEntries(
-	extensions: DlExtensions,
-	options: DlOptions,
-	inputs: AsyncIterable<string>,
-): Promise<boolean> {
-	const setup = await resolveDlSetup(extensions, options)
-	const handlers = setup.actions["dl:handlers"]
-	const ctx: DlContext = { roots: setup.roots, options, log: setup.log }
-	const stream = extensions[RESOLVE_STREAM_PLUGIN_ID]
-
-	let hadError = false
-	for await (const event of stream.resolveStream(inputs)) {
-		if (event.type === "resolved") {
-			hadError = (await processRepoContext(event.context, ctx, handlers)) || hadError
-		}
-	}
-	return hadError
-}
-
-/**
  * Build `DlOptions` for the main dl command using the full action plugin system.
  *
  * Resolves all action states through `ext.actions.resolveActionOptions`, then
@@ -136,7 +105,7 @@ export function buildMainOptions(
 }
 
 /**
- * Feed an async stream through the resolve-stream plugin, logging only
+ * Feed an async stream through the flow plugin, logging only
  * candidate (pre-verification) events.
  *
  * This is the `--candidates` mode: expand inputs into candidate URLs and print

@@ -1,6 +1,7 @@
 import { defineWithTypes } from "gunshi"
 import { ARCHIVE_ACTION_SPEC } from "../archive/handler.ts"
-import { buildSubcommandOptions, processEntries } from "./run.ts"
+import { runLegacyActionsFromFlow } from "../legacy/run.ts"
+import { buildSubcommandOptions } from "./run.ts"
 import { POSITIONAL_INPUT_PLUGIN_ID } from "../plugin/input-positional.ts"
 import type { DlCommandParams } from "./context.ts"
 
@@ -26,7 +27,7 @@ export default defineWithTypes<DlCommandParams>()({
 			ARCHIVE_ACTION_SPEC,
 			ctx.values.state,
 		)
-		const hadError = await processEntries(ctx.extensions, options, inputs)
+		const hadError = await runLegacyActionsFromFlow(ctx.extensions, options, inputs)
 		if (hadError) process.exit(1)
 	},
 })
