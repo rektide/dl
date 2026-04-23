@@ -27,13 +27,9 @@ export type RepoShape = {
 
 export type Repo = Readonly<RepoShape>
 
-declare const repoStreamBrand: unique symbol
-
 export type RepoStreamShape<TRepo extends Repo = Repo> = AsyncIterable<TRepo>
 
-export type RepoStream<TRepo extends Repo = Repo> = RepoStreamShape<TRepo> & {
-	readonly [repoStreamBrand]: TRepo
-}
+export type RepoStream<TRepo extends Repo = Repo> = RepoStreamShape<TRepo>
 
 export type FlowCandidateEvent = {
 	type: "candidate"
@@ -65,11 +61,7 @@ export type FlowEventShape =
 	| FlowMissEvent
 	| FlowErrorEvent
 
-export type FlowEvent =
-	| Readonly<FlowCandidateEvent>
-	| Readonly<FlowVerifiedEvent>
-	| Readonly<FlowMissEvent>
-	| Readonly<FlowErrorEvent>
+export type FlowEvent = Readonly<FlowEventShape>
 
 export type FlowContextShape = {
 	signal: AbortSignal
@@ -79,6 +71,18 @@ export type FlowContextShape = {
 }
 
 export type FlowContext = Readonly<FlowContextShape>
+
+export type StepRun<TIn, TOut, TContext> = (
+	input: AsyncIterable<TIn>,
+	ctx: TContext,
+) => AsyncIterable<TOut>
+
+export type StepShape<TIn, TOut, TContext> = {
+	name: string
+	run: StepRun<TIn, TOut, TContext>
+}
+
+export type Step<TIn, TOut, TContext> = Readonly<StepShape<TIn, TOut, TContext>>
 
 export type RepoStepRun<I extends Repo = Repo, O extends Repo = Repo> = (
 	input: RepoStream<I>,
@@ -90,6 +94,8 @@ export type RepoStepShape<I extends Repo = Repo, O extends Repo = Repo> = {
 	run: RepoStepRun<I, O>
 }
 
-export type RepoStep<I extends Repo = Repo, O extends Repo = Repo> = RepoStepShape<I, O>
+export type RepoStep<I extends Repo = Repo, O extends Repo = Repo> = Readonly<
+	RepoStepShape<I, O>
+>
 
 export type RepoIdentity = (repo: Repo) => string

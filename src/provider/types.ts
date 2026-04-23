@@ -1,10 +1,15 @@
 import type { Repo } from "../flow/types.ts"
 
 export type ProviderCandidates = (input: string) => AsyncGenerator<Repo>
+
+export type ProviderVerifyResultShape = Repo | null
+
+export type ProviderVerifyResult = ProviderVerifyResultShape
+
 export type ProviderVerify = (
 	repo: Repo,
 	signal: AbortSignal,
-) => AsyncGenerator<Repo>
+) => Promise<ProviderVerifyResult>
 
 export type ProviderShape = {
 	name: string
