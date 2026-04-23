@@ -27,9 +27,7 @@ export type RepoShape = {
 
 export type Repo = Readonly<RepoShape>
 
-export type RepoStreamShape<TRepo extends Repo = Repo> = AsyncIterable<TRepo>
-
-export type RepoStream<TRepo extends Repo = Repo> = RepoStreamShape<TRepo>
+export type RepoStream<TRepo extends Repo = Repo> = AsyncIterable<TRepo>
 
 export type FlowCandidateEvent = {
 	type: "candidate"

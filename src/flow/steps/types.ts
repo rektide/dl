@@ -1,6 +1,4 @@
-import type { Repo, RepoIdentity, RepoStep, Step } from "../types.ts"
-
-export type GenericStep<TIn, TOut, TContext> = Step<TIn, TOut, TContext>
+import type { Repo, RepoIdentity, RepoStep } from "../types.ts"
 
 export type DedupeStepOptionsShape = {
 	identity: RepoIdentity
