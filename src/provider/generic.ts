@@ -8,10 +8,11 @@ import type { Provider } from "./types.ts"
 function buildRepo(
 	input: string,
 	host: string,
-	org: string,
+	org: string | null,
 	project: string,
 ): Repo {
-	const url = new URL(`https://${host}/${org}/${project}`)
+	const pathname = org ? `/${org}/${project}` : `/${project}`
+	const url = new URL(`https://${host}${pathname}`)
 	return {
 		id: `generic:${input}:${url.toString()}`,
 		input,
@@ -38,7 +39,7 @@ export const genericProvider: Provider = {
 			if (!parsed) return
 			const parts = parsed.path.split("/").filter(Boolean)
 			if (parts.length < 2) return
-			const org = parts.slice(0, -1).join("/")
+			const org = parts.slice(0, -1).join("/") || null
 			const project = parts.at(-1)
 			if (!project) return
 			yield buildRepo(input, parsed.host, org, project)
@@ -50,7 +51,7 @@ export const genericProvider: Provider = {
 			if (!parsed) return
 			const urlSegments = parsed.pathname.split("/").filter(Boolean)
 			if (urlSegments.length < 2) return
-			const org = urlSegments.slice(0, -1).join("/")
+			const org = urlSegments.slice(0, -1).join("/") || null
 			const project = urlSegments.at(-1)
 			if (!project) return
 			yield buildRepo(input, parsed.host, org, project)
@@ -60,7 +61,7 @@ export const genericProvider: Provider = {
 		if (segments.length >= 2 && looksLikeHost(segments[0]!)) {
 			const host = segments[0]!
 			const rest = segments.slice(1)
-			const org = rest.slice(0, -1).join("/")
+			const org = rest.slice(0, -1).join("/") || null
 			const project = rest.at(-1)
 			if (!project) return
 			yield buildRepo(input, host, org, project)
@@ -77,7 +78,7 @@ export const genericProvider: Provider = {
 
 			const url = new URL(candidateUrl)
 			const parts = url.pathname.split("/").filter(Boolean)
-			const org = parts.slice(0, -1).join("/")
+			const org = parts.slice(0, -1).join("/") || null
 			const project = parts.at(-1)
 			if (!project) return null
 
