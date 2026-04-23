@@ -19,14 +19,12 @@ export const FLOW_CHECKPOINT = {
 
 export type FlowCheckpoint = (typeof FLOW_CHECKPOINT)[keyof typeof FLOW_CHECKPOINT]
 
-export type FlowInputShape =
+export type FlowInput =
 	| string
 	| URL
 	| AsyncIterable<string>
 	| AsyncIterable<URL>
 	| AsyncIterable<string | URL>
-
-export type FlowInput = FlowInputShape
 
 export type RepoShape = {
 	id: string
