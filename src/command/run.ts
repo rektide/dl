@@ -27,9 +27,14 @@ import type { ActionHandler } from "../action/handler.ts"
 import type { DlActionSpec, DlActionToken } from "../action/registry.ts"
 import { runPipeline } from "../action/pipeline.ts"
 import { RESOLVE_STREAM_PLUGIN_ID } from "../plugin/resolve-stream.ts"
+import { FLOW_PLUGIN_ID } from "../plugin/flow.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { DlExtensions } from "./context.ts"
 import { requireExtensions, resolveDlSetup } from "./context.ts"
+
+async function* singleInput(input: string): AsyncGenerator<string> {
+	yield input
+}
 
 /**
  * Run the action pipeline against a single resolved repo context.
@@ -142,21 +147,25 @@ export async function processCandidates(
 	inputs: AsyncIterable<string>,
 ): Promise<void> {
 	const ext = requireExtensions(extensions)
-	const stream = extensions[RESOLVE_STREAM_PLUGIN_ID]
+	const flow = extensions[FLOW_PLUGIN_ID]
 
-	for await (const event of stream.resolveStream(inputs)) {
-		if (event.type === "candidate") {
+	for await (const input of inputs) {
+		let candidateFound = false
+		for await (const event of flow.resolveStream(singleInput(input), { verify: false })) {
+			if (event.type !== "candidate") continue
+			candidateFound = true
 			ext.log.info("candidates", "expanded", {
-				input: event.input,
-				url: event.context.url?.toString(),
-				org: event.context.org,
-				project: event.context.project,
-				provider: event.context.source.provider,
-				verified: event.context.verified,
+				input: event.repo.input,
+				url: event.repo.url.toString(),
+				org: event.repo.org,
+				project: event.repo.project,
+				provider: event.repo.producedBy,
+				verified: event.repo.state === "verified",
 			})
 		}
-		if (event.type === "resolved" && !event.context.verified) {
-			ext.log.warn("candidates", "no_match", { input: event.input })
+
+		if (!candidateFound) {
+			ext.log.warn("candidates", "no_match", { input })
 		}
 	}
 }
@@ -173,17 +182,26 @@ export async function processExpand(
 	inputs: AsyncIterable<string>,
 ): Promise<void> {
 	const ext = requireExtensions(extensions)
-	const stream = extensions[RESOLVE_STREAM_PLUGIN_ID]
+	const flow = extensions[FLOW_PLUGIN_ID]
 
-	for await (const event of stream.resolveStream(inputs)) {
-		if (event.type === "resolved") {
+	for await (const input of inputs) {
+		let resolvedFound = false
+		for await (const event of flow.resolveStream(singleInput(input), { verify: true })) {
+			if (event.type !== "verified") continue
+			resolvedFound = true
 			ext.log.info("expand", "resolved", {
-				input: event.input,
-				url: event.context.url?.toString(),
-				pathname: event.context.url?.pathname,
-				wikiRepoUrl: event.context.wikiRepoUrl?.toString(),
-				source: event.context.source,
+				input: event.repo.input,
+				url: event.repo.url.toString(),
+				pathname: event.repo.url.pathname,
+				source: {
+					producedBy: event.repo.producedBy,
+					verifiedBy: Array.from(event.repo.verifiedBy),
+				},
 			})
+		}
+
+		if (!resolvedFound) {
+			ext.log.warn("sync", "no_match", { input })
 		}
 	}
 }

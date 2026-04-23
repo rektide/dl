@@ -6,6 +6,7 @@ export type ExecuteOptionsShape = {
 	goal: FlowGoal
 	timeoutMs: number
 	continueOnError: boolean
+	verify: boolean
 }
 
 export type ExecuteOptions = Readonly<ExecuteOptionsShape>

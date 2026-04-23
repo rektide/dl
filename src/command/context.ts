@@ -28,6 +28,10 @@ import {
 	type LogExtension,
 } from "../plugin/log.ts"
 import {
+	FLOW_PLUGIN_ID,
+	type FlowExtension,
+} from "../plugin/flow.ts"
+import {
 	REPO_PLUGIN_ID,
 	type RepoExtension,
 } from "../plugin/repo.ts"
@@ -44,6 +48,7 @@ export interface DlExtensions extends Record<string, unknown> {
 	[DL_ACTIONS_PLUGIN_ID]: DlActionsExtension
 	[ROOTS_PLUGIN_ID]: RootsExtension
 	[REPO_PLUGIN_ID]: RepoExtension
+	[FLOW_PLUGIN_ID]: FlowExtension
 	[RESOLVE_STREAM_PLUGIN_ID]: ResolveStreamExtension
 	[POSITIONAL_INPUT_PLUGIN_ID]: PositionalInputExtension
 	[WATCH_INPUT_PLUGIN_ID]: WatchInputExtension
