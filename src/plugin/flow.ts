@@ -4,9 +4,9 @@ import { createInputFlowExecutor } from "../execute/executor.ts"
 import { RESOLVE_TIMEOUT } from "../repo/util.ts"
 import { createProviderRegistry } from "../provider/registry.ts"
 import { adaptLegacyProvider } from "../provider/adapt-legacy.ts"
-import { githubProvider } from "../repo/provider/github.ts"
-import { gitlabProvider } from "../repo/provider/gitlab.ts"
-import { tangledProvider } from "../repo/provider/tangled.ts"
+import { githubProvider } from "../provider/github.ts"
+import { gitlabProvider } from "../provider/gitlab.ts"
+import { tangledProvider } from "../provider/tangled.ts"
 import { cratesIoProvider } from "../repo/provider/crates-io.ts"
 import { docsRsProvider } from "../repo/provider/docs-rs.ts"
 import { genericProvider } from "../repo/provider/generic.ts"
@@ -48,9 +48,9 @@ export const flowPlugin = plugin({
 	name: "Rekon Flow",
 	extension: (): FlowExtension => {
 		const registry = createProviderRegistry([
-			adaptLegacyProvider(githubProvider),
-			adaptLegacyProvider(gitlabProvider),
-			adaptLegacyProvider(tangledProvider),
+			githubProvider,
+			gitlabProvider,
+			tangledProvider,
 			adaptLegacyProvider(cratesIoProvider),
 			adaptLegacyProvider(docsRsProvider),
 			adaptLegacyProvider(npmxDevProvider),
