@@ -3,7 +3,6 @@ import { FLOW_GOAL, type FlowEvent, type FlowGoal } from "../flow/types.ts"
 import { createInputFlowExecutor } from "../execute/executor.ts"
 import { RESOLVE_TIMEOUT } from "../repo/util.ts"
 import { createProviderRegistry } from "../provider/registry.ts"
-import { adaptLegacyProvider } from "../provider/adapt-legacy.ts"
 import { githubProvider } from "../provider/github.ts"
 import { gitlabProvider } from "../provider/gitlab.ts"
 import { tangledProvider } from "../provider/tangled.ts"
@@ -11,7 +10,7 @@ import { cratesIoProvider } from "../provider/crates-io.ts"
 import { docsRsProvider } from "../provider/docs-rs.ts"
 import { npmxDevProvider } from "../provider/npmx-dev.ts"
 import { githubioProvider } from "../provider/githubio.ts"
-import { genericProvider } from "../repo/provider/generic.ts"
+import { genericProvider } from "../provider/generic.ts"
 
 export const FLOW_PLUGIN_ID = "rekon:flow" as const
 
@@ -55,7 +54,7 @@ export const flowPlugin = plugin({
 			docsRsProvider,
 			npmxDevProvider,
 			githubioProvider,
-			adaptLegacyProvider(genericProvider),
+			genericProvider,
 		])
 		const execute = createInputFlowExecutor()
 
