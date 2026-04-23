@@ -68,7 +68,7 @@ describe("verifyRepos", () => {
 		expect(attempts[0]?.repo?.state).toBe(REPO_STATE.verified)
 	})
 
-	test("continues after provider error when continueOnError=true", async () => {
+	test("yields provider error and does not fallback when continueOnError=true", async () => {
 		const failing = makeProvider("failing", async () => {
 			throw new Error("boom")
 		})
@@ -86,9 +86,8 @@ describe("verifyRepos", () => {
 			attempts.push(attempt)
 		}
 
-		expect(attempts).toHaveLength(2)
+		expect(attempts).toHaveLength(1)
 		expect(attempts[0]?.error?.message).toBe("boom")
-		expect(attempts[1]?.repo?.state).toBe(REPO_STATE.verified)
 	})
 
 	test("throws on provider error when continueOnError=false", async () => {

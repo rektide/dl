@@ -77,10 +77,9 @@ describe("createInputFlowExecutor", () => {
 			repos.push(repo)
 		}
 
-		expect(repos).toHaveLength(2)
-		expect(repos.every((repo) => repo.state === REPO_STATE.verified)).toBe(true)
-		expect(repos.some((repo) => repo.producedBy === "github")).toBe(true)
-		expect(repos.some((repo) => repo.producedBy === "tangled")).toBe(true)
+		expect(repos).toHaveLength(1)
+		expect(repos[0]?.state).toBe(REPO_STATE.verified)
+		expect(repos[0]?.producedBy).toBe("tangled")
 	})
 
 	test("does not call verify when verify option is false", async () => {
