@@ -54,7 +54,9 @@ export async function runLegacyActionsFromFlow(
 	}
 
 	let hadError = false
-	for await (const repo of flow.resolveStream(inputs, { verify: true })) {
+	flow.start({ verify: true })
+	flow.input(inputs)
+	flow.on("verified", async (repo) => {
 		const resolved = toLegacyRepoContext(repo)
 		hadError =
 			(await runPipeline(
@@ -64,6 +66,10 @@ export async function runLegacyActionsFromFlow(
 				actionContext.options.reportLifecycle,
 				actionContext.log,
 			)) || hadError
+	})
+
+	for await (const _repo of flow.run()) {
+		// consumed via on("verified") hook
 	}
 
 	return hadError

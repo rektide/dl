@@ -120,7 +120,8 @@ export async function processCandidates(
 
 	for await (const input of inputs) {
 		let candidateFound = false
-		for await (const repo of flow.resolveStream(singleInput(input), { verify: false })) {
+		flow.start({ verify: false })
+		flow.on("proposed", (repo) => {
 			candidateFound = true
 			ext.log.info("candidates", "expanded", {
 				input: repo.input,
@@ -130,6 +131,11 @@ export async function processCandidates(
 				provider: repo.producedBy,
 				verified: repo.state === "verified",
 			})
+		})
+		flow.input(singleInput(input))
+
+		for await (const _repo of flow.run()) {
+			// consumed via on("proposed") hook
 		}
 
 		if (!candidateFound) {
@@ -154,7 +160,8 @@ export async function processVerified(
 
 	for await (const input of inputs) {
 		let resolvedFound = false
-		for await (const repo of flow.resolveStream(singleInput(input), { verify: true })) {
+		flow.start({ verify: true })
+		flow.on("verified", (repo) => {
 			resolvedFound = true
 			ext.log.info("verified", "resolved", {
 				input: repo.input,
@@ -165,6 +172,11 @@ export async function processVerified(
 					verifiedBy: Array.from(repo.verifiedBy),
 				},
 			})
+		})
+		flow.input(singleInput(input))
+
+		for await (const _repo of flow.run()) {
+			// consumed via on("verified") hook
 		}
 
 		if (!resolvedFound) {

@@ -12,6 +12,22 @@ export const FLOW_GOAL = {
 
 export type FlowGoal = (typeof FLOW_GOAL)[keyof typeof FLOW_GOAL]
 
+export const FLOW_CHECKPOINT = {
+	proposed: "proposed",
+	verified: "verified",
+} as const
+
+export type FlowCheckpoint = (typeof FLOW_CHECKPOINT)[keyof typeof FLOW_CHECKPOINT]
+
+export type FlowInputShape =
+	| string
+	| URL
+	| AsyncIterable<string>
+	| AsyncIterable<URL>
+	| AsyncIterable<string | URL>
+
+export type FlowInput = FlowInputShape
+
 export type RepoShape = {
 	id: string
 	input: string
@@ -34,8 +50,21 @@ export type FlowContextShape = {
 	goal: FlowGoal
 	dedupe: Set<string>
 	now: () => Date
+	services: FlowServices
 }
 
 export type FlowContext = Readonly<FlowContextShape>
+
+export type FlowServiceShape = {
+	input: (input: FlowInput) => void
+}
+
+export type FlowService = Readonly<FlowServiceShape>
+
+export type FlowServicesShape = {
+	flow: FlowService
+}
+
+export type FlowServices = Readonly<FlowServicesShape>
 
 export type RepoIdentity = (repo: Repo) => string

@@ -29,6 +29,11 @@ function createContext(): FlowContext {
 		goal: FLOW_GOAL.firstSuccess,
 		dedupe: new Set<string>(),
 		now: () => new Date(),
+		services: {
+			flow: {
+				input: () => {},
+			},
+		},
 	}
 }
 

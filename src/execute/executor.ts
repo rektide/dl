@@ -19,6 +19,7 @@ function createFlowContext(ctx: ExecuteContext): FlowContext {
 		goal: ctx.options.goal,
 		dedupe: new Set<string>(),
 		now: () => new Date(),
+		services: ctx.services,
 	}
 }
 
@@ -52,9 +53,10 @@ export function createInputFlowExecutor(merge: FanIn<Repo> = fanIn): InputFlowEx
 			const candidateStreams = providers.map((provider) => provider.candidates(input.value))
 			const flowCtx = createFlowContext(ctx)
 			const source = merge(candidateStreams, ctx.signal)
-			const stages: Array<Stage<Repo, FlowContext>> = [dedupeStage]
+			const stages: Array<Stage<Repo, FlowContext>> = [dedupeStage, ...ctx.proposedStages]
 			if (ctx.options.verify) {
 				stages.push(verifyStage(ctx.registry, ctx.options.continueOnError))
+				stages.push(...ctx.verifiedStages)
 			}
 
 			yield* runStages(source, stages, flowCtx)

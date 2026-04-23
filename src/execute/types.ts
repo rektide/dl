@@ -1,6 +1,12 @@
-import type { FlowGoal, Repo } from "../flow/types.ts"
+import type {
+	FlowContext,
+	FlowGoal,
+	FlowServices,
+	Repo,
+} from "../flow/types.ts"
 import type { InputEntry, InputStream } from "../input/types.ts"
 import type { ProviderRegistry } from "../provider/types.ts"
+import type { Stage } from "./stage.ts"
 
 export type ExecuteOptionsShape = {
 	goal: FlowGoal
@@ -15,6 +21,9 @@ export type ExecuteContextShape = {
 	registry: ProviderRegistry
 	options: ExecuteOptions
 	signal: AbortSignal
+	services: FlowServices
+	proposedStages: ReadonlyArray<Stage<Repo, FlowContext>>
+	verifiedStages: ReadonlyArray<Stage<Repo, FlowContext>>
 }
 
 export type ExecuteContext = Readonly<ExecuteContextShape>
