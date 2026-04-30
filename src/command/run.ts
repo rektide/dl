@@ -120,8 +120,8 @@ export async function processCandidates(
 
 	for await (const input of inputs) {
 		let candidateFound = false
-		flow.config({ verify: false })
-		flow.on("proposed", (repo) => {
+		const plan = flow.plan().singleton().config({ verify: false })
+		plan.on("proposed", (repo) => {
 			candidateFound = true
 			ext.log.info("candidates", "expanded", {
 				input: repo.input,
@@ -132,9 +132,9 @@ export async function processCandidates(
 				verified: repo.state === "verified",
 			})
 		})
-		flow.push(singleInput(input))
+		plan.push(singleInput(input))
 
-		for await (const _repo of flow.execute()) {
+		for await (const _repo of plan.execute()) {
 			// consumed via on("proposed") hook
 		}
 
@@ -160,8 +160,8 @@ export async function processVerified(
 
 	for await (const input of inputs) {
 		let resolvedFound = false
-		flow.config({ verify: true })
-		flow.on("verified", (repo) => {
+		const plan = flow.plan().singleton().config({ verify: true })
+		plan.on("verified", (repo) => {
 			resolvedFound = true
 			ext.log.info("verified", "resolved", {
 				input: repo.input,
@@ -173,9 +173,9 @@ export async function processVerified(
 				},
 			})
 		})
-		flow.push(singleInput(input))
+		plan.push(singleInput(input))
 
-		for await (const _repo of flow.execute()) {
+		for await (const _repo of plan.execute()) {
 			// consumed via on("verified") hook
 		}
 

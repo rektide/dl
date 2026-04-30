@@ -52,15 +52,20 @@ export type FlowSessionShape = {
 
 export type FlowSession = FlowSessionShape
 
+export interface FlowPlan {
+	config(options?: Partial<FlowResolveOptions>): FlowPlan
+	push(input: FlowInput): FlowPlan
+	on(checkpoint: FlowCheckpoint, observer: FlowObserver): FlowPlan
+	singleton(): FlowPlan
+	execute(): AsyncGenerator<Repo>
+}
+
 export interface FlowExtension {
+	plan(): FlowPlan
 	config(options?: Partial<FlowResolveOptions>): void
 	push(input: FlowInput): void
 	on(checkpoint: FlowCheckpoint, observer: FlowObserver): void
 	execute(): AsyncGenerator<Repo>
-	/**
-	 * @deprecated Use `config(...)`, `push(...)`, and `execute()` for session usage.
-	 */
-	resolveStream(inputs: AsyncIterable<string>, options?: Partial<FlowResolveOptions>): AsyncGenerator<Repo>
 }
 
 function defaultResolveOptions(): FlowResolveOptions {
@@ -169,10 +174,9 @@ export const flowPlugin = plugin({
 		let session = createSession(defaultOptions)
 		let flowExtension: FlowExtension
 
-		function ensureSessionStarted(): void {
-			if (session.active) return
-			session = createSession(session.options)
-			session.active = true
+		function ensureSessionStarted(target: FlowSession): void {
+			if (target.active) return
+			target.active = true
 		}
 
 		function config(overrides: Partial<FlowResolveOptions> = {}): void {
@@ -184,69 +188,103 @@ export const flowPlugin = plugin({
 		}
 
 		function push(flowInput: FlowInput): void {
-			ensureSessionStarted()
+			ensureSessionStarted(session)
 			session.queue.push(toInputStream(flowInput))
 		}
 
 		function on(checkpoint: FlowCheckpoint, observer: FlowObserver): void {
-			ensureSessionStarted()
+			ensureSessionStarted(session)
 			session.observers[checkpoint].push(observer)
 		}
 
-		async function* execute(): AsyncGenerator<Repo> {
-			ensureSessionStarted()
-			if (session.running) {
+		async function* executeSession(target: FlowSession): AsyncGenerator<Repo> {
+			ensureSessionStarted(target)
+			if (target.running) {
 				throw new Error("flow session is already running")
 			}
 
-			session.running = true
+			target.running = true
 			try {
 				const plugins = {
 					...core.extensions,
 					[FLOW_PLUGIN_ID]: flowExtension,
 				}
 
-				while (session.queue.length > 0) {
-					const sources = session.queue.splice(0)
+				while (target.queue.length > 0) {
+					const sources = target.queue.splice(0)
 					const merged = fanIn(sources.map((source) => toStringInputs(source)))
-					const signal = AbortSignal.timeout(session.options.timeoutMs)
+					const signal = AbortSignal.timeout(target.options.timeoutMs)
 
 					yield* executor(toInputEntries(merged), {
 						registry,
-						options: session.options,
+						options: target.options,
 						signal,
 						plugins,
-						proposedStages: [createObserverStage(session.observers[FLOW_CHECKPOINT.proposed])],
-						verifiedStages: [createObserverStage(session.observers[FLOW_CHECKPOINT.verified])],
+						proposedStages: [createObserverStage(target.observers[FLOW_CHECKPOINT.proposed])],
+						verifiedStages: [createObserverStage(target.observers[FLOW_CHECKPOINT.verified])],
 					})
 				}
 			} finally {
-				session.running = false
-				session.active = false
-				session.queue = []
-				session.observers.proposed = []
-				session.observers.verified = []
+				target.running = false
+				target.active = false
+				target.queue = []
+				target.observers.proposed = []
+				target.observers.verified = []
 			}
 		}
 
-		/**
-		 * @deprecated Use `config(...)`, `push(...)`, and `execute()` for session usage.
-		 */
-		async function* resolveStream(
-			inputs: AsyncIterable<string>,
-			overrides: Partial<FlowResolveOptions> = {},
-		): AsyncGenerator<Repo> {
-			config(overrides)
-			push(inputs)
-			yield* execute()
+		function execute(): AsyncGenerator<Repo> {
+			return executeSession(session)
+		}
+
+		function plan(): FlowPlan {
+			const planSession = createSession(defaultOptions)
+			let planApi: FlowPlan
+
+			planApi = {
+				config(overrides: Partial<FlowResolveOptions> = {}) {
+					planSession.options = {
+						...defaultOptions,
+						...overrides,
+					}
+					planSession.active = true
+					return planApi
+				},
+				push(flowInput: FlowInput) {
+					ensureSessionStarted(planSession)
+					planSession.queue.push(toInputStream(flowInput))
+					return planApi
+				},
+				on(checkpoint: FlowCheckpoint, observer: FlowObserver) {
+					ensureSessionStarted(planSession)
+					planSession.observers[checkpoint].push(observer)
+					return planApi
+				},
+				singleton() {
+					if (session.running) {
+						throw new Error("cannot replace singleton flow plan while executing")
+					}
+					session = planSession
+					ensureSessionStarted(session)
+					return planApi
+				},
+				execute() {
+					if (session !== planSession) {
+						session = planSession
+					}
+					return executeSession(planSession)
+				},
+			}
+
+			return planApi
 		}
 
 		flowExtension = {
+			plan,
 			config,
 			push,
 			on,
 			execute,
-			resolveStream,
 		}
 
 		return flowExtension

@@ -54,9 +54,9 @@ export async function runLegacyActionsFromFlow(
 	}
 
 	let hadError = false
-	flow.config({ verify: true })
-	flow.push(inputs)
-	flow.on("verified", async (repo) => {
+	const plan = flow.plan().singleton().config({ verify: true })
+	plan.push(inputs)
+	plan.on("verified", async (repo) => {
 		const resolved = toLegacyRepoContext(repo)
 		hadError =
 			(await runPipeline(
@@ -68,7 +68,7 @@ export async function runLegacyActionsFromFlow(
 			)) || hadError
 	})
 
-	for await (const _repo of flow.execute()) {
+	for await (const _repo of plan.execute()) {
 		// consumed via on("verified") hook
 	}
 
