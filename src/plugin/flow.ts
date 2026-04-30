@@ -53,10 +53,13 @@ export type FlowSessionShape = {
 export type FlowSession = FlowSessionShape
 
 export interface FlowExtension {
-	start(options?: Partial<FlowResolveOptions>): void
-	input(input: FlowInput): void
+	config(options?: Partial<FlowResolveOptions>): void
+	push(input: FlowInput): void
 	on(checkpoint: FlowCheckpoint, observer: FlowObserver): void
-	run(): AsyncGenerator<Repo>
+	execute(): AsyncGenerator<Repo>
+	/**
+	 * @deprecated Use `config(...)`, `push(...)`, and `execute()` for session usage.
+	 */
 	resolveStream(inputs: AsyncIterable<string>, options?: Partial<FlowResolveOptions>): AsyncGenerator<Repo>
 }
 
@@ -162,7 +165,7 @@ export const flowPlugin = plugin({
 			githubioProvider,
 			genericProvider,
 		])
-		const execute = createInputFlowExecutor()
+		const executor = createInputFlowExecutor()
 		let session = createSession(defaultOptions)
 		let flowExtension: FlowExtension
 
@@ -172,7 +175,7 @@ export const flowPlugin = plugin({
 			session.active = true
 		}
 
-		function start(overrides: Partial<FlowResolveOptions> = {}): void {
+		function config(overrides: Partial<FlowResolveOptions> = {}): void {
 			session = createSession({
 				...defaultOptions,
 				...overrides,
@@ -180,7 +183,7 @@ export const flowPlugin = plugin({
 			session.active = true
 		}
 
-		function input(flowInput: FlowInput): void {
+		function push(flowInput: FlowInput): void {
 			ensureSessionStarted()
 			session.queue.push(toInputStream(flowInput))
 		}
@@ -190,7 +193,7 @@ export const flowPlugin = plugin({
 			session.observers[checkpoint].push(observer)
 		}
 
-		async function* run(): AsyncGenerator<Repo> {
+		async function* execute(): AsyncGenerator<Repo> {
 			ensureSessionStarted()
 			if (session.running) {
 				throw new Error("flow session is already running")
@@ -208,7 +211,7 @@ export const flowPlugin = plugin({
 					const merged = fanIn(sources.map((source) => toStringInputs(source)))
 					const signal = AbortSignal.timeout(session.options.timeoutMs)
 
-					yield* execute(toInputEntries(merged), {
+					yield* executor(toInputEntries(merged), {
 						registry,
 						options: session.options,
 						signal,
@@ -226,20 +229,23 @@ export const flowPlugin = plugin({
 			}
 		}
 
+		/**
+		 * @deprecated Use `config(...)`, `push(...)`, and `execute()` for session usage.
+		 */
 		async function* resolveStream(
 			inputs: AsyncIterable<string>,
 			overrides: Partial<FlowResolveOptions> = {},
 		): AsyncGenerator<Repo> {
-			start(overrides)
-			input(inputs)
-			yield* run()
+			config(overrides)
+			push(inputs)
+			yield* execute()
 		}
 
 		flowExtension = {
-			start,
-			input,
+			config,
+			push,
 			on,
-			run,
+			execute,
 			resolveStream,
 		}
 
