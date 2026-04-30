@@ -42,21 +42,54 @@ export type FlowObserverMapShape = {
 
 export type FlowObserverMap = FlowObserverMapShape
 
+export const FLOW_SESSION_PHASE = {
+	idle: "idle",
+	configured: "configured",
+	executing: "executing",
+	draining: "draining",
+	completed: "completed",
+	failed: "failed",
+	cancelled: "cancelled",
+} as const
+
+export type FlowSessionPhase =
+	(typeof FLOW_SESSION_PHASE)[keyof typeof FLOW_SESSION_PHASE]
+
 export type FlowSessionShape = {
-	active: boolean
+	phase: FlowSessionPhase
 	options: FlowResolveOptions
 	queue: Array<AsyncIterable<string | URL>>
 	observers: FlowObserverMap
-	running: boolean
+	startedAt: Date | null
+	endedAt: Date | null
+	lastError: Error | null
+	emittedProposed: number
+	emittedVerified: number
+	reinjectedCount: number
 }
 
 export type FlowSession = FlowSessionShape
+
+export type FlowSessionSnapshotShape = {
+	phase: FlowSessionPhase
+	queuedCount: number
+	observers: Readonly<Record<FlowCheckpoint, number>>
+	startedAt: Date | null
+	endedAt: Date | null
+	lastError: Error | null
+	emittedProposed: number
+	emittedVerified: number
+	reinjectedCount: number
+}
+
+export type FlowSessionSnapshot = Readonly<FlowSessionSnapshotShape>
 
 export interface FlowPlan {
 	config(options?: Partial<FlowResolveOptions>): FlowPlan
 	push(input: FlowInput): FlowPlan
 	on(checkpoint: FlowCheckpoint, observer: FlowObserver): FlowPlan
 	singleton(): FlowPlan
+	snapshot(): FlowSessionSnapshot
 	execute(): AsyncGenerator<Repo>
 }
 
@@ -65,6 +98,7 @@ export interface FlowExtension {
 	config(options?: Partial<FlowResolveOptions>): void
 	push(input: FlowInput): void
 	on(checkpoint: FlowCheckpoint, observer: FlowObserver): void
+	snapshot(): FlowSessionSnapshot
 	execute(): AsyncGenerator<Repo>
 }
 
@@ -107,11 +141,21 @@ function identityStage(
 	return input
 }
 
-function createObserverStage(observers: ReadonlyArray<FlowObserver>): Stage<Repo, FlowContext> {
+function createObserverStage(
+	checkpoint: FlowCheckpoint,
+	session: FlowSession,
+	observers: ReadonlyArray<FlowObserver>,
+): Stage<Repo, FlowContext> {
 	if (observers.length === 0) return identityStage
 
 	return async function* observe(input, context): AsyncGenerator<Repo> {
 		for await (const repo of input) {
+			if (checkpoint === FLOW_CHECKPOINT.proposed) {
+				session.emittedProposed += 1
+			}
+			if (checkpoint === FLOW_CHECKPOINT.verified) {
+				session.emittedVerified += 1
+			}
 			for (const observer of observers) {
 				await observer(repo, context)
 			}
@@ -122,14 +166,36 @@ function createObserverStage(observers: ReadonlyArray<FlowObserver>): Stage<Repo
 
 function createSession(options: FlowResolveOptions): FlowSession {
 	return {
-		active: false,
+		phase: FLOW_SESSION_PHASE.idle,
 		options,
 		queue: [],
 		observers: {
 			proposed: [],
 			verified: [],
 		},
-		running: false,
+		startedAt: null,
+		endedAt: null,
+		lastError: null,
+		emittedProposed: 0,
+		emittedVerified: 0,
+		reinjectedCount: 0,
+	}
+}
+
+function snapshotSession(session: FlowSession): FlowSessionSnapshot {
+	return {
+		phase: session.phase,
+		queuedCount: session.queue.length,
+		observers: {
+			proposed: session.observers.proposed.length,
+			verified: session.observers.verified.length,
+		},
+		startedAt: session.startedAt,
+		endedAt: session.endedAt,
+		lastError: session.lastError,
+		emittedProposed: session.emittedProposed,
+		emittedVerified: session.emittedVerified,
+		reinjectedCount: session.reinjectedCount,
 	}
 }
 
@@ -175,8 +241,8 @@ export const flowPlugin = plugin({
 		let flowExtension: FlowExtension
 
 		function ensureSessionStarted(target: FlowSession): void {
-			if (target.active) return
-			target.active = true
+			if (target.phase !== FLOW_SESSION_PHASE.idle) return
+			target.phase = FLOW_SESSION_PHASE.configured
 		}
 
 		function config(overrides: Partial<FlowResolveOptions> = {}): void {
@@ -184,11 +250,17 @@ export const flowPlugin = plugin({
 				...defaultOptions,
 				...overrides,
 			})
-			session.active = true
+			session.phase = FLOW_SESSION_PHASE.configured
 		}
 
 		function push(flowInput: FlowInput): void {
+			if (session.phase === FLOW_SESSION_PHASE.draining) {
+				throw new Error("cannot push while flow session is draining")
+			}
 			ensureSessionStarted(session)
+			if (session.phase === FLOW_SESSION_PHASE.executing) {
+				session.reinjectedCount += 1
+			}
 			session.queue.push(toInputStream(flowInput))
 		}
 
@@ -199,11 +271,14 @@ export const flowPlugin = plugin({
 
 		async function* executeSession(target: FlowSession): AsyncGenerator<Repo> {
 			ensureSessionStarted(target)
-			if (target.running) {
+			if (target.phase === FLOW_SESSION_PHASE.executing) {
 				throw new Error("flow session is already running")
 			}
 
-			target.running = true
+			target.phase = FLOW_SESSION_PHASE.executing
+			target.startedAt = new Date()
+			target.endedAt = null
+			target.lastError = null
 			try {
 				const plugins = {
 					...core.extensions,
@@ -220,13 +295,31 @@ export const flowPlugin = plugin({
 						options: target.options,
 						signal,
 						plugins,
-						proposedStages: [createObserverStage(target.observers[FLOW_CHECKPOINT.proposed])],
-						verifiedStages: [createObserverStage(target.observers[FLOW_CHECKPOINT.verified])],
+						proposedStages: [
+							createObserverStage(
+								FLOW_CHECKPOINT.proposed,
+								target,
+								target.observers[FLOW_CHECKPOINT.proposed],
+							),
+						],
+						verifiedStages: [
+							createObserverStage(
+								FLOW_CHECKPOINT.verified,
+								target,
+								target.observers[FLOW_CHECKPOINT.verified],
+							),
+						],
 					})
 				}
+				target.phase = FLOW_SESSION_PHASE.draining
+				target.phase = FLOW_SESSION_PHASE.completed
+			} catch (error) {
+				const normalized = error instanceof Error ? error : new Error(String(error))
+				target.lastError = normalized
+				target.phase = FLOW_SESSION_PHASE.failed
+				throw normalized
 			} finally {
-				target.running = false
-				target.active = false
+				target.endedAt = new Date()
 				target.queue = []
 				target.observers.proposed = []
 				target.observers.verified = []
@@ -235,6 +328,10 @@ export const flowPlugin = plugin({
 
 		function execute(): AsyncGenerator<Repo> {
 			return executeSession(session)
+		}
+
+		function snapshot(): FlowSessionSnapshot {
+			return snapshotSession(session)
 		}
 
 		function plan(): FlowPlan {
@@ -247,11 +344,17 @@ export const flowPlugin = plugin({
 						...defaultOptions,
 						...overrides,
 					}
-					planSession.active = true
+					planSession.phase = FLOW_SESSION_PHASE.configured
 					return planApi
 				},
 				push(flowInput: FlowInput) {
+					if (planSession.phase === FLOW_SESSION_PHASE.draining) {
+						throw new Error("cannot push while flow session is draining")
+					}
 					ensureSessionStarted(planSession)
+					if (planSession.phase === FLOW_SESSION_PHASE.executing) {
+						planSession.reinjectedCount += 1
+					}
 					planSession.queue.push(toInputStream(flowInput))
 					return planApi
 				},
@@ -261,12 +364,15 @@ export const flowPlugin = plugin({
 					return planApi
 				},
 				singleton() {
-					if (session.running) {
+					if (session.phase === FLOW_SESSION_PHASE.executing) {
 						throw new Error("cannot replace singleton flow plan while executing")
 					}
 					session = planSession
 					ensureSessionStarted(session)
 					return planApi
+				},
+				snapshot() {
+					return snapshotSession(planSession)
 				},
 				execute() {
 					if (session !== planSession) {
@@ -284,6 +390,7 @@ export const flowPlugin = plugin({
 			config,
 			push,
 			on,
+			snapshot,
 			execute,
 		}
 
