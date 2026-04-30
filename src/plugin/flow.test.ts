@@ -1,6 +1,14 @@
-import { describe, expect, test } from "vitest";
+import { http, HttpResponse } from "msw";
+import { setupServer } from "msw/node";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { FLOW_CHECKPOINT, REPO_STATE } from "../flow/types.ts";
 import { type FlowExtension, flowPlugin } from "./flow.ts";
+
+const server = setupServer();
+
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
 
 async function createFlow(): Promise<FlowExtension> {
   const core = { extensions: {} } as Parameters<typeof flowPlugin.extension.factory>[0];
@@ -89,6 +97,33 @@ describe("flowPlugin session snapshots", () => {
     expect(repos.some((repo) => repo.input === "serde-rs/serde")).toBe(true);
     expect(repos.some((repo) => repo.input === "gitlab-org/gitlab")).toBe(true);
     expect(plan.snapshot().reinjectedCount).toBe(1);
+  });
+
+  test("reinjects redirect candidates without yielding the redirect itself", async () => {
+    server.use(
+      http.get("https://crates.io/api/v1/crates/serde", () => {
+        return HttpResponse.json({ crate: { repository: "https://github.com/serde-rs/serde" } });
+      }),
+    );
+
+    const flow = await createFlow();
+    const plan = flow.plan().singleton().config({ verify: false }).push("crates.io/crates/serde");
+
+    const repos = await consume(plan.execute());
+    const snapshot = plan.snapshot();
+
+    expect(repos.every((repo) => repo.producedBy !== "crates-io")).toBe(true);
+    expect(repos.some((repo) => repo.producedBy === "github")).toBe(true);
+    expect(snapshot.reinjections.length).toBe(1);
+    expect(snapshot.reinjections).toEqual([
+      {
+        fromInput: "crates.io/crates/serde",
+        fromUrl: "https://github.com/serde-rs/serde",
+        fromProvider: "crates-io",
+        toInput: "https://github.com/serde-rs/serde",
+        toHost: "github.com",
+      },
+    ]);
   });
 
   test("records failed terminal state and last error", async () => {

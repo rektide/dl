@@ -1,11 +1,13 @@
 import { plugin } from "gunshi/plugin";
 import {
   FLOW_CHECKPOINT,
+  FLOW_INPUT_ORIGIN,
   FLOW_GOAL,
   type FlowCheckpoint,
   type FlowContext,
   type FlowGoal,
   type FlowInput,
+  type FlowInputMetadata,
   type Repo,
 } from "../flow/types.ts";
 import {
@@ -46,6 +48,16 @@ export type FlowObserverMapShape = {
 
 export type FlowObserverMap = FlowObserverMapShape;
 
+export type FlowReinjectionShape = {
+  fromInput: string;
+  fromUrl: string;
+  fromProvider: string;
+  toInput: string;
+  toHost: string;
+};
+
+export type FlowReinjection = Readonly<FlowReinjectionShape>;
+
 export const FLOW_SESSION_PHASE = {
   idle: "idle",
   configured: "configured",
@@ -61,7 +73,7 @@ export type FlowSessionPhase = (typeof FLOW_SESSION_PHASE)[keyof typeof FLOW_SES
 export type FlowSessionShape = {
   phase: FlowSessionPhase;
   options: FlowResolveOptions;
-  queue: BufferedAsyncQueue<AsyncIterable<string | URL>>;
+  queue: BufferedAsyncQueue<AsyncIterable<QueuedFlowInput>>;
   observers: FlowObserverMap;
   startedAt: Date | null;
   endedAt: Date | null;
@@ -69,6 +81,8 @@ export type FlowSessionShape = {
   emittedProposed: number;
   emittedVerified: number;
   reinjectedCount: number;
+  reinjectedInputs: Set<string>;
+  reinjections: Array<FlowReinjection>;
 };
 
 export type FlowSession = FlowSessionShape;
@@ -83,13 +97,14 @@ export type FlowSessionSnapshotShape = {
   emittedProposed: number;
   emittedVerified: number;
   reinjectedCount: number;
+  reinjections: ReadonlyArray<FlowReinjection>;
 };
 
 export type FlowSessionSnapshot = Readonly<FlowSessionSnapshotShape>;
 
 export interface FlowPlan {
   config(options?: Partial<FlowResolveOptions>): FlowPlan;
-  push(input: FlowInput): FlowPlan;
+  push(input: FlowInput, metadata?: FlowInputMetadata): FlowPlan;
   on(checkpoint: FlowCheckpoint, observer: FlowObserver): FlowPlan;
   singleton(): FlowPlan;
   snapshot(): FlowSessionSnapshot;
@@ -99,11 +114,16 @@ export interface FlowPlan {
 export interface FlowExtension {
   plan(): FlowPlan;
   config(options?: Partial<FlowResolveOptions>): void;
-  push(input: FlowInput): void;
+  push(input: FlowInput, metadata?: FlowInputMetadata): void;
   on(checkpoint: FlowCheckpoint, observer: FlowObserver): void;
   snapshot(): FlowSessionSnapshot;
   execute(): AsyncGenerator<Repo>;
 }
+
+type QueuedFlowInput = Readonly<{
+  value: string | URL;
+  metadata?: FlowInputMetadata;
+}>;
 
 function defaultResolveOptions(): FlowResolveOptions {
   return {
@@ -114,27 +134,40 @@ function defaultResolveOptions(): FlowResolveOptions {
   };
 }
 
-async function* toInputEntries(inputs: AsyncIterable<string>) {
-  for await (const value of inputs) {
-    yield { value, source: "input" };
-  }
-}
-
-async function* singleInput(value: string | URL): AsyncGenerator<string | URL> {
-  yield value;
-}
-
-async function* toStringInputs(inputs: AsyncIterable<string | URL>): AsyncGenerator<string> {
+async function* toInputEntries(inputs: AsyncIterable<QueuedFlowInput>) {
   for await (const input of inputs) {
-    yield input instanceof URL ? input.toString() : input;
+    yield {
+      value: input.value instanceof URL ? input.value.toString() : input.value,
+      source: input.metadata?.origin ?? FLOW_INPUT_ORIGIN.input,
+      metadata: input.metadata,
+    };
   }
 }
 
-function toInputStream(input: FlowInput): AsyncIterable<string | URL> {
-  if (typeof input === "string" || input instanceof URL) {
-    return singleInput(input);
+async function* singleInput(
+  value: string | URL,
+  metadata?: FlowInputMetadata,
+): AsyncGenerator<QueuedFlowInput> {
+  yield { value, metadata };
+}
+
+async function* toQueuedInputs(
+  inputs: AsyncIterable<string | URL>,
+  metadata?: FlowInputMetadata,
+): AsyncGenerator<QueuedFlowInput> {
+  for await (const input of inputs) {
+    yield { value: input, metadata };
   }
-  return input;
+}
+
+function toInputStream(
+  input: FlowInput,
+  metadata?: FlowInputMetadata,
+): AsyncIterable<QueuedFlowInput> {
+  if (typeof input === "string" || input instanceof URL) {
+    return singleInput(input, metadata);
+  }
+  return toQueuedInputs(input, metadata);
 }
 
 function identityStage(input: AsyncIterable<Repo>, _context: FlowContext): AsyncIterable<Repo> {
@@ -192,6 +225,8 @@ function createSession(options: FlowResolveOptions): FlowSession {
     emittedProposed: 0,
     emittedVerified: 0,
     reinjectedCount: 0,
+    reinjectedInputs: new Set(),
+    reinjections: [],
   };
 }
 
@@ -209,6 +244,7 @@ function snapshotSession(session: FlowSession): FlowSessionSnapshot {
     emittedProposed: session.emittedProposed,
     emittedVerified: session.emittedVerified,
     reinjectedCount: session.reinjectedCount,
+    reinjections: [...session.reinjections],
   };
 }
 
@@ -258,6 +294,41 @@ export const flowPlugin = plugin({
       target.phase = FLOW_SESSION_PHASE.configured;
     }
 
+    function enqueue(
+      target: FlowSession,
+      flowInput: FlowInput,
+      metadata?: FlowInputMetadata,
+    ): void {
+      if (target.phase === FLOW_SESSION_PHASE.draining) {
+        throw new Error("cannot push while flow session is draining");
+      }
+      ensureSessionStarted(target);
+
+      if (target.phase === FLOW_SESSION_PHASE.executing) {
+        target.reinjectedCount += 1;
+      }
+
+      if (
+        metadata?.origin === FLOW_INPUT_ORIGIN.redirect &&
+        (typeof flowInput === "string" || flowInput instanceof URL)
+      ) {
+        const toInput = flowInput instanceof URL ? flowInput.toString() : flowInput;
+        // URL-only dedupe prevents redirect storms. `(producer, URL)` could be
+        // useful later if lifecycle reports need to preserve every handoff path.
+        if (target.reinjectedInputs.has(toInput)) return;
+        target.reinjectedInputs.add(toInput);
+        target.reinjections.push({
+          fromInput: metadata.fromInput ?? toInput,
+          fromUrl: metadata.fromUrl ?? toInput,
+          fromProvider: metadata.fromProvider ?? "unknown",
+          toInput,
+          toHost: new URL(toInput).host,
+        });
+      }
+
+      target.queue.push(toInputStream(flowInput, metadata));
+    }
+
     function config(overrides: Partial<FlowResolveOptions> = {}): void {
       session = createSession({
         ...defaultOptions,
@@ -266,15 +337,8 @@ export const flowPlugin = plugin({
       session.phase = FLOW_SESSION_PHASE.configured;
     }
 
-    function push(flowInput: FlowInput): void {
-      if (session.phase === FLOW_SESSION_PHASE.draining) {
-        throw new Error("cannot push while flow session is draining");
-      }
-      ensureSessionStarted(session);
-      if (session.phase === FLOW_SESSION_PHASE.executing) {
-        session.reinjectedCount += 1;
-      }
-      session.queue.push(toInputStream(flowInput));
+    function push(flowInput: FlowInput, metadata?: FlowInputMetadata): void {
+      enqueue(session, flowInput, metadata);
     }
 
     function on(checkpoint: FlowCheckpoint, observer: FlowObserver): void {
@@ -302,7 +366,7 @@ export const flowPlugin = plugin({
         try {
           while (target.queue.state().buffered > 0) {
             const sources = await drainBufferedSources(target.queue, queueIterator);
-            const merged = fanIn(sources.map((source) => toStringInputs(source)));
+            const merged = fanIn(sources);
             const signal = AbortSignal.timeout(target.options.timeoutMs);
 
             yield* executor(toInputEntries(merged), {
@@ -310,6 +374,9 @@ export const flowPlugin = plugin({
               options: target.options,
               signal,
               plugins,
+              providerRuntime: {
+                push: (input, metadata) => enqueue(target, input, metadata),
+              },
               proposedStages: [
                 createObserverStage(
                   FLOW_CHECKPOINT.proposed,
@@ -365,15 +432,8 @@ export const flowPlugin = plugin({
           planSession.phase = FLOW_SESSION_PHASE.configured;
           return planApi;
         },
-        push(flowInput: FlowInput) {
-          if (planSession.phase === FLOW_SESSION_PHASE.draining) {
-            throw new Error("cannot push while flow session is draining");
-          }
-          ensureSessionStarted(planSession);
-          if (planSession.phase === FLOW_SESSION_PHASE.executing) {
-            planSession.reinjectedCount += 1;
-          }
-          planSession.queue.push(toInputStream(flowInput));
+        push(flowInput: FlowInput, metadata?: FlowInputMetadata) {
+          enqueue(planSession, flowInput, metadata);
           return planApi;
         },
         on(checkpoint: FlowCheckpoint, observer: FlowObserver) {
