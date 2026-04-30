@@ -21,6 +21,7 @@ import {
 	CLIPBOARD_INPUT_PLUGIN_ID,
 } from "../plugin/input-clipboard.ts"
 import { requireExtensions, type DlCommandParams, type DlExtensions } from "./context.ts"
+import { collectRepos } from "./browse.ts"
 import archlistSubcommand from "./archlist.ts"
 import archiveSubcommand from "./archive.ts"
 import deepwikiSubcommand from "./deepwiki.ts"
@@ -33,6 +34,12 @@ const dlArgs = {
 		default: false,
 		description: "Do nothing — exit immediately without resolving or syncing",
 	},
+	pick: {
+		type: "boolean",
+		short: "p",
+		default: false,
+		description: "Interactively browse and select repos from an org to download",
+	},
 } as const
 
 type DlArgs = typeof dlArgs
@@ -44,9 +51,9 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		const clipboard = ctx.extensions[CLIPBOARD_INPUT_PLUGIN_ID]
 		const hasInputs = ctx.positionals.length > 0
 
-		if (!hasInputs && !watch.active && !clipboard.active) {
+		if (!hasInputs && !watch.active && !clipboard.active && !ctx.values.pick) {
 			console.error(
-				"usage: rekon dl [--watch] [--clipboard] [--org <org>] <repo-url|org/repo> [repo-url|org/repo ...]",
+				"usage: rekon dl [--watch] [--clipboard] [--pick] [--org <org>] <repo-url|org/repo> [repo-url|org/repo ...]",
 			)
 			process.exit(1)
 		}
@@ -64,6 +71,27 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
 		if (watch.active && options.archlistState !== OFF) {
 			ext.log.warn("sync", "archlist_disabled", { reason: "watch mode feedback loop" })
 			options.archlistState = OFF
+		}
+
+		if (ctx.values.pick) {
+			const orgInput = hasInputs
+				? ctx.positionals[0]!
+				: ctx.values.org as string | undefined
+			if (!orgInput) {
+				console.error("--pick requires an org (positional arg or --org)")
+				process.exit(1)
+			}
+			const controller = new AbortController()
+			const selected = await collectRepos(orgInput, controller.signal)
+			if (selected.length === 0) return
+
+			const pickInputs = (async function* () {
+				for (const url of selected) yield url
+			})()
+
+			const hadError = await runLegacyActionsFromFlow(ctx.extensions, options, pickInputs)
+			if (hadError) process.exit(1)
+			return
 		}
 
 		const inputs = positional.source(ctx.values.org as string | undefined, ctx.positionals) // gunshi: plugin-registered global

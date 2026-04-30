@@ -28,6 +28,7 @@
     "build": "tsdown"
   },
   "dependencies": {
+    "@clack/prompts": "^1.3.0",
     "@crosscopy/clipboard": "^0.3.6",
     "@gunshi/plugin-completion": "^0.28.0",
     "glob": "^13.0.0",
