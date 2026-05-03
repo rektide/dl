@@ -1,4 +1,4 @@
-import type { DlOptions } from "../dl/types.ts"
+import type { DlOptions } from "../action/types.ts"
 import type { RepoContext } from "../repo/context.ts"
 import type { LogExtension } from "../plugin/log.ts"
 import type { DexportPlan } from "./policy.ts"

@@ -1,6 +1,7 @@
 # subagents
 
 - UNLESS DIRECTED BY USER ignore skills/etc that say to use a given model. we do not have access to most of these. just use whatever is currently running/default.
+- ask subagents to return references, to facilitate follow-up investigation/exploration.
 
 # Experimenting
 
@@ -20,6 +21,7 @@
 - `/opt` and `/srv` for general software installs, and for instances of software / services
 - if you want to checkout source, get the repo and wiki for it via `~/src/rekon/src/command/dl.ts <url>`
 - when writing files to explore behavior, please use a `.test-agent` folder at the top of the project for temporary files (creating it if needed), so they can be managed & cleaned up effectively.
+- for scripts, prefer adding a shebang and making the script executable, to having to launch via `node <script>.js`
 
 # Project Planning
 
@@ -78,7 +80,7 @@ Derive `Parser` (clap), `Serialize`/`Deserialize` (serde), and `Builder` (bon) o
 - Build output is ONLY for npm package distribution, not for development workflows or documentation.
 - prefer pnpm to npm for managing packages.
 - prefer writing .ts files to .js files! use typescript whenever possible.
-- node.js has good typescript type stripping support. ALWAYS run .ts files directly during development and documentation: `node src/cli.ts`. Build artifacts (`build/`) are ONLY for npm package distribution.
+- node.js has good typescript type stripping support. ALWAYS run .ts files directly during development and documentation: `node src/cli.ts`. Build artifacts (`build/`) are ONLY for npm package distribution. prefer typescript over javascript.
 - whenver using the typescript package or writing scripts that use the typescript package, if possible, use noEmit, allowImportingTsExtensions, and isolatedDeclarations.
 
 ## npm script structure with concurrently

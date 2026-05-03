@@ -96,7 +96,7 @@ describe("flowPlugin session snapshots", () => {
 
     expect(repos.some((repo) => repo.input === "serde-rs/serde")).toBe(true);
     expect(repos.some((repo) => repo.input === "gitlab-org/gitlab")).toBe(true);
-    expect(plan.snapshot().reinjectedCount).toBe(1);
+    expect(plan.snapshot().reinjectedCount).toBe(0);
   });
 
   test("reinjects redirect candidates without yielding the redirect itself", async () => {

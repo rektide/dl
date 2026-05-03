@@ -1,4 +1,4 @@
-export function prependOrg(org: string | undefined, positionals: string[]): string[] {
+export function prependOrg(org: string | undefined, positionals: readonly string[]): readonly string[] {
 	return org
 		? positionals.map((input) => `${org}/${input}`)
 		: positionals

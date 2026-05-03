@@ -81,7 +81,7 @@ export type FlowSessionShape = {
   emittedProposed: number;
   emittedVerified: number;
   reinjectedCount: number;
-  reinjectedInputs: Set<string>;
+  seenInputs: Set<string>;
   reinjections: Array<FlowReinjection>;
 };
 
@@ -225,7 +225,7 @@ function createSession(options: FlowResolveOptions): FlowSession {
     emittedProposed: 0,
     emittedVerified: 0,
     reinjectedCount: 0,
-    reinjectedInputs: new Set(),
+    seenInputs: new Set(),
     reinjections: [],
   };
 }
@@ -304,26 +304,21 @@ export const flowPlugin = plugin({
       }
       ensureSessionStarted(target);
 
-      if (target.phase === FLOW_SESSION_PHASE.executing) {
-        target.reinjectedCount += 1;
-      }
+      if (typeof flowInput === "string" || flowInput instanceof URL) {
+        const inputKey = flowInput instanceof URL ? flowInput.toString() : flowInput;
+        if (target.seenInputs.has(inputKey)) return;
+        target.seenInputs.add(inputKey);
 
-      if (
-        metadata?.origin === FLOW_INPUT_ORIGIN.redirect &&
-        (typeof flowInput === "string" || flowInput instanceof URL)
-      ) {
-        const toInput = flowInput instanceof URL ? flowInput.toString() : flowInput;
-        // URL-only dedupe prevents redirect storms. `(producer, URL)` could be
-        // useful later if lifecycle reports need to preserve every handoff path.
-        if (target.reinjectedInputs.has(toInput)) return;
-        target.reinjectedInputs.add(toInput);
-        target.reinjections.push({
-          fromInput: metadata.fromInput ?? toInput,
-          fromUrl: metadata.fromUrl ?? toInput,
-          fromProvider: metadata.fromProvider ?? "unknown",
-          toInput,
-          toHost: new URL(toInput).host,
-        });
+        if (metadata?.origin === FLOW_INPUT_ORIGIN.redirect) {
+          target.reinjectedCount += 1;
+          target.reinjections.push({
+            fromInput: metadata.fromInput ?? inputKey,
+            fromUrl: metadata.fromUrl ?? inputKey,
+            fromProvider: metadata.fromProvider ?? "unknown",
+            toInput: inputKey,
+            toHost: new URL(inputKey).host,
+          });
+        }
       }
 
       target.queue.push(toInputStream(flowInput, metadata));
