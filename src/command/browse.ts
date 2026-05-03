@@ -75,11 +75,14 @@ export async function collectRepos(
 	spinner.stop(`Found ${repos.length} repos in ${org}`)
 
 	const now = new Date()
-	const options = repos.map((repo) => ({
-		value: repo.url.toString(),
-		label: formatRepoLabel(repo, now),
-		hint: repo.description?.slice(0, 60),
-	}))
+	const options = repos.map((repo) => {
+		const label = formatRepoLabel(repo, now)
+		const desc = repo.description?.slice(0, 60)
+		return {
+			value: repo.url.toString(),
+			label: desc ? `${label}  ${desc}` : label,
+		}
+	})
 
 	const selected = await multiselect({
 		message: `Select repos to download from ${org}:`,
