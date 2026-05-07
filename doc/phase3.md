@@ -1,209 +1,152 @@
-# Phase 3 Steering: Drop RepoContext, Actions Become Stages
+# Phase 3: Actions Become Stages
 
-## What We Are Doing
+## Status
 
-Each action handler (archive, wiki, deepwiki, archlist, symlink) currently operates as an `ActionHandler` that receives `RepoContext` and `DlContext`. We are rewriting each one as a `Stage<Repo, FlowContext>` that receives `Repo` directly. When this is done, `RepoContext`, `DlContext`, `ActionHandler`, `runPipeline`, and the `toLegacyRepoContext` bridge are all deleted.
+Draft
 
-## Current State
+## Purpose
 
-### What exists and works (do not rework):
-- `src/flow/types.ts` — `Repo`, `FlowContext`, `FlowPlugins`, checkpoints
-- `src/execute/` — executor, stage type, buffered queue, fan-in
-- `src/plugin/flow.ts` — flow plugin with session lifecycle, plan API, enqueue
-- `src/provider/` — providers with `ProviderRuntime` push interface, redirect handoff
-- `src/command/run.ts` — `runFlowCommand()` composes one plan per invocation
-- `src/command/dl.ts` — uses `runFlowCommand()` with `hasExplicitAction()` detection
+Checkpoint where we are after phases 1 and 2, calibrate against original design intent, and set direction for converting actions into flow stages.
 
-### What must be eliminated:
-- `src/repo/context.ts` — `RepoContext` interface and `DefaultRepoContext` class
-- `src/action/handler.ts` — `ActionHandler` interface
-- `src/action/pipeline.ts` — `runPipeline()` sequential runner
-- `src/action/lifecycle.ts` — `createLifecycleReporter()` takes `RepoContext`
-- `src/action/types.ts` — `DlContext` (may evolve, not delete yet)
-- `src/command/run.ts:toLegacyRepoContext()` — the Repo→RepoContext bridge
-- `src/command/run.ts:flowLifecycleRecords()` — may be absorbed into stage lifecycle
+Reference documents that the implementing session should read:
+- [`/doc/flow.md`](/doc/flow.md) — overall flow architecture and invariants
+- [`/doc/flow-runtime-stage-plan.md`](/doc/flow-runtime-stage-plan.md) — 5-step runtime plan
+- [`/doc/stream-core.md`](/doc/stream-core.md) — stream core vs signal core decision
 
-### What must be rewritten as stages:
-- `src/archive/handler.ts` → archive stage
-- `src/wiki/handler.ts` → wiki stage
-- `src/deepwiki/handler.ts` → deepwiki stage
-- `src/archlist/handler.ts` → archlist stage
-- `src/symlink/handler.ts` → symlink stage
+---
 
-### What stays but evolves:
-- `src/action/state.ts` — step states (ENSURE, OFF, etc.) — still useful
-- `src/action/registry.ts` — `DlActionSpec`, action resolution — still useful for CLI flags
-- `src/action/types.ts` — `DlOptions` — stays until DlContext can be dissolved
-- `src/plugin/dl-actions.ts` — action plugin — evolves to contribute stages instead of handlers
-- Each `*/sync.ts` — the actual sync logic stays, just gets different argument shapes
+## Calibration: Where We Are vs Where We Intended to Be
 
-## Architecture Target
+### Done criteria from flow-runtime-stage-plan.md
 
-### Before (current):
-```
-Repo → toLegacyRepoContext() → RepoContext → runPipeline(ActionHandler[]) → ActionResult
-```
+The plan listed five done criteria. Honest assessment:
 
-### After (target):
-```
-Repo → Stage<Repo, FlowContext>[] (action stages) → Repo (passed through)
-```
+1. **"one flow runtime API with clear setup/execute semantics"** — Delivered. [`FlowExtension`](/src/plugin/flow.ts:114) exposes `config/push/on/execute` with a fluent `plan()` builder. The old `resolveStream` alias is gone.
 
-Each action stage:
-- Receives `AsyncIterable<Repo>` and `FlowContext`
-- Reads action state from `FlowContext.plugins` (via the action plugin extension)
-- Does its work for each repo
-- Yields the repo onward (stages are pass-through, not terminal)
-- Records lifecycle through the plugin system, not through a LifecycleReporter parameter
+2. **"explicit session state machine and introspection"** — Delivered. [`FLOW_SESSION_PHASE`](/src/plugin/flow.ts:150) has `idle/configured/executing/draining/completed/failed/cancelled` with guardrails. [`snapshot()`](/src/plugin/flow.ts:416) exposes counters, handoffs, timestamps.
 
-### Plugin contributes stages, not handlers:
+3. **"producer-only verify + explicit reinjection working"** — Delivered, but the shape differs from what the plan described. The plan called for a "reinjection policy stage." What we built instead: redirect providers call [`runtime.push()`](/src/provider/redirect.ts:48) directly, with dedupe in [`enqueue()`](/src/plugin/flow.ts:297). Same goal, different mechanism. The plan's step 4 described a stage; we moved that responsibility to the provider level. This seems like an improvement — redirect is now a provider concern, not a flow-stage concern.
 
-Current `DlActionProviderExtension`:
-```ts
-interface DlActionProviderExtension {
-  "dl:actions": ReadonlyArray<DlActionSpec>
-  "dl:handlers": ReadonlyArray<ActionHandler>  // ← DELETE THIS
-}
-```
+4. **"mixed observers/actions in one run supported"** — Delivered. [`runFlowCommand()`](/src/command/run.ts:113) composes candidate logging, verified logging, and action execution onto one flow plan. `--candidates --verified` and `--candidates --archlist` both work.
 
-Target:
-```ts
-interface DlActionProviderExtension {
-  "dl:actions": ReadonlyArray<DlActionSpec>
-  "dl:stages": ReadonlyArray<Stage<Repo, FlowContext>>  // ← NEW
-}
-```
+5. **"no legacy split-path behavior required for normal dl operation"** — **Partial.** The mode branching is gone (no more `if (candidates) return; if (verified) return;`), but actions still go through [`toLegacyRepoContext()`](/src/command/run.ts:34) → [`runPipeline()`](/src/action/pipeline.ts:8) inside a verified observer. This is the remaining legacy bridge. Normal `dl` operation depends on `src/repo/context.ts`, `src/action/handler.ts`, and `src/action/pipeline.ts` — all of which were supposed to be transitional.
 
-The flow runner assembles `dl:stages` into `verifiedStages` in the `ExecuteContext`.
+### Migration direction from flow.md
 
-## What Each Handler Currently Needs (to inform rewrite)
+flow.md listed five migration steps. Where they stand:
 
-### archive handler
-- `resolved.url` (RepoContext) → `repo.url` (Repo)
-- `ctx.roots.archiveRoot` → from plugin/config
-- `ctx.gitOps` → from plugin/config
-- `ctx.options.archiveState` → from action plugin via `FlowContext.plugins`
-- `ctx.log` → from plugin
-- `lifecycle` reporter → stage records its own lifecycle
+1. "Introduce new `flow/` + `execute/` contracts and tests" — Done.
+2. "Port providers to symmetric stateless contract" — Done. [`src/provider/`](/src/provider/) is the active system.
+3. "Build unified input plugin and concurrent `fan-in.ts`" — Done.
+4. "Add flow plugin and move `dl` command to thin consumer" — Partially done. `dl` is thinner, but the action bridge keeps it from being truly thin.
+5. "Remove legacy resolver/paths after parity tests pass" — **Not done.** This is what phase 3 is.
 
-### wiki handler
-- `resolved.wikiRepoUrl` → compute from `repo.url` (`.wiki.git` suffix for github/gitlab)
-- `resolved.url.pathname` → `repo.url.pathname`
-- `ctx.roots.wikiRoot` → from plugin/config
-- `ctx.options.wikiState` → from action plugin
-- `ctx.gitOps`, `ctx.log` → from plugin
+### Invariants from flow.md
 
-### deepwiki handler
-- `resolved.url.pathname` → `repo.url.pathname`
-- `ctx.roots.wikiRoot` → from plugin/config
-- `ctx.dexportOps` → from plugin/config
-- `ctx.options.deepwikiState` → from action plugin
+- "A miss from one provider does not prevent other providers from attempting" — Held.
+- "Dedupe is global and deterministic" — Held.
+- "Producer provenance is never overwritten" — Held.
+- "Providers remain stateless" — Held.
+- "Flow core remains usable outside gunshi plugin wiring" — **Uncertain.** The executor and stage system work independently, but [`flowPlugin`](/src/plugin/flow.ts:251) is a gunshi plugin. The core logic is separable in principle, but hasn't been tested outside gunshi wiring.
 
-### archlist handler
-- `resolved.url.toString()` → `repo.url.toString()`
-- `ctx.options.archlistState` → from action plugin
-- `ctx.log` → from plugin
+### What was deferred
 
-### symlink handler
-- `resolved` (org, project) → `repo.org`, `repo.project`
-- `ctx.options.symlinkState` → from action plugin
-- `ctx.roots` → from plugin/config
+- **Signal-backed session metadata** (plan step 3) — explicitly deferred per [`/doc/stream-core.md`](/doc/stream-core.md). Stream core works; signals are a future experiment.
+- **`flow/steps/types.ts`**, **`flow/compose.ts`** from the flow.md directory layout — never materialized. Composition is inline in the executor. The simpler `Stage` type won over the branded `RepoStep` / `RepoStream` types flow.md originally described.
+- **`execute/runtime.ts`** from flow.md — never created. [`flowPlugin`](/src/plugin/flow.ts) serves the runtime composition role instead.
 
-## How to Move Code Forward (NOT adapter)
+### Things that drifted from the plan without being reconsidered
 
-### WRONG (previous failed attempt):
-```ts
-function createActionStage(handler: ActionHandler): Stage<Repo, FlowContext> {
-  return async function* (input, ctx) {
-    for await (const repo of input) {
-      const resolved = toLegacyRepoContext(repo)  // ← BRIDGE, DO NOT DO THIS
-      await handler.run(resolved, dlContext, lifecycle)
-      yield repo
-    }
-  }
-}
-```
+- The plan said "keep `resolveStream` as alias + deprecation notes." We deleted it entirely instead. Good decision, but not what was planned.
+- The plan said "define reinjection policy module." We put handoff logic directly into [`enqueue()`](/src/plugin/flow.ts:297) and the flow plugin. No separate module.
+- flow.md described a `RepoStep<I extends Repo, O extends Repo>` with branded stream types. We went with a simpler unbranded [`Stage`](/src/execute/stage.ts). This is fine, but it's a deviation.
 
-### RIGHT (direct rewrite):
-```ts
-function createArchiveStage(options: ArchiveStageOptions): Stage<Repo, FlowContext> {
-  return async function* archiveStage(input, ctx) {
-    for await (const repo of input) {
-      const state = getActionState(ctx.plugins, "archive")
-      if (state === OFF) { yield repo; continue }
-      // do archive work directly with repo, options
-      // record lifecycle directly
-      yield repo
-    }
-  }
-}
-```
+---
 
-No adapter. No bridge. Each handler rewritten in place. The old `handler.ts` file gets replaced, not wrapped.
+## What Phase 3 Is Trying to Do
 
-## Implementation Order
+The original plans don't describe "phase 3" as a named thing. They describe it implicitly through:
 
-1. **Define stage factory pattern** — Each action domain exports a `createXxxStage()` that returns `Stage<Repo, FlowContext>`. The factory receives its config (roots, git ops, log) at construction time, not per-repo.
+1. flow.md's migration step 5: "Remove legacy resolver/paths after parity tests pass."
+2. flow-runtime-stage-plan.md's done criterion: "no legacy split-path behavior required for normal dl operation."
+3. flow.md's architecture: "pass verified repos to action handlers" — where handlers are stages in the pipeline, not observer callbacks.
 
-2. **Rewrite one handler as a stage** — Start with `archlist` (simplest: just appends URL to file). Verify it works end-to-end as a stage attached to `verifiedStages`.
+The core intent: **the flow pipeline should be the only execution path. There should be no bridge, no `RepoContext`, no separate `runPipeline`.**
 
-3. **Update plugin to contribute stages** — `DlActionProviderExtension` adds `dl:stages`. The action plugin collects stages from extensions the same way it currently collects handlers.
+What that means concretely:
 
-4. **Wire stages into flow runner** — `runFlowCommand()` assembles collected stages into `verifiedStages` passed to `ExecuteContext`, instead of running `runPipeline` in a verified observer.
+- Each action (archive, wiki, deepwiki, archlist, symlink) operates as a [`Stage<Repo, FlowContext>`](/src/execute/stage.ts) in the verified-stages portion of the flow pipeline.
+- Gunshi plugins contribute these stages. The current [`DlActionProviderExtension`](/src/action/registry.ts:27) contributes `dl:handlers: ActionHandler[]`. That needs to change.
+- `RepoContext` ([`src/repo/context.ts`](/src/repo/context.ts)) is deleted. All its fields are either already on `Repo` or are handler-specific computations (like `wikiRepoUrl`).
+- `runPipeline()` ([`src/action/pipeline.ts`](/src/action/pipeline.ts)) is eliminated. Stages compose in the flow.
+- `DlContext` ([`src/action/types.ts`](/src/action/types.ts)) goes away. Its contents (roots, gitOps, log, options) come from somewhere else — where exactly is an open design decision.
 
-5. **Rewrite remaining handlers** — archive, wiki, deepwiki, symlink. One at a time, verifying after each.
+### Previous failed attempt
 
-6. **Delete old infrastructure** — `RepoContext`, `DefaultRepoContext`, `ActionHandler`, `runPipeline`, `toLegacyRepoContext`, `src/repo/base/`, `src/repo/context.ts`, old lifecycle reporter.
+A prior session tried this by creating an adapter: `createActionStage(handler)` that wrapped old handlers inside a stage, still converting `Repo` → `RepoContext` internally. This was rejected because it preserved the bridge instead of eliminating it. Each handler needs to be rewritten to work with `Repo` directly.
 
-7. **Clean up DlContext** — Move what's needed into plugin-accessible context. Delete `DlContext` when empty.
+---
 
-## Key Design Decisions
+## Open Design Decisions
 
-### Action state access in stages
-Stages read their action state from `FlowContext.plugins`. The action plugin extension should expose a way to query state, e.g.:
-```ts
-const state = ctx.plugins["dl:actions"].getActionState("archive")
-```
+These are questions phase 3 needs to answer. The plans do not prescribe answers.
 
-### Lifecycle recording in stages
-Each stage records its own lifecycle directly. This could be:
-- A `report` plugin on `FlowContext.plugins` that stages call
-- Or lifecycle events emitted through a stage-output side channel
+### How do plugins contribute stages?
 
-The `LifecycleReporter` object pattern (ok/skipped/failed) is good, but it should be constructed from `Repo` not `RepoContext`.
+Currently [`DlActionProviderExtension`](/src/action/registry.ts:27) has `dl:handlers: ActionHandler[]`. That becomes stages somehow. Options:
 
-### Stage construction vs runtime
-Stages are created at plan-assembly time (when `runFlowCommand` runs), not at import time. Factory functions receive config (roots, gitOps, log) at construction. The stage closure captures that config.
+- Plugins contribute `Stage<Repo, FlowContext>[]` directly
+- Plugins contribute stage factories that receive config (roots, gitOps, etc.)
+- Something else
 
-### Error handling
-Stages yield the repo onward regardless of success/failure (they are pass-through). Errors are recorded in lifecycle. The flow runner checks a collected errors list after execution to set exit code. This matches the current `actionTasks` / `Promise.all` pattern but at the stage level.
+The stage type is `Stage<TItem, TContext>` = `(input: AsyncIterable<TItem>, ctx: TContext) => AsyncIterable<TItem>`. Stages need config (file paths, git operations) that aren't on `FlowContext`. When and how does that config get bound?
 
-## What Was Missed / Needs Catching
+### How do stages access their action state?
 
-### Dead code already visible in lint warnings:
-- `src/repo/context.ts` — `DefaultRepoContext` imported but unused in `src/repo/base/redirect-repo.ts`
-- `src/repo/provider/crates-io.ts` — `RepoContext` imported but unused
-- `src/deepwiki/handler.ts` — `syncDexportWiki` imported but unused (dead import from old path)
-- `src/dexport/sync.ts` — `LogExtension` imported but unused
-- `src/symlink/ensure.ts` — `simplify` imported but unused
+Currently each handler reads `ctx.options.archiveState`, `ctx.options.wikiState`, etc. from [`DlOptions`](/src/action/types.ts:6). In the new world, stages receive `FlowContext` which has `plugins` but not `DlOptions`. How does a stage know whether it should run?
 
-### Unused old repo infrastructure:
-- `src/repo/base/` — entire directory appears to be old `RedirectRepo` class hierarchy
-- `src/repo/registry.ts` — old repo registry
-- `src/repo/resolve.ts` — old resolver
-- `src/repo/types.ts` — old `Source` type used only by `RepoContext`
+### Where do runtime dependencies (roots, gitOps, log) come from?
 
-### Test over-building warning:
-The previous session added 530 lines of test changes to `src/command/run.test.ts` (much of it test infrastructure helpers). When rewriting handlers as stages, write targeted unit tests for each stage factory. Do not build elaborate integration test harnesses for every stage. A stage is an async generator — test it by collecting its output with a simple helper, not by constructing full flow plugin infrastructure.
+`DlContext` currently bundles: `roots` (file paths), `gitOps`, `dexportOps`, `log`, and `options`. These are resolved in [`resolveDlSetup()`](/src/command/context.ts). In the new world, stages need these but don't receive `DlContext`. Plugin extensions? Config objects? Flow context fields?
 
-### The `wikiRepoUrl` problem:
-Currently `toLegacyRepoContext()` synthesizes `wikiRepoUrl` from the repo URL (adding `.wiki.git`). In the new architecture, the wiki stage should compute this itself from `repo.url` — it's wiki-specific logic, not a generic repo property. The same applies to `wikiDeepUrl`.
+### How does lifecycle reporting work?
 
-### DlOptions stays but DlContext dissolves:
-`DlOptions` (the CLI flag state) is still needed for option resolution. `DlContext` (runtime bag of roots/log/gitOps) gets replaced by stage factory parameters and plugin context.
+Currently [`LifecycleReporter`](/src/action/lifecycle.ts:38) is created per-repo inside `runPipeline()`, passed to each handler, then summarized. In the new world, stages would need to record lifecycle events. [`doc/log.md`](/doc/log.md) describes a reporting redesign that's relevant but not blocking.
 
-## Doc References
+### How are errors collected and reported?
 
-- [`/doc/flow.md`](/doc/flow.md) — original flow architecture (older, foundational)
-- [`/doc/stream-core.md`](/doc/stream-core.md) — stream vs signal decision (older, confirmed)
-- [`/doc/flow-runtime-stage-plan.md`](/doc/flow-runtime-stage-plan.md) — runtime plan (newest doc, step 5 is "compose actions and views")
+Currently [`runFlowCommand()`](/src/command/run.ts:134) collects `actionTasks: Promise<boolean>[]` and awaits them after flow execution. With stages, errors happen inside the async generator pipeline. The current sequential observer pattern works; a stage-based approach may need a different mechanism for setting the process exit code.
+
+### What about the `src/repo/` directory?
+
+[`src/repo/`](/src/repo/) contains older infrastructure: `RepoContext`, `DefaultRepoContext`, `RedirectRepo`, `HostRepo` base classes, an old registry and resolver. [`src/provider/`](/src/provider/) is the active provider system. How much of `src/repo/` is dead code? What's still used?
+
+---
+
+## Supplemental: Author's Observations
+
+These are opinions and suggestions, not plan directives.
+
+### On what went well
+
+The flow runtime is genuinely good. The session lifecycle, the plan API, the buffered queue with handoff tracking — these feel solid and not over-engineered. Provider-level redirect handoff (providers calling `runtime.push()` instead of yielding redirect repos) was a good call that simplified the pipeline.
+
+The `runFlowCommand()` composition in phase 2 is clean. The fact that `--candidates --verified` and `--candidates --archlist` both work through one plan is a real improvement over the old mode-branching.
+
+### On what's still awkward
+
+The `toLegacyRepoContext()` bridge in [`run.ts`](/src/command/run.ts:34) is the obvious one. But also: `DlOptions` is a wide bag with five action states baked into it. Action state resolution ([`resolveActionStates()`](/src/action/registry.ts:159)) is clever but complex — the "any explicit flag turns off all non-explicit actions" policy is hard to reason about.
+
+The dual logging systems (fire-and-forget `ext.log` vs accumulator `LifecycleReporter`) are a real friction point. Handlers do both: they call `ctx.log.info()` for human output and `lifecycle.ok()` for structured reporting. This isn't a phase 3 problem per se, but it's worth knowing that stage-based lifecycle will run into it.
+
+### On test approach
+
+[`src/command/run.test.ts`](/src/command/run.test.ts) grew significantly in phase 2 with mock extension infrastructure. For phase 3: a stage is an async generator. Testing one should be as simple as feeding it repos and collecting output — no flow plugin mocks needed. The existing [`processRepoContext`](/src/command/run.test.ts:66) tests that use real (mocked I/O) handlers are a better pattern than the in-memory extension mocks.
+
+### On the `repo/` question
+
+I suspect `src/repo/base/` (the `RedirectRepo`/`HostRepo` class hierarchy) is entirely dead. The active providers in `src/provider/` don't extend these classes. But `src/repo/clean-url.ts` and `src/repo/parse.ts` are actively used. An audit pass would be valuable before phase 3 starts deleting things.
+
+### On phase 3 scope
+
+The minimum viable phase 3 is: handlers become stages, `RepoContext` is deleted, `runPipeline` is deleted. Everything else (reporting redesign, signal metadata, directory reorganization) can happen after. Don't let the reporting redesign ([`doc/log.md`](/doc/log.md)) block this work.
