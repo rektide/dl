@@ -2,8 +2,7 @@
 import { realpath } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { defineWithTypes, cli, type CommandContext } from "gunshi";
-import { processCandidates, processVerified, buildMainOptions } from "./run.ts";
-import { runLegacyActionsFromFlow } from "../legacy/run.ts";
+import { runFlowCommand, buildMainOptions } from "./run.ts";
 import { OFF } from "../action/state.ts";
 import { dlPlugins } from "../plugin/index.ts";
 import { POSITIONAL_INPUT_PLUGIN_ID } from "../plugin/input-positional.ts";
@@ -32,6 +31,19 @@ const dlArgs = {
 } as const;
 
 type DlArgs = typeof dlArgs;
+
+function hasExplicitAction(
+  ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions }>,
+): boolean {
+  const specs = ctx.extensions["dl:actions"]["dl:actions"];
+  return specs.some((spec) => {
+    if (ctx.explicit[spec.name] === true) return true;
+    if (ctx.explicit[`${spec.name}-state`] === true) return true;
+    return ctx.tokens.some((token) => {
+      return token.kind === "option" && token.name === spec.name && token.inlineValue;
+    });
+  });
+}
 
 async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions }>) {
   try {
@@ -71,32 +83,44 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
         for (const url of selected) yield url;
       })();
 
-      const hadError = await runLegacyActionsFromFlow(ctx.extensions, options, pickInputs);
+      const result = await runFlowCommand({
+        extensions: ctx.extensions,
+        options,
+        inputs: pickInputs,
+        showCandidates: !!ctx.values.candidates,
+        showVerified: options.verified,
+        runActions: true,
+      });
+      const hadError = result.hadError;
       if (hadError) process.exit(1);
       return;
     }
 
     const inputs = positional.source(ctx.values.org as string | undefined, ctx.positionals); // gunshi: plugin-registered global
 
-    if (ctx.values.candidates) {
-      await processCandidates(ctx.extensions, inputs, options.reportLifecycle);
-      return;
-    }
-
-    if (options.verified) {
-      await processVerified(ctx.extensions, inputs, options.reportLifecycle);
-      return;
-    }
-
     const sources: AsyncIterable<string>[] = [inputs];
     if (watch.active) sources.push(watch.source());
     if (clipboard.active) sources.push(clipboard.source());
 
-    const hadError = await runLegacyActionsFromFlow(
-      ctx.extensions,
+    const shouldRunActions =
+      hasExplicitAction(ctx) || (!ctx.values.candidates && !options.verified);
+    const result = await runFlowCommand({
+      extensions: ctx.extensions,
       options,
-      mergeConcurrent(sources),
-    );
+      inputs: mergeConcurrent(sources),
+      showCandidates: !!ctx.values.candidates,
+      showVerified: options.verified,
+      runActions: shouldRunActions,
+    });
+
+    if (ctx.values.candidates && !result.candidateFound) {
+      ext.log.warn("candidates", "no_match", {});
+    }
+    if (options.verified && !result.verifiedFound) {
+      ext.log.warn("sync", "no_match", {});
+    }
+
+    const hadError = result.hadError;
     if (hadError) {
       process.exit(1);
     }

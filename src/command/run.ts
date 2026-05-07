@@ -7,9 +7,8 @@
  *
  *   input strings → flow plugin → action handlers → lifecycle report
  *
- * Two read-only consumers of the flow plugin:
- * - {@link processCandidates} logs candidate (pre-verification) events
- * - {@link processVerified} logs resolved (post-verification) events
+ * Candidate logging, verified logging, and sync actions attach to one flow plan
+ * through {@link runFlowCommand}.
  *
  * Input sources ({@link positionalSource}, {@link watchSource}, {@link clipboardSource})
  * are defined in {@link command/input} and produce the async iterables consumed here.
@@ -25,13 +24,171 @@ import type { DlOptions, DlContext } from "../action/types.ts";
 import type { ActionHandler } from "../action/handler.ts";
 import type { DlActionSpec, DlActionToken } from "../action/registry.ts";
 import { runPipeline } from "../action/pipeline.ts";
-import { FLOW_PLUGIN_ID } from "../plugin/flow.ts";
+import type { LifecycleRecord } from "../action/lifecycle.ts";
+import type { Repo } from "../flow/types.ts";
+import { FLOW_PLUGIN_ID, type FlowReinjection } from "../plugin/flow.ts";
 import type { RepoContext } from "../repo/context.ts";
 import type { DlExtensions } from "./context.ts";
-import { requireExtensions } from "./context.ts";
+import { requireExtensions, resolveDlSetup } from "./context.ts";
 
-async function* singleInput(input: string): AsyncGenerator<string> {
-  yield input;
+function toLegacyRepoContext(repo: Repo): RepoContext {
+  const url = new URL(repo.url.toString());
+  const context: RepoContext = {
+    input: repo.input,
+    host: repo.host ?? undefined,
+    org: repo.org ?? undefined,
+    project: repo.project ?? undefined,
+    verified: repo.state === "verified",
+    source: { provider: repo.producedBy },
+    url,
+    inputUrl: repo.inputUrl ? new URL(repo.inputUrl.toString()) : undefined,
+  };
+
+  // Transitional parity for wiki handler behavior from host providers.
+  if (url.host === "github.com" || url.host === "gitlab.com") {
+    context.wikiRepoUrl = new URL(`${url.toString()}.wiki.git`);
+  }
+
+  return context;
+}
+
+function flowLifecycleRecords(
+  repo: Repo,
+  reinjections: ReadonlyArray<FlowReinjection>,
+): Array<LifecycleRecord> {
+  return reinjections
+    .filter((reinjection) => reinjection.toInput === repo.input)
+    .map((reinjection) => ({
+      step: "flow",
+      source: `${reinjection.fromProvider} -> flow.push`,
+      status: "ok",
+      transition: "redirect-reinject",
+      details: {
+        fromInput: reinjection.fromInput,
+        fromUrl: reinjection.fromUrl,
+        toInput: reinjection.toInput,
+        toHost: reinjection.toHost,
+      },
+    }));
+}
+
+function logCandidate(repo: Repo, ext: ReturnType<typeof requireExtensions>): void {
+  ext.log.info("candidates", "expanded", {
+    input: repo.input,
+    url: repo.url.toString(),
+    org: repo.org,
+    project: repo.project,
+    provider: repo.producedBy,
+    verified: repo.state === "verified",
+  });
+}
+
+function logVerified(repo: Repo, ext: ReturnType<typeof requireExtensions>): void {
+  ext.log.info("verified", "resolved", {
+    input: repo.input,
+    url: repo.url.toString(),
+    pathname: repo.url.pathname,
+    source: {
+      producedBy: repo.producedBy,
+      verifiedBy: Array.from(repo.verifiedBy),
+    },
+  });
+}
+
+export type FlowCommandRunOptions = Readonly<{
+  extensions: DlExtensions;
+  options: DlOptions;
+  inputs: AsyncIterable<string>;
+  showCandidates?: boolean;
+  showVerified?: boolean;
+  runActions?: boolean;
+}>;
+
+export type FlowCommandRunResult = Readonly<{
+  hadError: boolean;
+  candidateFound: boolean;
+  verifiedFound: boolean;
+}>;
+
+export async function runFlowCommand(
+  runOptions: FlowCommandRunOptions,
+): Promise<FlowCommandRunResult> {
+  const {
+    extensions,
+    options,
+    inputs,
+    showCandidates = false,
+    showVerified = false,
+    runActions = false,
+  } = runOptions;
+  const ext = requireExtensions(extensions);
+  const flow = extensions[FLOW_PLUGIN_ID];
+  const setup = runActions ? await resolveDlSetup(extensions, options) : null;
+  const actionContext: DlContext | null = setup
+    ? {
+        roots: setup.roots,
+        options,
+        log: setup.log,
+      }
+    : null;
+  const actionTasks: Array<Promise<boolean>> = [];
+  let candidateFound = false;
+  let verifiedFound = false;
+
+  const plan = flow
+    .plan()
+    .singleton()
+    .config({ verify: showVerified || runActions });
+
+  if (showCandidates) {
+    plan.on("proposed", (repo) => {
+      candidateFound = true;
+      logCandidate(repo, ext);
+    });
+  }
+
+  if (showVerified) {
+    plan.on("verified", (repo) => {
+      verifiedFound = true;
+      logVerified(repo, ext);
+    });
+  }
+
+  if (setup && actionContext) {
+    plan.on("verified", (repo) => {
+      verifiedFound = true;
+      const resolved = toLegacyRepoContext(repo);
+      const flowRecords = flowLifecycleRecords(repo, plan.snapshot().reinjections);
+      const task = runPipeline(
+        resolved,
+        actionContext,
+        setup.actions["dl:handlers"],
+        actionContext.options.reportLifecycle,
+        actionContext.log,
+        flowRecords,
+      );
+      actionTasks.push(task);
+      return task.then(() => undefined);
+    });
+  }
+
+  plan.push(inputs);
+  for await (const _repo of plan.execute()) {
+    // work is attached through checkpoint observers
+  }
+
+  if (options.reportLifecycle) {
+    ext.log.info("sync", "flow_lifecycle", {
+      reinjections: plan.snapshot().reinjections,
+    });
+  }
+
+  const actionResults = await Promise.all(actionTasks);
+  return {
+    hadError: actionResults.some(Boolean),
+    candidateFound,
+    verifiedFound,
+  };
 }
 
 /**
@@ -96,103 +253,6 @@ export function buildMainOptions(
     anycase: !!values.anycase,
     verified: !!values.verified,
   };
-}
-
-/**
- * Feed an async stream through the flow plugin, logging only
- * candidate (pre-verification) events.
- *
- * This is the `--candidates` mode: expand inputs into candidate URLs and print
- * them without any network verification or syncing.
- */
-export async function processCandidates(
-  extensions: DlExtensions,
-  inputs: AsyncIterable<string>,
-  reportLifecycle = false,
-): Promise<void> {
-  const ext = requireExtensions(extensions);
-  const flow = extensions[FLOW_PLUGIN_ID];
-
-  for await (const input of inputs) {
-    let candidateFound = false;
-    const plan = flow.plan().singleton().config({ verify: false });
-    plan.on("proposed", (repo) => {
-      candidateFound = true;
-      ext.log.info("candidates", "expanded", {
-        input: repo.input,
-        url: repo.url.toString(),
-        org: repo.org,
-        project: repo.project,
-        provider: repo.producedBy,
-        verified: repo.state === "verified",
-      });
-    });
-    plan.push(singleInput(input));
-
-    for await (const _repo of plan.execute()) {
-      // consumed via on("proposed") hook
-    }
-
-    if (reportLifecycle) {
-      ext.log.info("sync", "flow_lifecycle", {
-        input,
-        reinjections: plan.snapshot().reinjections,
-      });
-    }
-
-    if (!candidateFound) {
-      ext.log.warn("candidates", "no_match", { input });
-    }
-  }
-}
-
-/**
- * Feed an async stream through the flow plugin, logging only
- * verified (post-verification) repos.
- *
- * This is the `--verified` mode: resolve and verify inputs, then print the
- * full repo context without syncing.
- */
-export async function processVerified(
-  extensions: DlExtensions,
-  inputs: AsyncIterable<string>,
-  reportLifecycle = false,
-): Promise<void> {
-  const ext = requireExtensions(extensions);
-  const flow = extensions[FLOW_PLUGIN_ID];
-
-  for await (const input of inputs) {
-    let resolvedFound = false;
-    const plan = flow.plan().singleton().config({ verify: true });
-    plan.on("verified", (repo) => {
-      resolvedFound = true;
-      ext.log.info("verified", "resolved", {
-        input: repo.input,
-        url: repo.url.toString(),
-        pathname: repo.url.pathname,
-        source: {
-          producedBy: repo.producedBy,
-          verifiedBy: Array.from(repo.verifiedBy),
-        },
-      });
-    });
-    plan.push(singleInput(input));
-
-    for await (const _repo of plan.execute()) {
-      // consumed via on("verified") hook
-    }
-
-    if (reportLifecycle) {
-      ext.log.info("sync", "flow_lifecycle", {
-        input,
-        reinjections: plan.snapshot().reinjections,
-      });
-    }
-
-    if (!resolvedFound) {
-      ext.log.warn("sync", "no_match", { input });
-    }
-  }
 }
 
 /**
