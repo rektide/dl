@@ -96,7 +96,7 @@ describe("flowPlugin session snapshots", () => {
 
     expect(repos.some((repo) => repo.input === "serde-rs/serde")).toBe(true);
     expect(repos.some((repo) => repo.input === "gitlab-org/gitlab")).toBe(true);
-    expect(plan.snapshot().reinjectedCount).toBe(0);
+    expect(plan.snapshot().handoffCount).toBe(0);
   });
 
   test("reinjects redirect candidates without yielding the redirect itself", async () => {
@@ -114,8 +114,8 @@ describe("flowPlugin session snapshots", () => {
 
     expect(repos.every((repo) => repo.producedBy !== "crates-io")).toBe(true);
     expect(repos.some((repo) => repo.producedBy === "github")).toBe(true);
-    expect(snapshot.reinjections.length).toBe(1);
-    expect(snapshot.reinjections).toEqual([
+    expect(snapshot.handoffs.length).toBe(1);
+    expect(snapshot.handoffs).toEqual([
       {
         fromInput: "crates.io/crates/serde",
         fromUrl: "https://github.com/serde-rs/serde",

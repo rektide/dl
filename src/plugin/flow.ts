@@ -48,7 +48,7 @@ export type FlowObserverMapShape = {
 
 export type FlowObserverMap = FlowObserverMapShape;
 
-export type FlowReinjectionShape = {
+export type FlowHandoffShape = {
   fromInput: string;
   fromUrl: string;
   fromProvider: string;
@@ -56,7 +56,7 @@ export type FlowReinjectionShape = {
   toHost: string;
 };
 
-export type FlowReinjection = Readonly<FlowReinjectionShape>;
+export type FlowHandoff = Readonly<FlowHandoffShape>;
 
 export const FLOW_SESSION_PHASE = {
   idle: "idle",
@@ -80,9 +80,9 @@ export type FlowSessionShape = {
   lastError: Error | null;
   emittedProposed: number;
   emittedVerified: number;
-  reinjectedCount: number;
+  handoffCount: number;
   seenInputs: Set<string>;
-  reinjections: Array<FlowReinjection>;
+  handoffs: Array<FlowHandoff>;
 };
 
 export type FlowSession = FlowSessionShape;
@@ -96,8 +96,8 @@ export type FlowSessionSnapshotShape = {
   lastError: Error | null;
   emittedProposed: number;
   emittedVerified: number;
-  reinjectedCount: number;
-  reinjections: ReadonlyArray<FlowReinjection>;
+  handoffCount: number;
+  handoffs: ReadonlyArray<FlowHandoff>;
 };
 
 export type FlowSessionSnapshot = Readonly<FlowSessionSnapshotShape>;
@@ -224,9 +224,9 @@ function createSession(options: FlowResolveOptions): FlowSession {
     lastError: null,
     emittedProposed: 0,
     emittedVerified: 0,
-    reinjectedCount: 0,
+    handoffCount: 0,
     seenInputs: new Set(),
-    reinjections: [],
+    handoffs: [],
   };
 }
 
@@ -243,8 +243,8 @@ function snapshotSession(session: FlowSession): FlowSessionSnapshot {
     lastError: session.lastError,
     emittedProposed: session.emittedProposed,
     emittedVerified: session.emittedVerified,
-    reinjectedCount: session.reinjectedCount,
-    reinjections: [...session.reinjections],
+    handoffCount: session.handoffCount,
+    handoffs: [...session.handoffs],
   };
 }
 
@@ -310,8 +310,8 @@ export const flowPlugin = plugin({
         target.seenInputs.add(inputKey);
 
         if (metadata?.origin === FLOW_INPUT_ORIGIN.redirect) {
-          target.reinjectedCount += 1;
-          target.reinjections.push({
+          target.handoffCount += 1;
+          target.handoffs.push({
             fromInput: metadata.fromInput ?? inputKey,
             fromUrl: metadata.fromUrl ?? inputKey,
             fromProvider: metadata.fromProvider ?? "unknown",

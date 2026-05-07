@@ -19,7 +19,7 @@ import {
   type FlowExtension,
   type FlowObserver,
   type FlowPlan,
-  type FlowReinjection,
+  type FlowHandoff,
   type FlowResolveOptions,
   type FlowSessionSnapshot,
 } from "../plugin/flow.ts";
@@ -110,7 +110,7 @@ function createRepo(overrides?: Partial<Repo>): Repo {
   };
 }
 
-function createSnapshot(reinjections: ReadonlyArray<FlowReinjection>): FlowSessionSnapshot {
+function createSnapshot(handoffs: ReadonlyArray<FlowHandoff>): FlowSessionSnapshot {
   return {
     phase: "completed",
     queuedCount: 0,
@@ -120,14 +120,14 @@ function createSnapshot(reinjections: ReadonlyArray<FlowReinjection>): FlowSessi
     lastError: null,
     emittedProposed: 0,
     emittedVerified: 0,
-    reinjectedCount: reinjections.length,
-    reinjections,
+    handoffCount: handoffs.length,
+    handoffs,
   };
 }
 
 function createFlowExtension(
   repos: ReadonlyArray<Repo>,
-  reinjections: ReadonlyArray<FlowReinjection> = [],
+  handoffs: ReadonlyArray<FlowHandoff> = [],
 ): FlowExtension {
   const createPlan = (): FlowPlan => {
     const observers: Record<FlowCheckpoint, Array<FlowObserver>> = {
@@ -150,7 +150,7 @@ function createFlowExtension(
         return this;
       },
       snapshot() {
-        return createSnapshot(reinjections);
+        return createSnapshot(handoffs);
       },
       async *execute() {
         for (const repo of repos) {
@@ -384,7 +384,7 @@ describe("runFlowCommand", () => {
 
   test("includes redirect handoff records in action lifecycle reports", async () => {
     const { events, log } = createLog();
-    const reinjections: Array<FlowReinjection> = [
+    const handoffs: Array<FlowHandoff> = [
       {
         fromInput: "https://short.example/repo",
         fromUrl: "https://short.example/repo",
@@ -400,7 +400,7 @@ describe("runFlowCommand", () => {
         return { hadError: false };
       },
     };
-    const extensions = createExtensions(log, createFlowExtension([createRepo()], reinjections), [
+    const extensions = createExtensions(log, createFlowExtension([createRepo()], handoffs), [
       handler,
     ]);
 
@@ -417,7 +417,7 @@ describe("runFlowCommand", () => {
       transition: string;
     }>;
     expect(
-      records.some((record) => record.step === "flow" && record.transition === "redirect-reinject"),
+      records.some((record) => record.step === "flow" && record.transition === "redirect-handoff"),
     ).toBe(true);
   });
 });

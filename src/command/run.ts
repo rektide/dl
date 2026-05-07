@@ -26,7 +26,7 @@ import type { DlActionSpec, DlActionToken } from "../action/registry.ts";
 import { runPipeline } from "../action/pipeline.ts";
 import type { LifecycleRecord } from "../action/lifecycle.ts";
 import type { Repo } from "../flow/types.ts";
-import { FLOW_PLUGIN_ID, type FlowReinjection } from "../plugin/flow.ts";
+import { FLOW_PLUGIN_ID, type FlowHandoff } from "../plugin/flow.ts";
 import type { RepoContext } from "../repo/context.ts";
 import type { DlExtensions } from "./context.ts";
 import { requireExtensions, resolveDlSetup } from "./context.ts";
@@ -54,20 +54,20 @@ function toLegacyRepoContext(repo: Repo): RepoContext {
 
 function flowLifecycleRecords(
   repo: Repo,
-  reinjections: ReadonlyArray<FlowReinjection>,
+  handoffs: ReadonlyArray<FlowHandoff>,
 ): Array<LifecycleRecord> {
-  return reinjections
-    .filter((reinjection) => reinjection.toInput === repo.input)
-    .map((reinjection) => ({
+  return handoffs
+    .filter((handoff) => handoff.toInput === repo.input)
+    .map((handoff) => ({
       step: "flow",
-      source: `${reinjection.fromProvider} -> flow.push`,
+      source: `${handoff.fromProvider} -> flow.push`,
       status: "ok",
-      transition: "redirect-reinject",
+      transition: "redirect-handoff",
       details: {
-        fromInput: reinjection.fromInput,
-        fromUrl: reinjection.fromUrl,
-        toInput: reinjection.toInput,
-        toHost: reinjection.toHost,
+        fromInput: handoff.fromInput,
+        fromUrl: handoff.fromUrl,
+        toInput: handoff.toInput,
+        toHost: handoff.toHost,
       },
     }));
 }
@@ -158,7 +158,7 @@ export async function runFlowCommand(
     plan.on("verified", (repo) => {
       verifiedFound = true;
       const resolved = toLegacyRepoContext(repo);
-      const flowRecords = flowLifecycleRecords(repo, plan.snapshot().reinjections);
+      const flowRecords = flowLifecycleRecords(repo, plan.snapshot().handoffs);
       const task = runPipeline(
         resolved,
         actionContext,
@@ -179,7 +179,7 @@ export async function runFlowCommand(
 
   if (options.reportLifecycle) {
     ext.log.info("sync", "flow_lifecycle", {
-      reinjections: plan.snapshot().reinjections,
+      handoffs: plan.snapshot().handoffs,
     });
   }
 
