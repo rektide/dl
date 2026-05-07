@@ -2,13 +2,11 @@
 import { realpath } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { defineWithTypes, cli, type CommandContext } from "gunshi";
-import { runFlowCommand, buildMainOptions } from "./run.ts";
-import { OFF } from "../action/state.ts";
 import { dlPlugins } from "../plugin/index.ts";
 import { POSITIONAL_INPUT_PLUGIN_ID } from "../plugin/input-positional.ts";
 import { WATCH_INPUT_PLUGIN_ID } from "../plugin/input-watch.ts";
 import { CLIPBOARD_INPUT_PLUGIN_ID } from "../plugin/input-clipboard.ts";
-import { requireExtensions, type DlCommandParams, type DlExtensions } from "./context.ts";
+import { requireExtensions, type CommandParams, type CommandExtensions } from "./context.ts";
 import { collectRepos } from "./browse.ts";
 import archlistSubcommand from "./archlist.ts";
 import archiveSubcommand from "./archive.ts";
@@ -32,20 +30,7 @@ const dlArgs = {
 
 type DlArgs = typeof dlArgs;
 
-function hasExplicitAction(
-  ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions }>,
-): boolean {
-  const specs = ctx.extensions["dl:actions"]["dl:actions"];
-  return specs.some((spec) => {
-    if (ctx.explicit[spec.name] === true) return true;
-    if (ctx.explicit[`${spec.name}-state`] === true) return true;
-    return ctx.tokens.some((token) => {
-      return token.kind === "option" && token.name === spec.name && token.inlineValue;
-    });
-  });
-}
-
-async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions }>) {
+async function run(ctx: CommandContext<{ args: DlArgs; extensions: CommandExtensions }>) {
   try {
     const positional = ctx.extensions[POSITIONAL_INPUT_PLUGIN_ID];
     const watch = ctx.extensions[WATCH_INPUT_PLUGIN_ID];
@@ -62,12 +47,6 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
     if (ctx.values.noop) return;
 
     const ext = requireExtensions(ctx.extensions);
-    const options = buildMainOptions(ctx.extensions, ctx.values, ctx.explicit, ctx.tokens);
-
-    if (watch.active && options.archlistState !== OFF) {
-      ext.log.warn("sync", "archlist_disabled", { reason: "watch mode feedback loop" });
-      options.archlistState = OFF;
-    }
 
     if (ctx.values.pick) {
       const orgInput = hasInputs ? ctx.positionals[0]! : (ctx.values.org as string | undefined);
@@ -83,13 +62,8 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
         for (const url of selected) yield url;
       })();
 
-      const result = await runFlowCommand({
-        extensions: ctx.extensions,
-        options,
+      const result = await ext.planner.run({
         inputs: pickInputs,
-        showCandidates: !!ctx.values.candidates,
-        showVerified: options.verified,
-        runActions: true,
       });
       const hadError = result.hadError;
       if (hadError) process.exit(1);
@@ -102,21 +76,14 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: DlExtensions 
     if (watch.active) sources.push(watch.source());
     if (clipboard.active) sources.push(clipboard.source());
 
-    const shouldRunActions =
-      hasExplicitAction(ctx) || (!ctx.values.candidates && !options.verified);
-    const result = await runFlowCommand({
-      extensions: ctx.extensions,
-      options,
+    const result = await ext.planner.run({
       inputs: mergeConcurrent(sources),
-      showCandidates: !!ctx.values.candidates,
-      showVerified: options.verified,
-      runActions: shouldRunActions,
     });
 
     if (ctx.values.candidates && !result.candidateFound) {
       ext.log.warn("candidates", "no_match", {});
     }
-    if (options.verified && !result.verifiedFound) {
+    if (ctx.values.verified && !result.verifiedFound) {
       ext.log.warn("sync", "no_match", {});
     }
 
@@ -137,7 +104,7 @@ async function* mergeConcurrent(sources: AsyncIterable<string>[]): AsyncGenerato
   }
 }
 
-const dlCommand = defineWithTypes<DlCommandParams & { args: DlArgs }>()({
+const dlCommand = defineWithTypes<CommandParams & { args: DlArgs }>()({
   name: "dl",
   description: "Fetch repository checkout and wiki checkout",
   args: dlArgs,

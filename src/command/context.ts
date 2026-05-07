@@ -1,82 +1,40 @@
-import type { DlOptions } from "../action/types.ts"
+import { DEXPORT_PLUGIN_ID, type DexportExtension } from "../plugin/dexport.ts";
+import { GIT_PLUGIN_ID, type GitExtension } from "../plugin/git.ts";
 import {
-	DL_ACTIONS_PLUGIN_ID,
-	type DlActionsExtension,
-} from "../plugin/dl-actions.ts"
+  CLIPBOARD_INPUT_PLUGIN_ID,
+  type ClipboardInputExtension,
+} from "../plugin/input-clipboard.ts";
 import {
-	DEXPORT_PLUGIN_ID,
-	type DexportExtension,
-} from "../plugin/dexport.ts"
-import {
-	GIT_PLUGIN_ID,
-	type GitExtension,
-} from "../plugin/git.ts"
-import {
-	CLIPBOARD_INPUT_PLUGIN_ID,
-	type ClipboardInputExtension,
-} from "../plugin/input-clipboard.ts"
-import {
-	POSITIONAL_INPUT_PLUGIN_ID,
-	type PositionalInputExtension,
-} from "../plugin/input-positional.ts"
-import {
-	WATCH_INPUT_PLUGIN_ID,
-	type WatchInputExtension,
-} from "../plugin/input-watch.ts"
-import {
-	LOG_PLUGIN_ID,
-	type LogExtension,
-} from "../plugin/log.ts"
-import {
-	FLOW_PLUGIN_ID,
-	type FlowExtension,
-} from "../plugin/flow.ts"
-import {
-	ROOTS_PLUGIN_ID,
-	type RootsExtension,
-} from "../plugin/roots.ts"
+  POSITIONAL_INPUT_PLUGIN_ID,
+  type PositionalInputExtension,
+} from "../plugin/input-positional.ts";
+import { WATCH_INPUT_PLUGIN_ID, type WatchInputExtension } from "../plugin/input-watch.ts";
+import { LOG_PLUGIN_ID, type LogExtension } from "../plugin/log.ts";
+import { FLOW_PLUGIN_ID, type FlowExtension } from "../plugin/flow.ts";
+import { ROOTS_PLUGIN_ID, type RootsExtension } from "../plugin/roots.ts";
+import { PLANNER_PLUGIN_ID } from "../planner/plugin.ts";
+import type { PlannerExtension } from "../planner/types.ts";
 
-export interface DlExtensions extends Record<string, unknown> {
-	[DL_ACTIONS_PLUGIN_ID]: DlActionsExtension
-	[ROOTS_PLUGIN_ID]: RootsExtension
-	[FLOW_PLUGIN_ID]: FlowExtension
-	[POSITIONAL_INPUT_PLUGIN_ID]: PositionalInputExtension
-	[WATCH_INPUT_PLUGIN_ID]: WatchInputExtension
-	[CLIPBOARD_INPUT_PLUGIN_ID]: ClipboardInputExtension
-	[GIT_PLUGIN_ID]: GitExtension
-	[DEXPORT_PLUGIN_ID]: DexportExtension
-	[LOG_PLUGIN_ID]: LogExtension
+export interface CommandExtensions extends Record<string, unknown> {
+  [PLANNER_PLUGIN_ID]: PlannerExtension;
+  [ROOTS_PLUGIN_ID]: RootsExtension;
+  [FLOW_PLUGIN_ID]: FlowExtension;
+  [POSITIONAL_INPUT_PLUGIN_ID]: PositionalInputExtension;
+  [WATCH_INPUT_PLUGIN_ID]: WatchInputExtension;
+  [CLIPBOARD_INPUT_PLUGIN_ID]: ClipboardInputExtension;
+  [GIT_PLUGIN_ID]: GitExtension;
+  [DEXPORT_PLUGIN_ID]: DexportExtension;
+  [LOG_PLUGIN_ID]: LogExtension;
 }
 
-export type DlCommandParams = { extensions: DlExtensions }
+export type CommandParams = { extensions: CommandExtensions };
 
-export interface DlRunCtx {
-	actions: DlActionsExtension
-	log: LogExtension
-	roots: { archiveRoot: string; wikiRoot: string }
-	options: DlOptions
-}
-
-export function requireExtensions(extensions: DlExtensions) {
-	const actions = extensions[DL_ACTIONS_PLUGIN_ID]
-	const log = extensions[LOG_PLUGIN_ID]
-	const roots = extensions[ROOTS_PLUGIN_ID]
-	if (!actions) throw new Error("dl: actions plugin extension is not available")
-	if (!log) throw new Error("dl: log plugin extension is not available")
-	if (!roots) throw new Error("dl: roots plugin extension is not available")
-	return { actions, log, roots }
-}
-
-export async function resolveDlSetup(
-	extensions: DlExtensions,
-	options: DlOptions,
-): Promise<DlRunCtx> {
-	const ext = requireExtensions(extensions)
-	const roots = await ext.roots.resolveRoots()
-	return {
-		actions: ext.actions,
-		log: ext.log,
-		roots,
-		options,
-	}
+export function requireExtensions(extensions: CommandExtensions) {
+  const planner = extensions[PLANNER_PLUGIN_ID];
+  const log = extensions[LOG_PLUGIN_ID];
+  const roots = extensions[ROOTS_PLUGIN_ID];
+  if (!planner) throw new Error("planner plugin extension is not available");
+  if (!log) throw new Error("dl: log plugin extension is not available");
+  if (!roots) throw new Error("dl: roots plugin extension is not available");
+  return { planner, log, roots };
 }

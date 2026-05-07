@@ -1,5 +1,3 @@
-import type { RepoContext } from "../repo/context.ts";
-
 export type LifecycleStep =
   | "archlist"
   | "archive"
@@ -43,11 +41,11 @@ export type LifecycleReporter = {
 };
 
 export function createLifecycleReporter(
-  resolved: RepoContext,
+  subject: string | null,
   initialRecords: ReadonlyArray<LifecycleRecord> = [],
 ): LifecycleReporter {
   const records: Array<LifecycleRecord> = [...initialRecords];
-  const repoUrl = resolved.url?.toString() ?? null;
+  const repoUrl = subject;
 
   const record = (input: LifecycleRecordInput) => {
     records.push({

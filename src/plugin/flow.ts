@@ -28,7 +28,7 @@ import { npmxDevProvider } from "../provider/npmx-dev.ts";
 import { githubioProvider } from "../provider/githubio.ts";
 import { genericProvider } from "../provider/generic.ts";
 
-export const FLOW_PLUGIN_ID = "rekon:flow" as const;
+export const FLOW_PLUGIN_ID = "flow" as const;
 
 export type FlowResolveOptionsShape = {
   verify: boolean;
@@ -47,6 +47,13 @@ export type FlowObserverMapShape = {
 };
 
 export type FlowObserverMap = FlowObserverMapShape;
+
+export type FlowStageMapShape = {
+  proposed: Array<Stage<Repo, FlowContext>>;
+  verified: Array<Stage<Repo, FlowContext>>;
+};
+
+export type FlowStageMap = FlowStageMapShape;
 
 export type FlowHandoffShape = {
   fromInput: string;
@@ -75,6 +82,7 @@ export type FlowSessionShape = {
   options: FlowResolveOptions;
   queue: BufferedAsyncQueue<AsyncIterable<QueuedFlowInput>>;
   observers: FlowObserverMap;
+  stages: FlowStageMap;
   startedAt: Date | null;
   endedAt: Date | null;
   lastError: Error | null;
@@ -106,6 +114,8 @@ export interface FlowPlan {
   config(options?: Partial<FlowResolveOptions>): FlowPlan;
   push(input: FlowInput, metadata?: FlowInputMetadata): FlowPlan;
   on(checkpoint: FlowCheckpoint, observer: FlowObserver): FlowPlan;
+  proposed(stage: Stage<Repo, FlowContext>): FlowPlan;
+  verified(stage: Stage<Repo, FlowContext>): FlowPlan;
   singleton(): FlowPlan;
   snapshot(): FlowSessionSnapshot;
   execute(): AsyncGenerator<Repo>;
@@ -216,6 +226,10 @@ function createSession(options: FlowResolveOptions): FlowSession {
     options,
     queue: createBufferedAsyncQueue(),
     observers: {
+      proposed: [],
+      verified: [],
+    },
+    stages: {
       proposed: [],
       verified: [],
     },
@@ -373,6 +387,7 @@ export const flowPlugin = plugin({
                 push: (input, metadata) => enqueue(target, input, metadata),
               },
               proposedStages: [
+                ...target.stages.proposed,
                 createObserverStage(
                   FLOW_CHECKPOINT.proposed,
                   target,
@@ -380,6 +395,7 @@ export const flowPlugin = plugin({
                 ),
               ],
               verifiedStages: [
+                ...target.stages.verified,
                 createObserverStage(
                   FLOW_CHECKPOINT.verified,
                   target,
@@ -434,6 +450,16 @@ export const flowPlugin = plugin({
         on(checkpoint: FlowCheckpoint, observer: FlowObserver) {
           ensureSessionStarted(planSession);
           planSession.observers[checkpoint].push(observer);
+          return planApi;
+        },
+        proposed(stage: Stage<Repo, FlowContext>) {
+          ensureSessionStarted(planSession);
+          planSession.stages.proposed.push(stage);
+          return planApi;
+        },
+        verified(stage: Stage<Repo, FlowContext>) {
+          ensureSessionStarted(planSession);
+          planSession.stages.verified.push(stage);
           return planApi;
         },
         singleton() {

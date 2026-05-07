@@ -1,79 +1,92 @@
-import { ENSURE, OFF } from "../action/state.ts"
-import type { DlActionSpec } from "../action/registry.ts"
-import type { LifecycleReporter } from "../action/lifecycle.ts"
-import type { ActionHandler, ActionResult } from "../action/handler.ts"
-import type { RepoContext } from "../repo/context.ts"
-import type { DlContext } from "../action/types.ts"
-import { syncArchive } from "./sync.ts"
-import { defaultGitOps } from "../git/default.ts"
+import { ENSURE, OFF } from "../action/state.ts";
+import type {
+  ActionCapability,
+  ActionExecutionContext,
+  ActionResult,
+  ActionSpec,
+} from "../planner/types.ts";
+import { syncArchive } from "./sync.ts";
 
-const ARCHIVE_STATES = [ENSURE, OFF] as const
+const ARCHIVE_STATES = [ENSURE, OFF] as const;
 
-export const ARCHIVE_ACTION_SPEC: DlActionSpec = {
-	name: "archive",
-	description: "Archive checkout action",
-	defaultState: ENSURE,
-	states: ARCHIVE_STATES,
-	optionKey: "archiveState",
-}
+export const ARCHIVE_ACTION_SPEC: ActionSpec = {
+  name: "archive",
+  description: "Archive checkout action",
+  defaultState: ENSURE,
+  states: ARCHIVE_STATES,
+  optionKey: "archiveState",
+};
 
 export const ARCHIVE_ACTION_FLAG_OPTION = {
-	type: "boolean",
-	default: false,
-	description: "Archive checkout action (bare --archive uses default state 'ensure')",
-} as const
+  type: "boolean",
+  default: false,
+  description: "Archive checkout action (bare --archive uses default state 'ensure')",
+} as const;
 
 export const ARCHIVE_ACTION_STATE_OPTION = {
-	type: "enum",
-	choices: ARCHIVE_STATES,
-	description: "Archive checkout action state (ensure|off)",
-} as const
+  type: "enum",
+  choices: ARCHIVE_STATES,
+  description: "Archive checkout action state (ensure|off)",
+} as const;
 
-async function runArchive(
-	resolved: RepoContext,
-	ctx: DlContext,
-	lifecycle: LifecycleReporter,
-): Promise<ActionResult> {
-	if (ctx.options.archiveState === OFF) {
-		lifecycle.skipped({ step: "archive", source: "archiveHandler", transition: "off" })
-		lifecycle.skipped({ step: "archive-jj", source: "archiveHandler", transition: "off" })
-		return { hadError: false }
-	}
+async function runArchive(ctx: ActionExecutionContext): Promise<ActionResult> {
+  if (ctx.state === OFF) {
+    ctx.report.skipped({ step: "archive", source: "archive", transition: "off" });
+    ctx.report.skipped({ step: "archive-jj", source: "archive", transition: "off" });
+    return { hadError: false };
+  }
 
-	try {
-		const report = await syncArchive(resolved, ctx, ctx.gitOps ?? defaultGitOps)
-		lifecycle.ok({
-			step: "archive",
-			source: "archiveHandler -> syncArchive",
-			transition: report.archiveStatus,
-			details: { destination: report.destination },
-		})
-		lifecycle.ok({
-			step: "archive-jj",
-			source: "archiveHandler -> ensureJjInitialized",
-			transition: report.jjStatus,
-			details: { destination: report.destination },
-		})
-		return { hadError: false }
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error)
-		lifecycle.failed({
-			step: "archive",
-			source: "archiveHandler",
-			transition: "error",
-			details: { message },
-		})
-		lifecycle.failed({
-			step: "archive-jj",
-			source: "archiveHandler",
-			transition: "blocked",
-			details: { message: "archive sync failed before jj initialization" },
-		})
-		return { hadError: true }
-	}
+  try {
+    const report = await syncArchive(
+      ctx.repo,
+      ctx.services.roots,
+      ctx.services.log,
+      ctx.services.gitOps,
+    );
+    ctx.facts.set("archive.destination", report.destination);
+    ctx.report.ok({
+      step: "archive",
+      source: "archive -> syncArchive",
+      transition: report.archiveStatus,
+      details: { destination: report.destination },
+    });
+    ctx.report.ok({
+      step: "archive-jj",
+      source: "archive -> ensureJjInitialized",
+      transition: report.jjStatus,
+      details: { destination: report.destination },
+    });
+    return { hadError: false };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    ctx.report.failed({
+      step: "archive",
+      source: "archive",
+      transition: "error",
+      details: { message },
+    });
+    ctx.report.failed({
+      step: "archive-jj",
+      source: "archive",
+      transition: "blocked",
+      details: { message: "archive sync failed before jj initialization" },
+    });
+    return { hadError: true };
+  }
 }
 
-export const archiveHandler: ActionHandler = {
-	id: "archive",
-	run: runArchive,
-}
+export const archiveAction: ActionCapability = {
+  spec: ARCHIVE_ACTION_SPEC,
+  assemble: ({ args, assembly }) => {
+    const state = args.actionState(ARCHIVE_ACTION_SPEC);
+    if (state === OFF) return;
+    assembly.bind({
+      id: "archive",
+      kind: "action",
+      plugin: "action:archive",
+      stage: "materialize",
+      state,
+      run: runArchive,
+    });
+  },
+};

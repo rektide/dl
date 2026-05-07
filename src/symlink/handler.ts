@@ -1,62 +1,93 @@
-import { ENSURE, OFF } from "../action/state.ts"
-import type { DlActionSpec } from "../action/registry.ts"
-import type { LifecycleReporter } from "../action/lifecycle.ts"
-import type { ActionHandler, ActionResult } from "../action/handler.ts"
-import type { RepoContext } from "../repo/context.ts"
-import type { DlContext } from "../action/types.ts"
-import { syncSimplify } from "./sync.ts"
+import { ENSURE, OFF } from "../action/state.ts";
+import type {
+  ActionCapability,
+  ActionExecutionContext,
+  ActionResult,
+  ActionSpec,
+} from "../planner/types.ts";
+import { syncSimplify } from "./sync.ts";
 
-const SYMLINK_STATES = [ENSURE, OFF] as const
+const SYMLINK_STATES = [ENSURE, OFF] as const;
 
-export const SYMLINK_ACTION_SPEC: DlActionSpec = {
-	name: "symlink",
-	description: "Symlink creation action",
-	defaultState: ENSURE,
-	states: SYMLINK_STATES,
-	optionKey: "symlinkState",
-}
+export const SYMLINK_ACTION_SPEC: ActionSpec = {
+  name: "symlink",
+  description: "Symlink creation action",
+  defaultState: ENSURE,
+  states: SYMLINK_STATES,
+  optionKey: "symlinkState",
+};
 
 export const SYMLINK_ACTION_FLAG_OPTION = {
-	type: "boolean",
-	default: false,
-	description: "Symlink creation action (bare --symlink uses default state 'ensure')",
-} as const
+  type: "boolean",
+  default: false,
+  description: "Symlink creation action (bare --symlink uses default state 'ensure')",
+} as const;
 
 export const SYMLINK_ACTION_STATE_OPTION = {
-	type: "enum",
-	choices: SYMLINK_STATES,
-	description: "Symlink creation action state (ensure|off)",
-} as const
+  type: "enum",
+  choices: SYMLINK_STATES,
+  description: "Symlink creation action state (ensure|off)",
+} as const;
 
-export async function runSymlink(
-	resolved: RepoContext,
-	ctx: DlContext,
-	lifecycle: LifecycleReporter,
-): Promise<ActionResult> {
-	if (ctx.options.symlinkState === OFF) {
-		lifecycle.skipped({ step: "symlink-org", source: "symlinkHandler", transition: "off" })
-		lifecycle.skipped({ step: "symlink-repo", source: "symlinkHandler", transition: "off" })
-		return { hadError: false }
-	}
+export async function runSymlink(ctx: ActionExecutionContext): Promise<ActionResult> {
+  if (ctx.state === OFF) {
+    ctx.report.skipped({ step: "symlink-org", source: "symlink", transition: "off" });
+    ctx.report.skipped({ step: "symlink-repo", source: "symlink", transition: "off" });
+    return { hadError: false };
+  }
 
-	const simplifyReport = await syncSimplify(resolved, ctx)
+  const simplifyReport = await syncSimplify(
+    ctx.repo,
+    ctx.services.roots,
+    ctx.services.options,
+    ctx.services.log,
+  );
 
-	if (simplifyReport.orgStatus === "skipped") {
-		lifecycle.skipped({ step: "symlink-org", source: "symlinkHandler", transition: simplifyReport.orgStatus })
-	} else {
-		lifecycle.ok({ step: "symlink-org", source: "symlinkHandler -> ensureSymlink", transition: simplifyReport.orgStatus, details: { org: simplifyReport.org } })
-	}
+  if (simplifyReport.orgStatus === "skipped") {
+    ctx.report.skipped({
+      step: "symlink-org",
+      source: "symlink",
+      transition: simplifyReport.orgStatus,
+    });
+  } else {
+    ctx.report.ok({
+      step: "symlink-org",
+      source: "symlink -> ensureSymlink",
+      transition: simplifyReport.orgStatus,
+      details: { org: simplifyReport.org },
+    });
+  }
 
-	if (simplifyReport.projectStatus === "skipped") {
-		lifecycle.skipped({ step: "symlink-repo", source: "symlinkHandler", transition: simplifyReport.projectStatus })
-	} else {
-		lifecycle.ok({ step: "symlink-repo", source: "symlinkHandler -> ensureSymlink", transition: simplifyReport.projectStatus, details: { org: simplifyReport.org, project: simplifyReport.project } })
-	}
+  if (simplifyReport.projectStatus === "skipped") {
+    ctx.report.skipped({
+      step: "symlink-repo",
+      source: "symlink",
+      transition: simplifyReport.projectStatus,
+    });
+  } else {
+    ctx.report.ok({
+      step: "symlink-repo",
+      source: "symlink -> ensureSymlink",
+      transition: simplifyReport.projectStatus,
+      details: { org: simplifyReport.org, project: simplifyReport.project },
+    });
+  }
 
-	return { hadError: false }
+  return { hadError: false };
 }
 
-export const symlinkHandler: ActionHandler = {
-	id: "symlink",
-	run: runSymlink,
-}
+export const symlinkAction: ActionCapability = {
+  spec: SYMLINK_ACTION_SPEC,
+  assemble: ({ args, assembly }) => {
+    const state = args.actionState(SYMLINK_ACTION_SPEC);
+    if (state === OFF) return;
+    assembly.bind({
+      id: "symlink",
+      kind: "action",
+      plugin: "action:symlink",
+      stage: "link",
+      state,
+      run: runSymlink,
+    });
+  },
+};
