@@ -150,3 +150,142 @@ I suspect `src/repo/base/` (the `RedirectRepo`/`HostRepo` class hierarchy) is en
 ### On phase 3 scope
 
 The minimum viable phase 3 is: handlers become stages, `RepoContext` is deleted, `runPipeline` is deleted. Everything else (reporting redesign, signal metadata, directory reorganization) can happen after. Don't let the reporting redesign ([`doc/log.md`](/doc/log.md)) block this work.
+
+---
+
+## Supplemental: Suggested Architecture
+
+One possible way to resolve the open design decisions above. Not plan-directive — just a concrete proposal to evaluate against alternatives.
+
+### Plugin contributes stage factories
+
+```ts
+interface DlActionProviderExtension {
+  readonly "dl:actions": ReadonlyArray<DlActionSpec>
+  readonly "dl:stages": (options: DlOptions) => ReadonlyArray<Stage<Repo, FlowContext>>
+}
+```
+
+The factory receives `DlOptions` so each action can check its own state (`options.archiveState`) and decide whether to include itself. The flow runner calls all factories and assembles the resulting stages into `verifiedStages`.
+
+### Stages are constructed with config at plan-assembly time
+
+```ts
+function createArchiveStage(config: { archiveRoot: string; gitOps: GitOps; log: LogExtension }): Stage<Repo, FlowContext> {
+  return async function* archiveStage(input, ctx) {
+    for await (const repo of input) {
+      // check action state from ctx.plugins
+      // do work with repo, config.archiveRoot, config.gitOps
+      // record lifecycle
+      yield repo
+    }
+  }
+}
+```
+
+Config (roots, gitOps, dexportOps, log) is bound at construction time, not per-repo. The stage closure captures it. This avoids putting I/O dependencies on `FlowContext`.
+
+### Action state accessed from plugin context
+
+The action plugin extension exposes a state query:
+
+```ts
+const state = ctx.plugins["dl:actions"].getActionState("archive")
+```
+
+This lets each stage check its own state without receiving `DlOptions` directly. The action plugin resolves states using the existing [`resolveActionStates()`](/src/action/registry.ts:159) logic.
+
+### Lifecycle: stages call a report plugin
+
+```ts
+const reporter = ctx.plugins["rekon:report"]
+reporter.ok({ step: "archive", source: "archiveStage", transition: "cloned", details: { destination } })
+```
+
+The `LifecycleReporter` pattern (ok/skipped/failed) is good. A report plugin on `FlowContext.plugins` makes it available to any stage without passing it as a parameter. If the report plugin from [`doc/log.md`](/doc/log.md) isn't ready, a thin wrapper around the existing `LifecycleReporter` interface (but constructed from `Repo`, not `RepoContext`) would work.
+
+### Errors: stages yield onward, record failures
+
+Stages are pass-through — they yield `repo` regardless of success or failure. Errors are recorded in lifecycle. The flow runner collects errors (either through the report plugin or through a side-channel accumulator) to set the exit code. This mirrors the current `actionTasks` / `Promise.all` pattern but at the stage level.
+
+### RepoContext field mapping
+
+What `RepoContext` carries that `Repo` does not, and where each goes:
+
+| RepoContext field | Where it goes instead |
+|---|---|
+| `wikiRepoUrl` | Computed inside wiki stage from `repo.url` (`.wiki.git` for github/gitlab) |
+| `wikiDeepUrl` | Computed inside deepwiki stage from `repo.url` |
+| `source.provider` | `repo.producedBy` |
+| `verified` | `repo.state === "verified"` |
+| `input`, `org`, `project`, `host` | Already on `Repo` |
+
+The `wikiRepoUrl` and `wikiDeepUrl` computations currently live in [`toLegacyRepoContext()`](/src/command/run.ts:48). They move into their respective stages.
+
+### Handler dependency inventory
+
+What each handler currently reads from `RepoContext` and `DlContext`, for the rewriter's reference:
+
+**archive** ([`src/archive/handler.ts`](/src/archive/handler.ts)) — `resolved.url`, `ctx.roots.archiveRoot`, `ctx.gitOps`, `ctx.options.archiveState`, `ctx.log`, `lifecycle`
+
+**wiki** ([`src/wiki/handler.ts`](/src/wiki/handler.ts)) — `resolved.wikiRepoUrl` (computed from url), `resolved.url.pathname`, `ctx.roots.wikiRoot`, `ctx.options.wikiState`, `ctx.gitOps`, `ctx.log`, `lifecycle`
+
+**deepwiki** ([`src/deepwiki/handler.ts`](/src/deepwiki/handler.ts)) — `resolved.url.pathname`, `ctx.roots.wikiRoot`, `ctx.dexportOps`, `ctx.options.deepwikiState`, `ctx.log`, `lifecycle`
+
+**archlist** ([`src/archlist/handler.ts`](/src/archlist/handler.ts)) — `resolved.url.toString()`, `ctx.options.archlistState`, `ctx.log`, `lifecycle`
+
+**symlink** ([`src/symlink/handler.ts`](/src/symlink/handler.ts)) — `resolved.org`, `resolved.project`, `ctx.options.symlinkState`, `ctx.roots`, `ctx.log`, `lifecycle`
+
+### Suggested implementation order
+
+1. Start with **archlist** — simplest handler (appends URL to file). Rewriting it as a stage validates the pattern before touching complex handlers.
+2. Update the plugin extension to contribute stages alongside (or instead of) handlers.
+3. Wire stages into [`runFlowCommand()`](/src/command/run.ts:113) as `verifiedStages`.
+4. Convert remaining handlers one at a time: archive, wiki, deepwiki, symlink.
+5. Delete `RepoContext`, `DefaultRepoContext`, `ActionHandler`, `runPipeline`, `toLegacyRepoContext`, `src/repo/base/`.
+
+### Dead code to clean up
+
+Standing lint warnings that point to code phase 3 should delete:
+
+- `DefaultRepoContext` imported but unused in [`src/repo/base/redirect-repo.ts:1`](/src/repo/base/redirect-repo.ts)
+- `RepoContext` imported but unused in [`src/repo/provider/crates-io.ts:1`](/src/repo/provider/crates-io.ts)
+- `syncDexportWiki` imported but unused in [`src/deepwiki/handler.ts:7`](/src/deepwiki/handler.ts)
+- `LogExtension` imported but unused in [`src/dexport/sync.ts:2`](/src/dexport/sync.ts)
+- `simplify` imported but unused in [`src/symlink/ensure.ts:4`](/src/symlink/ensure.ts)
+- `originalCallback` unused in [`src/command/input.ts:131`](/src/command/input.ts)
+
+Larger dead code suspects:
+
+- `src/repo/base/` — entire `RedirectRepo`/`HostRepo` class hierarchy, likely unused since `src/provider/` is active
+- `src/repo/registry.ts` — old repo registry
+- `src/repo/resolve.ts` — old resolver
+- `src/repo/types.ts` — old `Source` type, only used by `RepoContext`
+
+### Test guidance
+
+[`src/command/run.test.ts`](/src/command/run.test.ts) grew from 131 lines (2 tests) to ~420 lines (6 tests) in phase 2, much of it mock extension infrastructure. For phase 3:
+
+- Test individual stages in isolation — a stage is an async generator, feed it repos and collect output
+- Don't build elaborate integration test harnesses for each stage
+- The existing [`processRepoContext`](/src/command/run.test.ts:66) tests with real (mocked I/O) handlers are the right pattern
+- `runFlowCommand()` needs only a thin integration test verifying stage assembly
+
+### NOT this: the adapter mistake
+
+A prior session attempted phase 3 with an adapter pattern:
+
+```ts
+// WRONG: wraps old handler, preserves RepoContext bridge
+function createActionStage(handler: ActionHandler): Stage<Repo, FlowContext> {
+  return async function* (input, ctx) {
+    for await (const repo of input) {
+      const resolved = toLegacyRepoContext(repo)  // bridge
+      await handler.run(resolved, dlContext, lifecycle)
+      yield repo
+    }
+  }
+}
+```
+
+This was rejected. Each handler must be rewritten to work with `Repo` directly, not wrapped. The old `handler.ts` file gets replaced, not wrapped. Move the code forward.
