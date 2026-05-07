@@ -1,6 +1,3 @@
-import { DefaultRepoContext } from "./context.ts"
-import type { RepoContext } from "./context.ts"
-
 /** Flags controlling which URL cleanups to apply. */
 export interface CleanUrlOptions {
 	gitPrefixes: boolean
@@ -111,27 +108,4 @@ export function cleanRepoUrl(
 	return url
 }
 
-/**
- * Convert a cleaned repo URL into a canonical RepoContext.
- * The context's host/org/project are extracted from the URL path,
- * and `url` is set to the canonical HTTPS form.
- */
-export function repoUrlToContext(
-	raw: string | URL,
-	providerName: string,
-	options: CleanUrlOptions = ALL_CLEAN,
-): RepoContext | null {
-	const url = raw instanceof URL ? raw : cleanRepoUrl(raw, options)
-	if (!url) return null
 
-	const pathSegments = url.pathname.split("/").filter(Boolean)
-	if (pathSegments.length < 2) return null
-
-	const ctx = new DefaultRepoContext()
-	ctx.host = url.host
-	ctx.org = pathSegments.slice(0, -1).join("/")
-	ctx.project = pathSegments.at(-1)
-	ctx.url = new URL(`https://${ctx.host}/${ctx.org}/${ctx.project}`)
-	ctx.source.provider = providerName
-	return ctx
-}

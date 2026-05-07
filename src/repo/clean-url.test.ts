@@ -5,7 +5,6 @@ import {
 	stripRepoPathExtras,
 	stripQueryAndHash,
 	cleanRepoUrl,
-	repoUrlToContext,
 	ALL_CLEAN,
 } from "./clean-url.ts"
 import type { CleanUrlOptions } from "./clean-url.ts"
@@ -220,51 +219,5 @@ describe("cleanRepoUrl", () => {
 		const result = cleanRepoUrl("https://foo.github.io/bar/?a=1#readme")
 		expect(result).not.toBeNull()
 		expect(result!.toString()).toBe("https://foo.github.io/bar/")
-	})
-})
-
-describe("repoUrlToContext", () => {
-	test("extracts host/org/project from a clean github URL", () => {
-		const ctx = repoUrlToContext("https://github.com/huggingface/transformers", "test")
-		expect(ctx).not.toBeNull()
-		expect(ctx!.host).toBe("github.com")
-		expect(ctx!.org).toBe("huggingface")
-		expect(ctx!.project).toBe("transformers")
-		expect(ctx!.url!.toString()).toBe("https://github.com/huggingface/transformers")
-		expect(ctx!.source.provider).toBe("test")
-	})
-
-	test("handles nested org on gitlab", () => {
-		const ctx = repoUrlToContext("https://gitlab.com/interception/linux/tools", "test")
-		expect(ctx).not.toBeNull()
-		expect(ctx!.host).toBe("gitlab.com")
-		expect(ctx!.org).toBe("interception/linux")
-		expect(ctx!.project).toBe("tools")
-	})
-
-	test("handles messy URL by cleaning it", () => {
-		const ctx = repoUrlToContext(
-			"https://github.com/org/repo/tree/main/src/index.ts?tab=readme#docs",
-			"test",
-		)
-		expect(ctx).not.toBeNull()
-		expect(ctx!.org).toBe("org")
-		expect(ctx!.project).toBe("repo")
-	})
-
-	test("returns null for URL with fewer than 2 path segments", () => {
-		expect(repoUrlToContext("https://github.com/org", "test")).toBeNull()
-	})
-
-	test("returns null for unparseable input", () => {
-		expect(repoUrlToContext("garbage", "test")).toBeNull()
-	})
-
-	test("accepts a URL object directly", () => {
-		const url = new URL("https://github.com/org/repo")
-		const ctx = repoUrlToContext(url, "test")
-		expect(ctx).not.toBeNull()
-		expect(ctx!.org).toBe("org")
-		expect(ctx!.project).toBe("repo")
 	})
 })
