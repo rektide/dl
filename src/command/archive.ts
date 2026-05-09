@@ -20,7 +20,7 @@ export default defineWithTypes<CommandParams>()({
     const { planner } = requireExtensions(ctx.extensions);
     const result = await planner.run({
       inputs,
-      actionOverride: { name: ARCHIVE_ACTION_SPEC.name, state: String(ctx.values.state) },
+      subcommand: { name: ARCHIVE_ACTION_SPEC.name, state: String(ctx.values.state) },
     });
     if (result.hadError) process.exit(1);
   },

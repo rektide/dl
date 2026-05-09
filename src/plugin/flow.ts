@@ -265,28 +265,6 @@ function snapshotSession(session: FlowSession): FlowSessionSnapshot {
 export const flowPlugin = plugin({
   id: FLOW_PLUGIN_ID,
   name: "Rekon Flow",
-  setup: (ctx) => {
-    ctx.addGlobalOption("candidates", {
-      type: "boolean",
-      default: false,
-      description: "Print expanded candidate URLs before verification (no network calls)",
-    });
-    ctx.addGlobalOption("verified", {
-      type: "boolean",
-      default: false,
-      description: "Output verified repo info without syncing",
-    });
-    ctx.addGlobalOption("dry-run", {
-      type: "boolean",
-      default: false,
-      description: "Show what would be done without making changes",
-    });
-    ctx.addGlobalOption("report-lifecycle", {
-      type: "boolean",
-      default: false,
-      description: "Emit structured lifecycle summary per resolved repository",
-    });
-  },
   extension: (core): FlowExtension => {
     const defaultOptions = defaultResolveOptions();
     const registry = createProviderRegistry([

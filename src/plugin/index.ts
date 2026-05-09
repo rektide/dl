@@ -13,6 +13,7 @@ import { positionalInputPlugin } from "./input-positional.ts";
 import { watchInputPlugin } from "./input-watch.ts";
 import { logPlugin } from "./log.ts";
 import { rootsPlugin } from "./roots.ts";
+import { viewActionPlugin } from "../view/plugin.ts";
 
 export const dlPlugins = [
   c12({ name: "rekon" }),
@@ -24,6 +25,7 @@ export const dlPlugins = [
   clipboardInputPlugin,
   gitPlugin,
   dexportPlugin,
+  viewActionPlugin,
   dlArchiveActionPlugin,
   dlWikiActionPlugin,
   dlDeepwikiActionPlugin,

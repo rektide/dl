@@ -52,7 +52,12 @@ describe("planner binding stages", () => {
       },
     ];
 
-    const stage = createBindingStage({ bindings, run, services: {} as never, args: {} as never });
+    const stage = createBindingStage({
+      bindings,
+      run,
+      services: {} as never,
+      args: { intent: { enabled: () => false, state: () => "off" } } as never,
+    });
     const output = [];
     for await (const item of stage(oneRepo(repo), { plugins: {} } as FlowContext)) {
       output.push(item);
