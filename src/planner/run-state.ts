@@ -30,6 +30,7 @@ export function createActionRunState(_options: CreateActionRunStateOptions): Act
   const repoErrors = new Set<string>();
   const facts = new Map<string, RepoFacts>();
   const reporters = new Map<string, LifecycleReporter>();
+  const recordedKeys = new Set<string>();
 
   return {
     hadError: () => hadError,
@@ -66,5 +67,9 @@ export function createActionRunState(_options: CreateActionRunStateOptions): Act
       reporters.set(key, reporter);
       return reporter;
     },
+    record: (key: string) => {
+      recordedKeys.add(key);
+    },
+    recorded: (key: string) => recordedKeys.has(key),
   };
 }

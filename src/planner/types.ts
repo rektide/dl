@@ -19,11 +19,16 @@ export const STAGE = {
 
 export type StageName = (typeof STAGE)[keyof typeof STAGE];
 
-export type BindingKind = "view" | "action" | "stage";
+export type BindingKind = "view" | "action";
+
+export type ActionRole = "effect" | "view" | "report" | "mode";
 
 export type ActionSpec = Readonly<{
   name: string;
   description: string;
+  role: ActionRole;
+  defaultParticipation?: "default" | "explicit-only";
+  suppressesDefaultsWhenExplicit?: boolean;
   defaultState: string;
   states: ReadonlyArray<string>;
   optionKey?: string;
@@ -36,18 +41,25 @@ export type ActionToken = Readonly<{
   inlineValue?: boolean;
 }>;
 
-export type ActionOverride = Readonly<{
+export type SubcommandSelection = Readonly<{
   name: string;
   state: string;
 }>;
 
+export type InvocationIntent = Readonly<{
+  selected: ReadonlySet<string>;
+  explicit: ReadonlySet<string>;
+  suppressedDefaults: boolean;
+  subcommand: SubcommandSelection | null;
+  state(name: string): string;
+  enabled(name: string): boolean;
+}>;
+
 export type Args = Readonly<{
+  intent: InvocationIntent;
   value(name: string): unknown;
   explicit(name: string): boolean;
   inlineValue(name: string): string | null;
-  actionState(spec: ActionSpec): string;
-  hasActionIntent(): boolean;
-  hasViewIntent(): boolean;
 }>;
 
 export type RunOptions = Readonly<{
@@ -77,13 +89,15 @@ export type ActionRunState = Readonly<{
   markError(repo: Repo, bindingId: string, error?: unknown): void;
   factsFor(repo: Repo): RepoFacts;
   reporterFor(repo: Repo, initialRecords?: ReadonlyArray<LifecycleRecord>): LifecycleReporter;
+  record(key: string): void;
+  recorded(key: string): boolean;
 }>;
 
 export type ActionResult = Readonly<{
   hadError: boolean;
 }>;
 
-export type ActionExecutionContext = Readonly<{
+export type RepoExecution = Readonly<{
   repo: Repo;
   flow: FlowContext;
   binding: Binding;
@@ -93,8 +107,12 @@ export type ActionExecutionContext = Readonly<{
   services: Services;
   facts: RepoFacts;
   report: LifecycleReporter;
+  record(key: string): void;
   markError(error?: unknown): void;
 }>;
+
+/** @deprecated Use RepoExecution */
+export type ActionExecutionContext = RepoExecution;
 
 export type Binding = Readonly<{
   id: string;
@@ -102,7 +120,7 @@ export type Binding = Readonly<{
   plugin: string;
   stage: StageName;
   state: string;
-  run(ctx: ActionExecutionContext): Promise<ActionResult | void>;
+  run(ctx: RepoExecution): Promise<ActionResult | void>;
 }>;
 
 export type Assembly = Readonly<{
@@ -110,22 +128,26 @@ export type Assembly = Readonly<{
 }>;
 
 export type ActionAssemblyContext = Readonly<{
+  intent: InvocationIntent;
   args: Args;
   assembly: Assembly;
 }>;
 
-export type ActionCapability = Readonly<{
+export type Action = Readonly<{
   spec: ActionSpec;
   assemble(ctx: ActionAssemblyContext): void;
 }>;
 
+/** @deprecated Use Action */
+export type ActionCapability = Action;
+
 export type ActionPluginExtension = Readonly<{
-  actions: ReadonlyArray<ActionCapability>;
+  actions: ReadonlyArray<Action>;
 }>;
 
 export type PlannerRunOptions = Readonly<{
   inputs: AsyncIterable<string>;
-  actionOverride?: ActionOverride;
+  subcommand?: SubcommandSelection;
 }>;
 
 export type PlannerRunResult = Readonly<{

@@ -21,6 +21,7 @@ export function createBindingStage(options: BoundStageOptions): Stage<Repo, Flow
             services: options.services,
             facts,
             report,
+            record: (key: string) => options.run.record(key),
             markError: (error) => options.run.markError(repo, binding.id, error),
           });
           if (result?.hadError) options.run.markError(repo, binding.id);
