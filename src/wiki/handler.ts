@@ -1,9 +1,9 @@
 import { ENSURE, OFF } from "../action/state.ts";
 import type {
-  ActionCapability,
-  ActionExecutionContext,
+  Action,
   ActionResult,
   ActionSpec,
+  RepoExecution,
 } from "../planner/types.ts";
 import { syncGitWiki } from "./sync.ts";
 import { join } from "node:path";
@@ -13,6 +13,9 @@ const WIKI_STATES = [ENSURE, OFF] as const;
 export const WIKI_ACTION_SPEC: ActionSpec = {
   name: "wiki",
   description: "Wiki git checkout action",
+  role: "effect",
+  defaultParticipation: "default",
+  suppressesDefaultsWhenExplicit: true,
   defaultState: ENSURE,
   states: WIKI_STATES,
   optionKey: "wikiState",
@@ -35,7 +38,7 @@ function gitWikiUrl(repoUrl: URL): URL | null {
   return new URL(`${repoUrl.toString()}.wiki.git`);
 }
 
-async function runWiki(ctx: ActionExecutionContext): Promise<ActionResult> {
+async function runWiki(ctx: RepoExecution): Promise<ActionResult> {
   if (ctx.state === OFF) {
     ctx.report.skipped({ step: "wiki-git", source: "wiki", transition: "off" });
     return { hadError: false };
@@ -92,10 +95,10 @@ async function runWiki(ctx: ActionExecutionContext): Promise<ActionResult> {
   }
 }
 
-export const wikiAction: ActionCapability = {
+export const wikiAction: Action = {
   spec: WIKI_ACTION_SPEC,
-  assemble: ({ args, assembly }) => {
-    const state = args.actionState(WIKI_ACTION_SPEC);
+  assemble: ({ intent, assembly }) => {
+    const state = intent.state(WIKI_ACTION_SPEC.name);
     if (state === OFF) return;
     assembly.bind({
       id: "wiki",

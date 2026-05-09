@@ -1,9 +1,9 @@
 import { ENSURE, OFF } from "../action/state.ts";
 import type {
-  ActionCapability,
-  ActionExecutionContext,
+  Action,
   ActionResult,
   ActionSpec,
+  RepoExecution,
 } from "../planner/types.ts";
 import { syncArchive } from "./sync.ts";
 
@@ -12,6 +12,9 @@ const ARCHIVE_STATES = [ENSURE, OFF] as const;
 export const ARCHIVE_ACTION_SPEC: ActionSpec = {
   name: "archive",
   description: "Archive checkout action",
+  role: "effect",
+  defaultParticipation: "default",
+  suppressesDefaultsWhenExplicit: true,
   defaultState: ENSURE,
   states: ARCHIVE_STATES,
   optionKey: "archiveState",
@@ -29,7 +32,7 @@ export const ARCHIVE_ACTION_STATE_OPTION = {
   description: "Archive checkout action state (ensure|off)",
 } as const;
 
-async function runArchive(ctx: ActionExecutionContext): Promise<ActionResult> {
+async function runArchive(ctx: RepoExecution): Promise<ActionResult> {
   if (ctx.state === OFF) {
     ctx.report.skipped({ step: "archive", source: "archive", transition: "off" });
     ctx.report.skipped({ step: "archive-jj", source: "archive", transition: "off" });
@@ -75,10 +78,10 @@ async function runArchive(ctx: ActionExecutionContext): Promise<ActionResult> {
   }
 }
 
-export const archiveAction: ActionCapability = {
+export const archiveAction: Action = {
   spec: ARCHIVE_ACTION_SPEC,
-  assemble: ({ args, assembly }) => {
-    const state = args.actionState(ARCHIVE_ACTION_SPEC);
+  assemble: ({ intent, assembly }) => {
+    const state = intent.state(ARCHIVE_ACTION_SPEC.name);
     if (state === OFF) return;
     assembly.bind({
       id: "archive",

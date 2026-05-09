@@ -1,9 +1,9 @@
 import { ENSURE, OFF } from "../action/state.ts";
 import type {
-  ActionCapability,
-  ActionExecutionContext,
+  Action,
   ActionResult,
   ActionSpec,
+  RepoExecution,
 } from "../planner/types.ts";
 import { join } from "node:path";
 
@@ -12,6 +12,9 @@ const DEEPWIKI_STATES = [ENSURE, OFF] as const;
 export const DEEPWIKI_ACTION_SPEC: ActionSpec = {
   name: "deepwiki",
   description: "Deepwiki (dexport) sync action",
+  role: "effect",
+  defaultParticipation: "default",
+  suppressesDefaultsWhenExplicit: true,
   defaultState: ENSURE,
   states: DEEPWIKI_STATES,
   optionKey: "deepwikiState",
@@ -34,7 +37,7 @@ function deepwikiUrl(repoUrl: URL): URL | null {
   return new URL(`https://deepwiki.com${repoUrl.pathname}`);
 }
 
-async function runDeepwiki(ctx: ActionExecutionContext): Promise<ActionResult> {
+async function runDeepwiki(ctx: RepoExecution): Promise<ActionResult> {
   if (ctx.state === OFF) {
     ctx.report.skipped({ step: "wiki-dexport", source: "deepwiki", transition: "off" });
     return { hadError: false };
@@ -82,10 +85,10 @@ async function runDeepwiki(ctx: ActionExecutionContext): Promise<ActionResult> {
   return { hadError: false };
 }
 
-export const deepwikiAction: ActionCapability = {
+export const deepwikiAction: Action = {
   spec: DEEPWIKI_ACTION_SPEC,
-  assemble: ({ args, assembly }) => {
-    const state = args.actionState(DEEPWIKI_ACTION_SPEC);
+  assemble: ({ intent, assembly }) => {
+    const state = intent.state(DEEPWIKI_ACTION_SPEC.name);
     if (state === OFF) return;
     assembly.bind({
       id: "deepwiki",
