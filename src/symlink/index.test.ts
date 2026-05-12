@@ -99,11 +99,19 @@ describe("needsSymlink", () => {
 		expect(needsSymlink("Rust", "rust", true)).toBe(true)
 	})
 
-	test("true when punctuation was stripped", () => {
+	test("true when first char is uppercase", () => {
 		expect(needsSymlink("Effect-TS", "effectts", false)).toBe(true)
 	})
 
-	test("true when punctuation was stripped even without anycase", () => {
-		expect(needsSymlink("duckdb_mooncake", "duckdbmooncake", false)).toBe(true)
+	test("false when first char is lowercase even if punctuation stripped", () => {
+		expect(needsSymlink("duckdb_mooncake", "duckdbmooncake", false)).toBe(false)
+	})
+
+	test("false when first char is lowercase with hyphens", () => {
+		expect(needsSymlink("rust-kcp", "rustkcp", false)).toBe(false)
+	})
+
+	test("true when first char is non-alphanumeric", () => {
+		expect(needsSymlink("@scope/pkg", "scopepkg", false)).toBe(true)
 	})
 })

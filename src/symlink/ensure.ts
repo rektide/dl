@@ -31,6 +31,9 @@ export interface SimplifyLog {
 export function needsSymlink(original: string, simplified: string, anycase: boolean): boolean {
 	if (simplified === original) return false
 	if (!anycase && original.toLowerCase() === simplified) return false
+	const first = original[0]
+	if (!first) return false
+	if (/^[a-z0-9]$/.test(first)) return false
 	return true
 }
 
