@@ -44,10 +44,10 @@ The reporting redesign should build on this instead of inventing a parallel pipe
 
 Create a report subsystem with two layers:
 
-1. **Report service plugin**: provides structured recording, fire-and-forget events, formatting, sinks, and child process stdio settings.
+1. **Report service plugin**: provides structured recording, per-subject reporter storage, fire-and-forget events, formatting, sinks, and child process stdio settings.
 2. **Report actions**: opt into specific report behavior during planner assembly, such as lifecycle capture and summary output.
 
-The service is always available. Report actions decide what output or summaries are enabled for a run.
+The service is always available. Report actions decide what accumulated records, scoped reports, or summaries become visible for a run.
 
 ```mermaid
 flowchart LR
@@ -92,7 +92,7 @@ type ReportRecord = Readonly<{
   step: string
   source: string
   status: ReportStatus
-  transition: string
+  event: string
   details: Readonly<Record<string, unknown>>
   timestamp: string
 }>
@@ -110,12 +110,18 @@ type Reporter = Readonly<{
 type ReportService = Readonly<{
   forSubject(subject: string | null, initial?: ReadonlyArray<ReportRecord>): Reporter
   emit(input: ReportEmitInput): void
+  writeRecord(record: ReportRecord): void
+  writeSummary(summary: ReportSummary): void
   getOutputStdout(): "inherit" | "ignore" | "pipe" | number
   getOutputStderr(): "inherit" | "ignore" | "pipe" | number
 }>
 ```
 
-`Reporter` is for per-subject accumulation. In `dl`, the subject is usually a repo URL. `emit()` is for events that should be output but not accumulated into a repo summary, such as watch input, clipboard input, dry-run plans, or command-level diagnostics.
+`Reporter` is for per-subject accumulation. In `dl`, the subject is usually a repo URL. Reporter methods do not write to sinks directly. They append records so report actions can decide what to flush and when.
+
+`emit()` is for events that should be output immediately but not accumulated into a repo summary, such as watch input, clipboard input, dry-run plans, or command-level diagnostics. `writeRecord()` and `writeSummary()` are the explicit sink boundary for report actions that make accumulated data visible.
+
+The report service owns the per-subject reporter map. Planner state should not keep reporter storage after migration. `ActionRunState` should keep planner execution facts only: errors, per-repo errors, de-dupe records, and repo facts.
 
 ## Report actions
 
@@ -136,13 +142,13 @@ export const lifecycleReportAction: Action = {
   },
   assemble(ctx) {
     if (!ctx.intent.enabled("report-lifecycle")) return
-    ctx.assembly.bind(/* capture flow handoffs at verified */)
+    ctx.assembly.bind(/* record flow handoffs at verified */)
     ctx.assembly.bind(/* emit summary at report */)
   },
 }
 ```
 
-This removes lifecycle special cases from planner execution. Planner still runs the bindings, but it does not know lifecycle exists.
+This removes lifecycle special cases from planner execution. Planner still runs the bindings, but it does not know lifecycle exists. Flow handoffs should be recorded by the lifecycle report action through `ctx.report`, not seeded implicitly through planner-owned reporter creation.
 
 Report actions are also the right place for future report scopes:
 
@@ -173,7 +179,7 @@ Planner should not own reporting policy:
 - no lifecycle summary formatting
 - no report scope decisions
 
-Planner can keep `ActionRunState` temporarily, but its reporter field should move from `LifecycleReporter` to `Reporter` once the report service exists.
+Planner can keep `ActionRunState` temporarily, but reporter storage should move out of it. During migration, `ActionRunState.reporterFor()` can delegate to `services.report.forSubject()`. In the target shape, `RepoExecution.report` comes from the report service and `ActionRunState` no longer knows about reporter records.
 
 ## What flow should own
 
@@ -245,6 +251,7 @@ Acceptance:
 
 - lifecycle tests still pass
 - report formatter tests cover text and JSON output
+- reporter tests prove per-subject accumulation is stable and does not write to sinks
 - no planner behavior changes
 
 ### 2. Add report plugin beside log plugin
@@ -255,6 +262,8 @@ The first version should provide:
 
 - `forSubject()`
 - `emit()`
+- `writeRecord()`
+- `writeSummary()`
 - `getOutputStdout()`
 - `getOutputStderr()`
 
@@ -263,6 +272,7 @@ Acceptance:
 - no call sites migrated yet
 - plugin can be installed in `dlPlugins`
 - tests can use an in-memory sink
+- child output flag names are `--child-output*`, not `--output*`
 
 ### 3. Move lifecycle reporting to a report action
 
@@ -273,6 +283,7 @@ Acceptance:
 - planner no longer imports lifecycle binding creation
 - `--report-lifecycle` is registered by a report/lifecycle plugin
 - lifecycle still emits the same summary shape for now
+- flow handoffs are recorded explicitly by the lifecycle report action, not by `reporterFor()` initial seeding
 
 ### 4. Migrate `RepoExecution.report`
 
@@ -280,10 +291,13 @@ Change `RepoExecution.report` from `LifecycleReporter` to `Reporter`.
 
 Update effect actions to call the new reporter methods. Keep method names compatible where possible: `ok`, `skipped`, `failed`.
 
+During this stage, make `ActionRunState.reporterFor()` delegate to `ReportService.forSubject()` or remove it if binding stage creation can read the service directly. Do not keep a planner-owned reporter map in the final shape.
+
 Acceptance:
 
 - archive/wiki/deepwiki/archlist/symlink records are stored as `ReportRecord`
 - `action/lifecycle.ts` compatibility can shrink or disappear
+- planner run state has no direct dependency on lifecycle/report record types in the final shape
 
 ### 5. Replace `LogExtension` call sites gradually
 
