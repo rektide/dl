@@ -34,8 +34,8 @@ export const SYMLINK_ACTION_STATE_OPTION = {
 
 export async function runSymlink(ctx: RepoExecution): Promise<ActionResult> {
   if (ctx.state === OFF) {
-    ctx.report.skipped({ step: "symlink-org", source: "symlink", transition: "off" });
-    ctx.report.skipped({ step: "symlink-repo", source: "symlink", transition: "off" });
+    ctx.report.skipped({ step: "symlink-org", source: "symlink", event: "off" });
+    ctx.report.skipped({ step: "symlink-repo", source: "symlink", event: "off" });
     return { hadError: false };
   }
 
@@ -50,13 +50,13 @@ export async function runSymlink(ctx: RepoExecution): Promise<ActionResult> {
     ctx.report.skipped({
       step: "symlink-org",
       source: "symlink",
-      transition: simplifyReport.orgStatus,
+      event: simplifyReport.orgStatus,
     });
   } else {
     ctx.report.ok({
       step: "symlink-org",
       source: "symlink -> ensureSymlink",
-      transition: simplifyReport.orgStatus,
+      event: simplifyReport.orgStatus,
       details: { org: simplifyReport.org },
     });
   }
@@ -65,13 +65,13 @@ export async function runSymlink(ctx: RepoExecution): Promise<ActionResult> {
     ctx.report.skipped({
       step: "symlink-repo",
       source: "symlink",
-      transition: simplifyReport.projectStatus,
+      event: simplifyReport.projectStatus,
     });
   } else {
     ctx.report.ok({
       step: "symlink-repo",
       source: "symlink -> ensureSymlink",
-      transition: simplifyReport.projectStatus,
+      event: simplifyReport.projectStatus,
       details: { org: simplifyReport.org, project: simplifyReport.project },
     });
   }
@@ -86,7 +86,6 @@ export const symlinkAction: Action = {
     if (state === OFF) return;
     assembly.bind({
       id: "symlink",
-      kind: "action",
       plugin: "action:symlink",
       stage: "link",
       state,

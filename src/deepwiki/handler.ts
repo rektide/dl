@@ -39,7 +39,7 @@ function deepwikiUrl(repoUrl: URL): URL | null {
 
 async function runDeepwiki(ctx: RepoExecution): Promise<ActionResult> {
   if (ctx.state === OFF) {
-    ctx.report.skipped({ step: "wiki-dexport", source: "deepwiki", transition: "off" });
+    ctx.report.skipped({ step: "wiki-dexport", source: "deepwiki", event: "off" });
     return { hadError: false };
   }
 
@@ -60,7 +60,7 @@ async function runDeepwiki(ctx: RepoExecution): Promise<ActionResult> {
     ctx.report.failed({
       step: "wiki-dexport",
       source: "deepwiki -> dexportOps.sync",
-      transition: report.status,
+      event: report.status,
       details: { plan: report.plan, reason: report.reason, destination: wikiDestination },
     });
     return { hadError: true };
@@ -70,7 +70,7 @@ async function runDeepwiki(ctx: RepoExecution): Promise<ActionResult> {
     ctx.report.skipped({
       step: "wiki-dexport",
       source: "deepwiki -> dexportOps.sync",
-      transition: report.status,
+      event: report.status,
       details: { plan: report.plan, reason: report.reason, destination: wikiDestination },
     });
     return { hadError: false };
@@ -79,7 +79,7 @@ async function runDeepwiki(ctx: RepoExecution): Promise<ActionResult> {
   ctx.report.ok({
     step: "wiki-dexport",
     source: "deepwiki -> dexportOps.sync",
-    transition: report.status,
+    event: report.status,
     details: { plan: report.plan, reason: report.reason, destination: wikiDestination },
   });
   return { hadError: false };
@@ -92,7 +92,6 @@ export const deepwikiAction: Action = {
     if (state === OFF) return;
     assembly.bind({
       id: "deepwiki",
-      kind: "action",
       plugin: "action:deepwiki",
       stage: "document",
       state,

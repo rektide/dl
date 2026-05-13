@@ -3,6 +3,7 @@ import { REPO_STATE, type FlowContext, type Repo } from "../flow/types.ts";
 import type { Binding } from "./types.ts";
 import { createActionRunState } from "./run-state.ts";
 import { createBindingStage } from "./stages.ts";
+import { createReportService } from "../report/reporter.ts";
 
 function createRepo(): Repo {
   return {
@@ -26,12 +27,11 @@ async function* oneRepo(repo: Repo): AsyncGenerator<Repo> {
 describe("planner binding stages", () => {
   test("runs bindings with per-repo facts and records errors without dropping repos", async () => {
     const repo = createRepo();
-    const run = createActionRunState({ reportLifecycle: false, log: null });
+    const run = createActionRunState();
     const seen: Array<string | null> = [];
     const bindings: Array<Binding> = [
       {
         id: "remember",
-        kind: "action",
         plugin: "test",
         stage: "materialize",
         state: "ensure",
@@ -41,7 +41,6 @@ describe("planner binding stages", () => {
       },
       {
         id: "read",
-        kind: "action",
         plugin: "test",
         stage: "link",
         state: "ensure",
@@ -55,7 +54,7 @@ describe("planner binding stages", () => {
     const stage = createBindingStage({
       bindings,
       run,
-      services: {} as never,
+      services: { report: createReportService() } as never,
       args: { intent: { enabled: () => false, state: () => "off" } } as never,
     });
     const output = [];

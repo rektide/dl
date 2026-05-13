@@ -17,7 +17,6 @@ const viewAction: Action = {
     if (!intent.enabled("candidates")) return;
     assembly.bind({
       id: "candidates",
-      kind: "view",
       plugin: "view:candidates",
       stage: "proposed",
       state: intent.state("candidates"),
@@ -40,7 +39,6 @@ const effectAction: Action = {
     if (!intent.enabled("archive")) return;
     assembly.bind({
       id: "archive",
-      kind: "action",
       plugin: "action:archive",
       stage: "materialize",
       state: intent.state("archive"),
@@ -69,7 +67,6 @@ describe("createBindingPlan", () => {
     const bindings: Array<Binding> = [
       {
         id: "link",
-        kind: "action",
         plugin: "test",
         stage: "link",
         state: "enabled",
@@ -77,7 +74,6 @@ describe("createBindingPlan", () => {
       },
       {
         id: "catalog",
-        kind: "action",
         plugin: "test",
         stage: "catalog",
         state: "enabled",

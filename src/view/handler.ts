@@ -68,7 +68,6 @@ export const candidatesViewAction: Action = {
     if (!intent.enabled(CANDIDATES_VIEW_SPEC.name)) return;
     assembly.bind({
       id: CANDIDATES_VIEW_SPEC.name,
-      kind: "view",
       plugin: "view:candidates",
       stage: STAGE.proposed,
       state: intent.state(CANDIDATES_VIEW_SPEC.name),
@@ -86,7 +85,6 @@ export const verifiedViewAction: Action = {
     if (!intent.enabled(VERIFIED_VIEW_SPEC.name)) return;
     assembly.bind({
       id: VERIFIED_VIEW_SPEC.name,
-      kind: "view",
       plugin: "view:verified",
       stage: STAGE.verified,
       state: intent.state(VERIFIED_VIEW_SPEC.name),

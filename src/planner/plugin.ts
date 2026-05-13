@@ -6,6 +6,7 @@ import { DEXPORT_PLUGIN_ID, type DexportExtension } from "../plugin/dexport.ts";
 import { GIT_PLUGIN_ID, type GitExtension } from "../plugin/git.ts";
 import { LOG_PLUGIN_ID, type LogExtension } from "../plugin/log.ts";
 import { ROOTS_PLUGIN_ID, type RootsExtension } from "../plugin/roots.ts";
+import { REPORT_PLUGIN_ID, type ReportExtension } from "../report/plugin.ts";
 import { createArgs } from "./args.ts";
 import { executeBindingPlan } from "./execute.ts";
 import { createBindingPlan } from "./plan.ts";
@@ -23,6 +24,7 @@ type PlannerPluginExtensions = Record<string, unknown> & {
   [FLOW_PLUGIN_ID]: FlowExtension;
   [ROOTS_PLUGIN_ID]: RootsExtension;
   [LOG_PLUGIN_ID]: LogExtension;
+  [REPORT_PLUGIN_ID]: ReportExtension;
   [GIT_PLUGIN_ID]: GitExtension;
   [DEXPORT_PLUGIN_ID]: DexportExtension;
 };
@@ -68,11 +70,6 @@ export const plannerPlugin = plugin({
       default: false,
       description: "Show what would be done without making changes",
     });
-    ctx.addGlobalOption("report-lifecycle", {
-      type: "boolean",
-      default: false,
-      description: "Emit structured lifecycle summary per resolved repository",
-    });
   },
   extension: (core: CoreContext): PlannerExtension => ({
     async run(options) {
@@ -96,6 +93,7 @@ export const plannerPlugin = plugin({
         roots: await core.extensions[ROOTS_PLUGIN_ID].resolveRoots(),
         options: runOptionsFromValues(values),
         log,
+        report: core.extensions[REPORT_PLUGIN_ID],
         gitOps: core.extensions[GIT_PLUGIN_ID],
         dexportOps: core.extensions[DEXPORT_PLUGIN_ID],
       };

@@ -40,7 +40,7 @@ function gitWikiUrl(repoUrl: URL): URL | null {
 
 async function runWiki(ctx: RepoExecution): Promise<ActionResult> {
   if (ctx.state === OFF) {
-    ctx.report.skipped({ step: "wiki-git", source: "wiki", transition: "off" });
+    ctx.report.skipped({ step: "wiki-git", source: "wiki", event: "off" });
     return { hadError: false };
   }
 
@@ -49,7 +49,7 @@ async function runWiki(ctx: RepoExecution): Promise<ActionResult> {
     ctx.report.skipped({
       step: "wiki-git",
       source: "wiki",
-      transition: "not-applicable",
+      event: "not-applicable",
       details: { reason: "no wiki repository URL for this host" },
     });
     return { hadError: false };
@@ -71,7 +71,7 @@ async function runWiki(ctx: RepoExecution): Promise<ActionResult> {
       ctx.report.failed({
         step: "wiki-git",
         source: "wiki -> syncGitWiki",
-        transition: "failed",
+        event: "failed",
         details: { message: report.message, destination: wikiDestination },
       });
       return { hadError: true };
@@ -79,7 +79,7 @@ async function runWiki(ctx: RepoExecution): Promise<ActionResult> {
     ctx.report.ok({
       step: "wiki-git",
       source: "wiki -> syncGitWiki",
-      transition: report.status,
+      event: report.status,
       details: { destination: wikiDestination },
     });
     return { hadError: false };
@@ -88,7 +88,7 @@ async function runWiki(ctx: RepoExecution): Promise<ActionResult> {
     ctx.report.failed({
       step: "wiki-git",
       source: "wiki",
-      transition: "error",
+      event: "error",
       details: { message },
     });
     return { hadError: true };
@@ -102,7 +102,6 @@ export const wikiAction: Action = {
     if (state === OFF) return;
     assembly.bind({
       id: "wiki",
-      kind: "action",
       plugin: "action:wiki",
       stage: "document",
       state,

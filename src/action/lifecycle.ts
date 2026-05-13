@@ -1,3 +1,6 @@
+import type { Reporter, ReportRecord } from "../report/types.ts";
+import { createReporter } from "../report/reporter.ts";
+
 export type LifecycleStep =
   | "archlist"
   | "archive"
@@ -40,20 +43,47 @@ export type LifecycleReporter = {
   summary: (hadError: boolean) => LifecycleSummary;
 };
 
+function lifecycleRecordToReportRecord(
+  subject: string | null,
+  record: Readonly<LifecycleRecord>,
+): ReportRecord {
+  return {
+    subject,
+    step: record.step,
+    source: record.source,
+    status: record.status,
+    event: record.transition,
+    details: record.details,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function reportRecordToLifecycleRecord(record: Readonly<ReportRecord>): LifecycleRecord {
+  return {
+    step: record.step as LifecycleStep,
+    source: record.source,
+    status: record.status as LifecycleStatus,
+    transition: record.event,
+    details: record.details,
+  };
+}
+
 export function createLifecycleReporter(
   subject: string | null,
   initialRecords: ReadonlyArray<LifecycleRecord> = [],
 ): LifecycleReporter {
-  const records: Array<LifecycleRecord> = [...initialRecords];
   const repoUrl = subject;
+  const reporter: Reporter = createReporter(
+    subject,
+    initialRecords.map((record) => lifecycleRecordToReportRecord(subject, record)),
+  );
 
-  const record = (input: LifecycleRecordInput) => {
-    records.push({
+  const record = (input: LifecycleRecordInput): void => {
+    reporter[input.status]({
       step: input.step,
       source: input.source,
-      status: input.status,
-      transition: input.transition,
-      details: input.details ?? {},
+      event: input.transition,
+      details: input.details,
     });
   };
 
@@ -64,7 +94,7 @@ export function createLifecycleReporter(
     summary: (hadError: boolean) => ({
       repoUrl,
       hadError,
-      records,
+      records: reporter.records().map(reportRecordToLifecycleRecord),
     }),
   };
 }

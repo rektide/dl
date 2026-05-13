@@ -1,8 +1,8 @@
 import type { FlowContext, Repo } from "../flow/types.ts";
 import type { DexportOps } from "../dexport/types.ts";
 import type { GitOps } from "../git/types.ts";
-import type { LifecycleRecord, LifecycleReporter } from "../action/lifecycle.ts";
 import type { LogExtension } from "../plugin/log.ts";
+import type { Reporter, ReportService } from "../report/types.ts";
 import type { Stage } from "../execute/stage.ts";
 
 export const OFF = "off" as const;
@@ -18,8 +18,6 @@ export const STAGE = {
 } as const;
 
 export type StageName = (typeof STAGE)[keyof typeof STAGE];
-
-export type BindingKind = "view" | "action";
 
 export type ActionRole = "effect" | "view" | "report" | "mode";
 
@@ -74,6 +72,7 @@ export type Services = Readonly<{
   roots: { archiveRoot: string; wikiRoot: string };
   options: RunOptions;
   log: LogExtension;
+  report: ReportService;
   gitOps: GitOps;
   dexportOps: DexportOps;
 }>;
@@ -87,10 +86,9 @@ export type ActionRunState = Readonly<{
   hadError(): boolean;
   hadErrorFor(repo: Repo): boolean;
   markError(repo: Repo, bindingId: string, error?: unknown): void;
-  factsFor(repo: Repo): RepoFacts;
-  reporterFor(repo: Repo, initialRecords?: ReadonlyArray<LifecycleRecord>): LifecycleReporter;
   record(key: string): void;
   recorded(key: string): boolean;
+  factsFor(repo: Repo): RepoFacts;
 }>;
 
 export type ActionResult = Readonly<{
@@ -106,9 +104,10 @@ export type RepoExecution = Readonly<{
   args: Args;
   services: Services;
   facts: RepoFacts;
-  report: LifecycleReporter;
-  record(key: string): void;
+  report: Reporter;
+  hadError(): boolean;
   markError(error?: unknown): void;
+  record(key: string): void;
 }>;
 
 /** @deprecated Use RepoExecution */
@@ -116,7 +115,6 @@ export type ActionExecutionContext = RepoExecution;
 
 export type Binding = Readonly<{
   id: string;
-  kind: BindingKind;
   plugin: string;
   stage: StageName;
   state: string;

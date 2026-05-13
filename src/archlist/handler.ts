@@ -43,7 +43,6 @@ export const archlistAction: Action = {
     if (state === OFF) return;
     assembly.bind({
       id: "archlist",
-      kind: "action",
       plugin: "action:archlist",
       stage: "catalog",
       state,

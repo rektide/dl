@@ -34,8 +34,8 @@ export const ARCHIVE_ACTION_STATE_OPTION = {
 
 async function runArchive(ctx: RepoExecution): Promise<ActionResult> {
   if (ctx.state === OFF) {
-    ctx.report.skipped({ step: "archive", source: "archive", transition: "off" });
-    ctx.report.skipped({ step: "archive-jj", source: "archive", transition: "off" });
+    ctx.report.skipped({ step: "archive", source: "archive", event: "off" });
+    ctx.report.skipped({ step: "archive-jj", source: "archive", event: "off" });
     return { hadError: false };
   }
 
@@ -50,13 +50,13 @@ async function runArchive(ctx: RepoExecution): Promise<ActionResult> {
     ctx.report.ok({
       step: "archive",
       source: "archive -> syncArchive",
-      transition: report.archiveStatus,
+      event: report.archiveStatus,
       details: { destination: report.destination },
     });
     ctx.report.ok({
       step: "archive-jj",
       source: "archive -> ensureJjInitialized",
-      transition: report.jjStatus,
+      event: report.jjStatus,
       details: { destination: report.destination },
     });
     return { hadError: false };
@@ -65,13 +65,13 @@ async function runArchive(ctx: RepoExecution): Promise<ActionResult> {
     ctx.report.failed({
       step: "archive",
       source: "archive",
-      transition: "error",
+      event: "error",
       details: { message },
     });
     ctx.report.failed({
       step: "archive-jj",
       source: "archive",
-      transition: "blocked",
+      event: "blocked",
       details: { message: "archive sync failed before jj initialization" },
     });
     return { hadError: true };
@@ -85,7 +85,6 @@ export const archiveAction: Action = {
     if (state === OFF) return;
     assembly.bind({
       id: "archive",
-      kind: "action",
       plugin: "action:archive",
       stage: "materialize",
       state,
