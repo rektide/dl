@@ -37,6 +37,44 @@ done
 
 The database with the most recent sessions is likely the active one. The database named `opencode-.db` (with trailing dash) contained the May 2026 rekon sessions.
 
+## Quick Start: Finding where something was built
+
+When you need to trace which sessions created or modified a specific function, file, or concept:
+
+**Step 1: Search session titles**
+```bash
+DB=~/.local/share/opencode/opencode-.db
+sqlite3 "$DB" "
+  SELECT id, title, datetime(time_created/1000, 'unixepoch', 'localtime') as created,
+         summary_files
+  FROM session
+  WHERE title LIKE '%<keyword>%'
+  ORDER BY time_created
+"
+```
+
+**Step 2: Search part data for references**
+```bash
+sqlite3 "$DB" "
+  SELECT DISTINCT p.session_id, s.title,
+         datetime(s.time_created/1000, 'unixepoch', 'localtime') as created,
+         s.summary_files
+  FROM part p
+  JOIN session s ON s.id = p.session_id
+  WHERE p.data LIKE '%<keyword>%'
+  ORDER BY s.time_created
+"
+```
+
+**Step 3: Broaden the search if needed** — try related terms, abbreviations, or partial matches.
+
+**Step 4: Check the filesystem first** to confirm the thing exists and find its file path:
+```bash
+grep -r "<keyword>" /path/to/project/ -l
+```
+
+Then search for that file path in part data to find which sessions touched it.
+
 ## Table structure
 
 ### `session` table
@@ -221,6 +259,25 @@ ORDER BY time_created
 "
 ```
 
+### Session duration and scale
+
+```bash
+sqlite3 "$DB" "
+  SELECT id, title,
+         (time_updated - time_created) / 1000 / 60 as duration_minutes,
+         datetime(time_created/1000, 'unixepoch', 'localtime') as created,
+         summary_files as files,
+         (SELECT count(*) FROM message WHERE session_id = session.id) as messages,
+         (SELECT count(*) FROM part WHERE session_id = session.id) as parts
+  FROM session
+  WHERE directory LIKE '%<project>%'
+  ORDER BY time_created DESC
+  LIMIT 20
+"
+```
+
+Long sessions (>60 minutes) with many parts (>1000) are typically implementation sessions. Short sessions (<10 minutes) with few parts are often code reviews or quick fixes.
+
 ## Reconstructing work
 
 ### Extract the patch list from a session diff
@@ -380,6 +437,67 @@ ORDER BY time_created
 
 The longest-running fork with the most file changes is usually the one that contains the actual implementation. Shorter forks (same created/updated timestamp) are often abandoned attempts.
 
+## Cross-session analysis
+
+### Follow parent-child relationships
+
+Sessions can fork. The `parent_id` column links a fork to its origin:
+
+```bash
+sqlite3 "$DB" "
+  SELECT s.id, s.title,
+         datetime(s.time_created/1000, 'unixepoch', 'localtime') as created,
+         s.parent_id,
+         p.title as parent_title
+  FROM session s
+  LEFT JOIN session p ON p.id = s.parent_id
+  WHERE s.directory LIKE '%<project>%'
+  ORDER BY s.time_created
+"
+```
+
+### Match code review sessions to implementation sessions
+
+Code review subagent sessions (`@code-reviewer`) are spawned near the parent session's timestamp. Match them by timestamp proximity and shared directory:
+
+```bash
+sqlite3 "$DB" "
+  SELECT id, title,
+         datetime(time_created/1000, 'unixepoch', 'localtime') as created,
+         (time_updated - time_created) / 1000 / 60 as duration_minutes,
+         summary_files
+  FROM session
+  WHERE directory LIKE '%<project>%'
+    AND title LIKE '%@code-reviewer%'
+  ORDER BY time_created
+"
+```
+
+Reviews with `summary_files = 0` and short duration (<5 min) are advisory — they reviewed the code but made no changes.
+
+### Build a timeline across sessions
+
+For reconstructing multi-session work, extract creation timestamps and sort:
+
+```bash
+sqlite3 "$DB" "
+  SELECT id, title,
+         datetime(time_created/1000, 'unixepoch', 'localtime') as created,
+         datetime(time_updated/1000, 'unixepoch', 'localtime') as updated,
+         summary_files as files,
+         summary_additions as '+',
+         summary_deletions as '-'
+  FROM session
+  WHERE directory LIKE '%<project>%'
+    AND time_created BETWEEN <start_ms> AND <end_ms>
+  ORDER BY time_created
+"
+```
+
+### Note: summary_files = 0 doesn't mean no work
+
+Planning, design, and code review sessions may show `summary_files = 0` in the session table but contain hundreds of `apply_patch` operations in the part table. The `summary_*` columns reflect tracked/committed changes, not all interactions. Always check both the session diff file and the part table for a complete picture.
+
 ## Recovery workflow
 
 ### Step 1: Find relevant sessions
@@ -464,6 +582,7 @@ For work extracted from the `part` table (uncommitted changes), reconstruct the 
 - **Timestamps are milliseconds.** SQLite `datetime()` needs division by 1000: `datetime(time_created/1000, 'unixepoch', 'localtime')`.
 - **JSON escaping.** Part `data` contains embedded JSON with escaped newlines (`\n` as literal `\\n`). Python's `json.loads()` handles this, but string slicing on the raw text requires care.
 - **Part data can be large.** A single part can contain thousands of lines of file content. Use `substr()` or `length()` in SQL to preview before extracting.
+- **Large sessions.** A single session can have thousands of parts and millions of characters of data. Always use `substr()`, `LIMIT`, and `length()` to preview before extracting full part data. Avoid `SELECT data FROM part` without a `WHERE` clause filtering to specific part IDs or types.
 
 ---
 
@@ -718,6 +837,8 @@ WHERE session_id = '$SESSION_ID'
 ORDER BY time_created
 "
 ```
+
+The `synthetic` filter is essential — without it, you'll get auto-generated tool result summaries mixed into the conversation. Only non-synthetic text parts are actual user/assistant dialogue.
 
 The conversation flow:
 
