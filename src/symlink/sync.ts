@@ -19,7 +19,7 @@ export type SimplifySyncReport = {
  */
 export async function syncSimplify(
   repo: Repo,
-  roots: { archiveRoot: string; wikiRoot: string },
+  roots: { archiveRoot: string; wikiRoot: string; githubWikiRoot: string },
   options: RunOptions,
   log: LogExtension,
 ): Promise<SimplifySyncReport> {

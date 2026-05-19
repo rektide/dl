@@ -11,8 +11,8 @@ export type DexportSyncReport = {
 };
 
 export type DexportSyncInput = Readonly<{
-  wikiDeepUrl: URL | null;
-  roots: { archiveRoot: string; wikiRoot: string };
+  wikiUrl: URL | null;
+  roots: { archiveRoot: string; wikiRoot: string; githubWikiRoot: string };
   options: RunOptions;
   wikiDestination: string;
   log: LogExtension;

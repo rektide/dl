@@ -69,7 +69,7 @@ export type RunOptions = Readonly<{
 }>;
 
 export type Services = Readonly<{
-  roots: { archiveRoot: string; wikiRoot: string };
+  roots: { archiveRoot: string; wikiRoot: string; githubWikiRoot: string };
   options: RunOptions;
   log: LogExtension;
   report: ReportService;

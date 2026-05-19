@@ -12,7 +12,7 @@ export type ArchiveSyncReport = {
 
 export async function syncArchive(
   repo: Repo,
-  roots: { archiveRoot: string; wikiRoot: string },
+  roots: { archiveRoot: string; wikiRoot: string; githubWikiRoot: string },
   log: LogExtension,
   gitOps: GitOps = defaultGitOps,
 ): Promise<ArchiveSyncReport> {
