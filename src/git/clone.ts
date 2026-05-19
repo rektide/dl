@@ -13,6 +13,11 @@ async function exists(path: string): Promise<boolean> {
 	}
 }
 
+const noPromptEnv = {
+	GIT_TERMINAL_PROMPT: "0",
+	GIT_ASKPASS: "true",
+}
+
 export async function cloneOrUpdate(
 	remoteUrl: string,
 	destination: string,
@@ -20,9 +25,9 @@ export async function cloneOrUpdate(
 	const normalizedRemoteUrl = normalizeCloneUrl(remoteUrl)
 	const gitDir = join(destination, ".git")
 	if (await exists(gitDir)) {
-		await x("git", ["-C", destination, "pull", "--ff-only"], {
+		await x("git", ["-C", destination, "-c", "credential.helper=", "pull", "--ff-only"], {
 			throwOnError: true,
-			nodeOptions: { stdio: "inherit" },
+			nodeOptions: { stdio: "inherit", env: { ...process.env, ...noPromptEnv } },
 		})
 		return "updated"
 	}
@@ -34,9 +39,9 @@ export async function cloneOrUpdate(
 	}
 
 	await mkdir(dirname(destination), { recursive: true })
-	await x("git", ["clone", normalizedRemoteUrl, destination], {
+	await x("git", ["-c", "credential.helper=", "clone", normalizedRemoteUrl, destination], {
 		throwOnError: true,
-		nodeOptions: { stdio: "inherit" },
+		nodeOptions: { stdio: "inherit", env: { ...process.env, ...noPromptEnv } },
 	})
 
 	return "cloned"
