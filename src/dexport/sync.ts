@@ -11,9 +11,9 @@ export const syncDexportWiki: DexportOps["sync"] = async (input) => {
     return { plan: "unavailable", status: "skipped", reason };
   }
 
-  const wikiDeepUrl = input.wikiDeepUrl?.toString();
-  if (!wikiDeepUrl) {
-    const reason = "no deepwiki URL for this repository";
+  const wikiUrlStr = input.wikiUrl?.toString();
+  if (!wikiUrlStr) {
+    const reason = "no wiki URL for this repository";
     input.log.warn("sync", "dexport_skipped", { reason });
     return { plan: "unavailable", status: "skipped", reason };
   }
@@ -32,8 +32,8 @@ export const syncDexportWiki: DexportOps["sync"] = async (input) => {
 
   if (plan === "queue") {
     try {
-      runDexportDetached(dexportPath, input.roots.wikiRoot, wikiDeepUrl);
-      input.log.info("sync", "dexport_queued", { url: wikiDeepUrl });
+      runDexportDetached(dexportPath, input.roots.wikiRoot, wikiUrlStr);
+      input.log.info("sync", "dexport_queued", { url: wikiUrlStr });
       return { plan, status: "queued", reason: null };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -43,8 +43,8 @@ export const syncDexportWiki: DexportOps["sync"] = async (input) => {
   }
 
   try {
-    input.log.info("sync", "dexport_running", { url: wikiDeepUrl });
-    await runDexport(dexportPath, input.roots.wikiRoot, wikiDeepUrl);
+    input.log.info("sync", "dexport_running", { url: wikiUrlStr });
+    await runDexport(dexportPath, input.roots.wikiRoot, wikiUrlStr);
     return { plan, status: "ran", reason: null };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

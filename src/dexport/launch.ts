@@ -1,16 +1,16 @@
 import { homedir } from "node:os"
 import { x } from "tinyexec"
 
-function dexportArgs(outputRoot: string, wikiDeepUrl: string): string[] {
-	return ["--output", outputRoot, "--strip-host", wikiDeepUrl]
+function dexportArgs(outputRoot: string, wikiUrl: string): string[] {
+	return ["--output", outputRoot, "--strip-host", wikiUrl]
 }
 
 export function runDexportDetached(
 	dexportPath: string,
 	outputRoot: string,
-	wikiDeepUrl: string,
+	wikiUrl: string,
 ): void {
-	const proc = x(dexportPath, dexportArgs(outputRoot, wikiDeepUrl), {
+	const proc = x(dexportPath, dexportArgs(outputRoot, wikiUrl), {
 		persist: true,
 		nodeOptions: {
 			cwd: homedir(),
@@ -24,9 +24,9 @@ export function runDexportDetached(
 export async function runDexport(
 	dexportPath: string,
 	outputRoot: string,
-	wikiDeepUrl: string,
+	wikiUrl: string,
 ): Promise<void> {
-	await x(dexportPath, dexportArgs(outputRoot, wikiDeepUrl), {
+	await x(dexportPath, dexportArgs(outputRoot, wikiUrl), {
 		throwOnError: true,
 		nodeOptions: { cwd: homedir(), stdio: "inherit" },
 	})
