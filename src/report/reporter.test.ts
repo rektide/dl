@@ -15,8 +15,8 @@ describe("createReporter", () => {
       details: { destination: "/tmp/archive/org/repo" },
     });
     reporter.needsAttention({
-      step: "wiki-git",
-      source: "syncWiki",
+      step: "github-wiki",
+      source: "syncGitHubWiki",
       event: "missing-remote",
     });
 
@@ -32,8 +32,8 @@ describe("createReporter", () => {
       },
       {
         subject: "https://github.com/org/repo",
-        step: "wiki-git",
-        source: "syncWiki",
+        step: "github-wiki",
+        source: "syncGitHubWiki",
         status: "needs-attention",
         event: "missing-remote",
         details: {},

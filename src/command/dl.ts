@@ -10,9 +10,9 @@ import { requireExtensions, type CommandParams, type CommandExtensions } from ".
 import { collectRepos } from "./browse.ts";
 import archlistSubcommand from "./archlist.ts";
 import archiveSubcommand from "./archive.ts";
-import deepwikiSubcommand from "./deepwiki.ts";
 import symlinkSubcommand from "./symlink.ts";
 import wikiSubcommand from "./wiki.ts";
+import githubWikiSubcommand from "./github-wiki.ts";
 
 const dlArgs = {
   noop: {
@@ -120,9 +120,9 @@ function main() {
     subCommands: {
       archive: archiveSubcommand,
       archlist: archlistSubcommand,
-      deepwiki: deepwikiSubcommand,
       symlink: symlinkSubcommand,
       wiki: wikiSubcommand,
+      "github-wiki": githubWikiSubcommand,
     },
     fallbackToEntry: true,
   });

@@ -12,9 +12,9 @@ const archiveSpec: ActionSpec = {
   states: ["ensure", "off"],
 };
 
-const wikiSpec: ActionSpec = {
-  name: "wiki",
-  description: "Wiki checkout action",
+const githubWikiSpec: ActionSpec = {
+  name: "github-wiki",
+  description: "GitHub Wiki checkout action",
   role: "effect",
   defaultParticipation: "default",
   suppressesDefaultsWhenExplicit: true,
@@ -35,33 +35,33 @@ const candidatesSpec: ActionSpec = {
 describe("createArgs", () => {
   test("delegates to intent for view-only commands", () => {
     const args = createArgs({
-      specs: [archiveSpec, wikiSpec, candidatesSpec],
+      specs: [archiveSpec, githubWikiSpec, candidatesSpec],
       values: { candidates: true },
       explicit: { candidates: true },
       tokens: [],
     });
 
     expect(args.intent.enabled("archive")).toBe(false);
-    expect(args.intent.enabled("wiki")).toBe(false);
+    expect(args.intent.enabled("github-wiki")).toBe(false);
     expect(args.intent.suppressedDefaults).toBe(true);
   });
 
   test("runs only explicit actions when any action flag is explicit", () => {
     const args = createArgs({
-      specs: [archiveSpec, wikiSpec],
+      specs: [archiveSpec, githubWikiSpec],
       values: {},
-      explicit: { wiki: true },
+      explicit: { "github-wiki": true },
       tokens: [],
     });
 
     expect(args.intent.enabled("archive")).toBe(false);
-    expect(args.intent.enabled("wiki")).toBe(true);
-    expect(args.intent.state("wiki")).toBe("ensure");
+    expect(args.intent.enabled("github-wiki")).toBe(true);
+    expect(args.intent.state("github-wiki")).toBe("ensure");
   });
 
   test("subcommand selection runs one action and disables the rest", () => {
     const args = createArgs({
-      specs: [archiveSpec, wikiSpec],
+      specs: [archiveSpec, githubWikiSpec],
       values: {},
       explicit: {},
       tokens: [],
@@ -69,6 +69,6 @@ describe("createArgs", () => {
     });
 
     expect(args.intent.state("archive")).toBe("off");
-    expect(args.intent.enabled("wiki")).toBe(false);
+    expect(args.intent.enabled("github-wiki")).toBe(false);
   });
 });

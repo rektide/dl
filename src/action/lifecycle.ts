@@ -7,8 +7,8 @@ export type LifecycleStep =
   | "archive-jj"
   | "symlink-org"
   | "symlink-repo"
-  | "wiki-dexport"
-  | "wiki-git"
+  | "wiki"
+  | "github-wiki"
   | "flow"
   | "pipeline";
 

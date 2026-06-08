@@ -5,7 +5,7 @@ import { requireExtensions, type CommandParams } from "./context.ts";
 
 export default defineWithTypes<CommandParams>()({
   name: "wiki",
-  description: "Clone or update git wiki checkout for repositories",
+  description: "Sync wiki (dexport) content for repositories",
   args: {
     state: {
       type: "enum",
@@ -16,7 +16,7 @@ export default defineWithTypes<CommandParams>()({
   },
   async run(ctx) {
     const positional = ctx.extensions[POSITIONAL_INPUT_PLUGIN_ID];
-    const inputs = positional.source(ctx.values.org as string | undefined, ctx.positionals); // gunshi: plugin-registered global
+    const inputs = positional.source(ctx.values.org as string | undefined, ctx.positionals);
     const { planner } = requireExtensions(ctx.extensions);
     const result = await planner.run({
       inputs,

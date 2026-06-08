@@ -11,8 +11,8 @@ describe("createLifecycleReporter", () => {
       details: { destination: "/tmp/archive/org/repo" },
     });
     reporter.skipped({
-      step: "wiki-git",
-      source: "syncWiki",
+      step: "github-wiki",
+      source: "syncGitHubWiki",
       transition: "not-applicable",
     });
 
@@ -29,8 +29,8 @@ describe("createLifecycleReporter", () => {
         details: { destination: "/tmp/archive/org/repo" },
       },
       {
-        step: "wiki-git",
-        source: "syncWiki",
+        step: "github-wiki",
+        source: "syncGitHubWiki",
         status: "skipped",
         transition: "not-applicable",
         details: {},
