@@ -275,4 +275,29 @@ When designing a CLI:
 5. **Cross-cutting Concerns**: How plugins address common needs across commands
 6. **Type Safety**: How TypeScript will be used for plugin interactions
 
+## Custom Option Types with Default-on-flag
+
+Gunshi's `type: "custom"` with a `parse` function lets you accept a bare flag or an explicit value. When the flag is given without a value, `parse` receives `undefined` — return your default:
+
+```typescript
+ctx.addGlobalOption("envsubst", {
+  type: "custom",
+  description: "Enable substitution (options: recursive, non-recursive, true, false)",
+  parse: (value: string): EnvsubstMode | undefined => {
+    if (value === undefined || value === "") return "recursive";
+    if (value === "true" || value === "recursive") return "recursive";
+    if (value === "non-recursive") return "non-recursive";
+    if (value === "false") return false;
+    return undefined;
+  },
+});
+```
+
+This makes all three of these equivalent:
+- `--envsubst` (bare flag → `undefined` → defaults to `"recursive"`)
+- `--envsubst true`
+- `--envsubst recursive`
+
+The pattern: use `type: "custom"` + `parse`, and when `value` is `undefined` or `""`, return the default you want.
+
 Ask for the CLI requirements or project description to begin planning.
