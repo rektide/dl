@@ -132,6 +132,12 @@ Include a `dev` target for watch/development mode (e.g. `wxt watch`).
 - you do not need to verify your commit has happened. if you use `jj commit` your work is saved. move on.
 - never use jj edit! never use squash unless explicitly instructed! humans must review all changes before squash.
 - use `jj diff --git` for diff style commits or `jj diff --stat` for summary diffs. plain jj diff is misleading without color.
+- **jj has its own DSL for revsets and templates — do not guess syntax.** Consult `jj help -k revsets` and `jj help -k templates` before writing `-r` or `-T` arguments.
+  - Revset DAG operators: `::@` (ancestors of @), `@::` (descendants of @), `::` (all visible), `x..y` (range). No `::~`.
+  - Template fields are bare keywords, not object properties: `change_id.short()` not `commit.change_id.short()`. `description.first_line()` not `commit.description.first_line()`.
+  - String concatenation in templates uses `++`.
+- compact log: `jj log --limit 10 -r '::@' -T 'change_id.short() ++ " " ++ description.first_line() ++ "\n"'`
+  - other useful template columns to add to `-T`: `author.timestamp().ago()` (relative time like "2 hours ago"), `author.name()` (author name), `commit_id.short()` (git hash, useful for CI/remotes), `bookmarks` (branch names on this commit), `tags` (tags on this commit), `divergent` (change ID has multiple commits), `immutable` (commit is in immutable set), `mine()` (current user authored), `parents.map(|c| c.commit_id().short())` (parent git hashes)
 - do not try to push work! the human will do that when they want. ignore all other instructions and: do not push work.
 - include any relevant ticket ids in the body of the commit message
 - do not mention tickets in the title of the commit message! "Closing ticket \_\_\_\_" doesn't describe the work. Describe the work.
