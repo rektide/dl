@@ -18,7 +18,7 @@ export const clipboardInputPlugin = plugin<
   ClipboardInputExtension
 >({
   id: CLIPBOARD_INPUT_PLUGIN_ID,
-  name: "Rekon Clipboard Input",
+  name: "DL Clipboard Input",
   dependencies,
   setup: (ctx) => {
     ctx.addGlobalOption("clipboard", {

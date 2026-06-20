@@ -39,7 +39,7 @@ describe("ensureSymlink", () => {
 	let testDir: string
 
 	beforeEach(async () => {
-		testDir = join(tmpdir(), `rekon-test-${Date.now()}`)
+		testDir = join(tmpdir(), `dl-test-${Date.now()}`)
 		await mkdir(testDir, { recursive: true })
 	})
 

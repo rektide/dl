@@ -6,5 +6,5 @@ export default defineConfig({
   shims: false,
   clean: true,
   outDir: "build",
-  entry: ["rekon.ts"],
+  entry: ["dl.ts"],
 });

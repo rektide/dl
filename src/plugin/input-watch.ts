@@ -18,7 +18,7 @@ export const watchInputPlugin = plugin<
   WatchInputExtension
 >({
   id: WATCH_INPUT_PLUGIN_ID,
-  name: "Rekon Watch Input",
+  name: "DL Watch Input",
   dependencies,
   setup: (ctx) => {
     ctx.addGlobalOption("watch", {

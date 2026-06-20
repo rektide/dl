@@ -30,7 +30,7 @@ export class GithubProvider extends HostProvider implements BrowseProvider {
 			`https://api.github.com/repos/${repo.org}/${repo.project}`,
 			{
 				method: "GET",
-				headers: { "user-agent": "rekon-dl" },
+				headers: { "user-agent": "dl" },
 				signal,
 			},
 		)
@@ -51,7 +51,7 @@ export class GithubProvider extends HostProvider implements BrowseProvider {
 			const url = `https://api.github.com/orgs/${org}/repos?per_page=${perPage}&page=${page}&sort=updated&direction=desc`
 			const response = await fetch(url, {
 				method: "GET",
-				headers: { "user-agent": "rekon-dl" },
+				headers: { "user-agent": "dl" },
 				signal,
 			})
 

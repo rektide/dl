@@ -1,7 +1,6 @@
 /build/
-/rekon.js
+/dl.js
 /src/**/*.js
-vendor
 
 # Dolt database files (added by bd init)
 .dolt/

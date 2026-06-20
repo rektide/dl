@@ -10,7 +10,7 @@ export interface PositionalInputExtension {
 
 export const positionalInputPlugin = plugin({
   id: POSITIONAL_INPUT_PLUGIN_ID,
-  name: "Rekon Positional Input",
+  name: "DL Positional Input",
   setup: (ctx) => {
     ctx.addGlobalOption("org", {
       type: "string",

@@ -264,7 +264,7 @@ function snapshotSession(session: FlowSession): FlowSessionSnapshot {
 
 export const flowPlugin = plugin({
   id: FLOW_PLUGIN_ID,
-  name: "Rekon Flow",
+  name: "DL Flow",
   extension: (core): FlowExtension => {
     const defaultOptions = defaultResolveOptions();
     const registry = createProviderRegistry([

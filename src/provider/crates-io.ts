@@ -43,7 +43,7 @@ export class CratesIoProvider extends RedirectProvider {
 	async fetchRepoUrl(identifier: string, signal: AbortSignal): Promise<string | undefined> {
 		const response = await fetch(`https://crates.io/api/v1/crates/${identifier}`, {
 			method: "GET",
-			headers: { "user-agent": "rekon-dl" },
+			headers: { "user-agent": "dl" },
 			signal,
 		})
 

@@ -2,17 +2,17 @@
 import { realpath } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { defineWithTypes, cli, type CommandContext } from "gunshi";
-import { dlPlugins } from "../plugin/index.ts";
-import { POSITIONAL_INPUT_PLUGIN_ID } from "../plugin/input-positional.ts";
-import { WATCH_INPUT_PLUGIN_ID } from "../plugin/input-watch.ts";
-import { CLIPBOARD_INPUT_PLUGIN_ID } from "../plugin/input-clipboard.ts";
-import { requireExtensions, type CommandParams, type CommandExtensions } from "./context.ts";
-import { collectRepos } from "./browse.ts";
-import archlistSubcommand from "./archlist.ts";
-import archiveSubcommand from "./archive.ts";
-import symlinkSubcommand from "./symlink.ts";
-import wikiSubcommand from "./wiki.ts";
-import githubWikiSubcommand from "./github-wiki.ts";
+import { dlPlugins } from "./src/plugin/index.ts";
+import { POSITIONAL_INPUT_PLUGIN_ID } from "./src/plugin/input-positional.ts";
+import { WATCH_INPUT_PLUGIN_ID } from "./src/plugin/input-watch.ts";
+import { CLIPBOARD_INPUT_PLUGIN_ID } from "./src/plugin/input-clipboard.ts";
+import { requireExtensions, type CommandParams, type CommandExtensions } from "./src/command/context.ts";
+import { collectRepos } from "./src/command/browse.ts";
+import archlistSubcommand from "./src/command/archlist.ts";
+import archiveSubcommand from "./src/command/archive.ts";
+import symlinkSubcommand from "./src/command/symlink.ts";
+import wikiSubcommand from "./src/command/wiki.ts";
+import githubWikiSubcommand from "./src/command/github-wiki.ts";
 
 const dlArgs = {
   noop: {
@@ -39,7 +39,7 @@ async function run(ctx: CommandContext<{ args: DlArgs; extensions: CommandExtens
 
     if (!hasInputs && !watch.active && !clipboard.active && !ctx.values.pick) {
       console.error(
-        "usage: rekon dl [--watch] [--clipboard] [--pick] [--org <org>] <repo-url|org/repo> [repo-url|org/repo ...]",
+        "usage: dl [--watch] [--clipboard] [--pick] [--org <org>] <repo-url|org/repo> [repo-url|org/repo ...]",
       );
       process.exit(1);
     }

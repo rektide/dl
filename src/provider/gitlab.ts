@@ -28,7 +28,7 @@ export class GitlabProvider extends HostProvider {
 				`https://gitlab.com/api/v4/projects/${encodedPath}`,
 				{
 					method: "GET",
-					headers: { "user-agent": "rekon-dl" },
+					headers: { "user-agent": "dl" },
 					signal,
 				},
 			)

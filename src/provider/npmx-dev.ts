@@ -56,7 +56,7 @@ export class NpmxDevProvider extends RedirectProvider {
 			`https://registry.npmjs.org/${encodeURIComponent(identifier)}/latest`,
 			{
 				method: "GET",
-				headers: { "user-agent": "rekon-dl" },
+				headers: { "user-agent": "dl" },
 				signal,
 			},
 		)

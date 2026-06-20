@@ -1,24 +1,24 @@
 {
-  "name": "rekon",
+  "name": "dl",
   "version": "0.3.0",
-  "description": "",
+  "description": "Fetch repository checkout and wiki checkout",
   "keywords": [],
-  "homepage": "https://github.com/rektide/rekon#readme",
+  "homepage": "https://github.com/rektide/dl#readme",
   "bugs": {
-    "url": "https://github.com/rektide/rekon/issues"
+    "url": "https://github.com/rektide/dl/issues"
   },
   "license": "MIT",
   "author": "rektide de la faye",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rektide/rekon.git"
+    "url": "git+https://github.com/rektide/dl.git"
   },
   "bin": {
-    "rekon": "./rekon.ts"
+    "dl": "./dl.ts"
   },
   "type": "module",
-  "main": "index.js",
-  "module": "rekon.js",
+  "main": "./dl.ts",
+  "module": "./dl.ts",
   "scripts": {
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",

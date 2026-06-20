@@ -17,7 +17,7 @@ import { rootsPlugin } from "./roots.ts";
 import { viewActionPlugin } from "../view/plugin.ts";
 
 export const dlPlugins = [
-  c12({ name: "rekon" }),
+  c12({ name: "dl" }),
   logPlugin,
   reportPlugin,
   rootsPlugin,
